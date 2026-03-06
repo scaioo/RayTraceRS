@@ -3,5 +3,5 @@
 version = 4
 
 [[package]]
-name = "Cargo"
+name = "rstrace"
 version = "0.1.0"

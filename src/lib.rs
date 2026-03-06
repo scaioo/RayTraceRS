@@ -15,7 +15,8 @@ proprio come un crate completamente esterno utilizzerebbe il crate libreria:
 può utilizzare solo l’API pubblica. Questo ti aiuta a progettare una buona API; 
 non solo sei l’autore, ma sei anche un cliente!
 
-vd https://nixxo.github.io/rust-lang-book-it/ch07-03-paths-for-referring-to-an-item-in-the-module-tree.html
+Link con il capitolo sui metodi, use, pub, ...: 
+https://nixxo.github.io/rust-lang-book-it/ch07-03-paths-for-referring-to-an-item-in-the-module-tree.html
  */
 // Mi raccomando: note per l'uso da eliminare successivamente!
 

@@ -19,7 +19,10 @@ fn main() {
     };
     println! {"Hey! Here's another color : {:?} \n", another_color };
 
-    // Sum the color!
+    // Sum the color
     let sum: color::Color = our_color + another_color;
     println! {"Hey! Here the sum!?!?     : {:?} \n", sum };
+
+    let prod_cc: color::Color = our_color * another_color;
+    println! {"Hey! Here the prod cc: {:?} \n", prod_cc };
 }

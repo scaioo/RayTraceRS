@@ -114,7 +114,7 @@ mod tests {
         assert_eq!(sum.g, c3.g);
         assert_eq!(sum.b, c3.b);
     }
-    
+
     // test product Color-Color
     #[test]
     fn product_col_col(){
@@ -141,7 +141,7 @@ mod tests {
         assert_eq!(prod_c1_c2.g, c3.g);
         assert_eq!(prod_c1_c2.b, c3.b);
     }
-    
+
     // Test Color * scalar
     #[test]
     fn test_color_times_scalar(){

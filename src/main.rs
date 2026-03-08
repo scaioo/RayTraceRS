@@ -22,4 +22,15 @@ fn main() {
     // Sum the color!
     let sum: color::Color = our_color + another_color;
     println! {"Hey! Here the sum!?!?     : {:?} \n", sum };
+
+    // Multiply and divide the second color by scalars!
+    let lambda = - 0.5;
+    let product = lambda * another_color;
+    println! {"Hey! Here the scalar * another_color product : {:?} \n", product };
+    let product = another_color * lambda;
+    println! {"Hey! Here the another_color * scalar product  : {:?} \n", product };
+
+    let lambda = - 0.25;
+    let division = product / lambda;
+    println!("Hey! Here the quotient of division : {:?} \n", division);
 }

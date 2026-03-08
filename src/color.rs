@@ -62,6 +62,11 @@ mod tests {
         assert_eq!(sum.b, c3.b);
     }
 
+    fn are_close(x: f32, y: f32) -> bool {
+        let epsilon = 1e-5;
+        (x-y).abs() < epsilon
+    }
+
     // test product Color-Color
     #[test]
     fn product_Col_Col(){
@@ -88,5 +93,16 @@ mod tests {
         assert_eq!(prod_c1_c2.r, c3.r);
         assert_eq!(prod_c1_c2.g, c3.g);
         assert_eq!(prod_c1_c2.b, c3.b);
+    }
+
+    // test are_close
+    #[test]
+    fn are_close_test(){
+        let x = 0.11111;
+        let y = 0.11112;
+
+        if(!are_close(x, y)){
+            panic!("are_close is not working");
+        }
     }
 }

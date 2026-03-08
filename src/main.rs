@@ -19,11 +19,15 @@ fn main() {
     };
     println! {"Hey! Here's another color : {:?} \n", another_color };
 
-    // Sum the color!
+    // Sum the color
     let sum: color::Color = our_color + another_color;
     println! {"Hey! Here the sum!?!?     : {:?} \n", sum };
 
-    // Multiply and divide the second color by scalars!
+    // Color product
+    let prod_cc: color::Color = our_color * another_color;
+    println! {"Hey! Here the prod cc: {:?} \n", prod_cc };
+    
+    // Multiply and divide the second color by scalars
     let lambda = - 0.5;
     let product = lambda * another_color;
     println! {"Hey! Here the scalar * another_color product : {:?} \n", product };

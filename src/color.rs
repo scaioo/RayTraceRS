@@ -7,7 +7,7 @@ pub struct Color {
     pub b: f32,
 }
 
-// Empty constructor
+// Empty constructor - check if it's useful!
 impl Color {
     pub fn new() -> Self {
         Color{r: 0.0, g: 0.0, b: 0.0}
@@ -22,6 +22,17 @@ impl Add for Color {
             r: self.r + rhs.r,
             g: self.g + rhs.g,
             b: self.b + rhs.b,
+        }
+    }
+}
+
+impl Mul for Color {
+    type Output = Color;
+    fn mul(self, rhs: Color) -> Self::Output {
+        Color {
+            r: self.r * rhs.r,
+            g: self.g * rhs.g,
+            b: self.b * rhs.b,
         }
     }
 }
@@ -43,14 +54,13 @@ impl Mul<f32> for Color {
 impl Mul<Color> for f32 {
     type Output = Color;
     fn mul(self, rhs: Color) -> Self::Output {
-        Color{
-            r : self * rhs.r,
-            b : self * rhs.b,
-            g : self * rhs.g,
+        Color {
+            r: self * rhs.r,
+            b: self * rhs.b,
+            g: self * rhs.g,
         }
     }
 }
-
 
 // Division by a scalar
 impl Div<f32> for Color {
@@ -104,7 +114,35 @@ mod tests {
         assert_eq!(sum.g, c3.g);
         assert_eq!(sum.b, c3.b);
     }
+    
+    // test product Color-Color
+    #[test]
+    fn product_col_col(){
+        let c1: Color = Color{
+            r: 1.0,
+            g: 2.0,
+            b: 3.0,
+        };
+        let c2: Color = Color{
+            r: 4.0,
+            g: 5.0,
+            b: 6.0,
+        };
 
+        let c3: Color = Color{
+            r: 4.0,
+            g: 10.0,
+            b: 18.0,
+        };
+
+        let prod_c1_c2: Color = c1*c2;
+
+        assert_eq!(prod_c1_c2.r, c3.r);
+        assert_eq!(prod_c1_c2.g, c3.g);
+        assert_eq!(prod_c1_c2.b, c3.b);
+    }
+    
+    // Test Color * scalar
     #[test]
     fn test_color_times_scalar(){
         let col: Color = Color {
@@ -135,6 +173,7 @@ mod tests {
         assert_eq!(result.b, expected.b);
     }
 
+    // Test scalar * Color
     #[test]
     fn test_scalar_times_colors(){
         let col: Color = Color {
@@ -165,6 +204,7 @@ mod tests {
         assert_eq!(result.b, expected.b);
     }
     
+    // Test Color / scalar
     #[test]
     fn test_div(){
         let col = Color{
@@ -182,5 +222,13 @@ mod tests {
         assert_eq!(result.r, expected.r);
         assert_eq!(result.g, expected.g);
         assert_eq!(result.b, expected.b);
+    }
+
+    #[test]
+    #[should_panic]
+    fn divide_by_zero() {
+        let col = Color::new();
+        let scalar:f32 = 0.0;
+        let result = col / scalar;
     }
 }

@@ -20,13 +20,18 @@ impl HDR{
     }
 
     pub fn set_pixel(&mut self, x : usize, y : usize, color : Color){
-        // Control on the position needed 
+        self.check_position(x, y);
         self.pixels[y * self.width + x] = color;
     }
 
     pub fn get_pixel(&self, x : usize, y : usize) -> Color{
-        // Control on the position needed 
+        self.check_position(x, y);
         self.pixels[y * self.width + x]
+    }
+
+    // This function must be changed after the 11 March 2026 Laboratory!!!!
+    fn check_position(&self, x : usize, y : usize){
+        assert!(x < self.width && y < self.height);
     }
 }
 
@@ -56,4 +61,12 @@ mod test{
         assert_eq!(pixel.g, 2.5);
         assert_eq!(pixel.b, 10.0);
     }
+
+    #[test]
+    #[should_panic]
+    fn test_check_position(){
+        let hdr = HDR::new(10, 55);
+        hdr.check_position(5, 1);
+        hdr.check_position(50, 1);
+    }// NOTE : it would be best to integrate this test with Result options!!!!
 }

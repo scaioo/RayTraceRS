@@ -164,7 +164,7 @@ mod tests {
         let scalar:f32 = - 1.0 / 3.0;
         let expected = Color{
             r : -1.0/3.0,
-            g : -2.0/3.0,
+            g : - 2.0/3.0,
             b : -1.0,
         };
         let result = col * scalar;
@@ -224,11 +224,16 @@ mod tests {
         assert_eq!(result.b, expected.b);
     }
 
+    // Test Color/0.0
     #[test]
     #[should_panic]
     fn divide_by_zero() {
-        let col = Color::new();
+        let col = Color{
+            r: 1.0,
+            g: 2.0,
+            b: 3.0,
+        };
         let scalar:f32 = 0.0;
-        let result = col / scalar;
+        let _ = col / scalar;
     }
 }

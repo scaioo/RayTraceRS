@@ -15,7 +15,7 @@ mod tests{
         let x = 0.11111;
         let y = 0.11112;
     
-        if(!are_close(x, y)){
+        if !are_close(x, y){
             panic!("are_close is not working");
         }
     }

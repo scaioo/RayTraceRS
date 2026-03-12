@@ -7,13 +7,23 @@ pub struct Color {
     pub b: f32,
 }
 
-// Empty constructor
+// Constructor
 impl Color {
-    pub fn new() -> Self {
+    pub fn new(red: f32, green: f32, blue: f32) -> Self {
         Color {
-            r: 0.0f32,
-            g: 0.0f32,
-            b: 0.0f32,
+            r: red,
+            g: green,
+            b: blue,
+        }
+    }
+}
+// Empy constructor
+impl Default for Color {
+    fn default() -> Self {
+        Color {
+            r: 0.0,
+            g: 0.0,
+            b: 0.0,
         }
     }
 }
@@ -89,10 +99,18 @@ mod tests {
 
     #[test]
     fn test_empty_constructor() {
-        let c = Color::new();
+        let c = Color::default();
         assert_eq!(c.r, 0.0);
         assert_eq!(c.g, 0.0);
         assert_eq!(c.b, 0.0);
+    }
+
+    #[test]
+    fn test_constructor() {
+        let c = Color::new(0.1, 0.2, 0.3);
+        assert_eq!(c.r, 0.1);
+        assert_eq!(c.g, 0.2);
+        assert_eq!(c.b, 0.3);
     }
 
     #[test]

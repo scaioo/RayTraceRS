@@ -11,14 +11,7 @@ pub struct HDR {
 impl HDR {
     // Implement the full-black image
     pub fn new(width: usize, height: usize) -> HDR {
-        let pixels = vec![
-            Color {
-                r: 0.0,
-                g: 0.0,
-                b: 0.0
-            };
-            width * height
-        ];
+        let pixels = vec![Color::default(); width * height];
         HDR {
             width,
             height,

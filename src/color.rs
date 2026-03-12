@@ -1,20 +1,24 @@
 use std::ops::{Add, Div, Mul};
 
-#[derive(Copy, Clone, Debug)]
+#[derive(Copy, Clone, Debug, PartialEq)]
 pub struct Color {
     pub r: f32,
     pub g: f32,
     pub b: f32,
 }
 
-// Empty constructor - check if it's useful!
+// Empty constructor
 impl Color {
     pub fn new() -> Self {
-        Color{r: 0.0, g: 0.0, b: 0.0}
+        Color {
+            r: 0.0f32,
+            g: 0.0f32,
+            b: 0.0f32,
+        }
     }
 }
 
-// Implementation of the sum (+) for type Color
+// Color + Color
 impl Add for Color {
     type Output = Color;
     fn add(self, rhs: Color) -> Self::Output {
@@ -26,7 +30,8 @@ impl Add for Color {
     }
 }
 
-impl Mul for Color {
+// Color * Color
+impl Mul<Color> for Color {
     type Output = Color;
     fn mul(self, rhs: Color) -> Self::Output {
         Color {
@@ -37,15 +42,14 @@ impl Mul for Color {
     }
 }
 
-// Scalar multiplication and division
 // Color * float
 impl Mul<f32> for Color {
     type Output = Color;
     fn mul(self, rhs: f32) -> Self::Output {
-        Color{
-            r : self.r * rhs,
-            b : self.b * rhs,
-            g : self.g * rhs,
+        Color {
+            r: self.r * rhs,
+            b: self.b * rhs,
+            g: self.g * rhs,
         }
     }
 }
@@ -69,11 +73,11 @@ impl Div<f32> for Color {
         if rhs == 0.0 {
             panic!("Cannot divide by zero-valued `Color`!");
         }
-        
-        Color{
+
+        Color {
             r: self.r / rhs,
             b: self.b / rhs,
-            g : self.g / rhs,
+            g: self.g / rhs,
         }
     }
 }
@@ -82,7 +86,7 @@ impl Div<f32> for Color {
 #[cfg(test)]
 mod tests {
     use super::*;
-    
+
     #[test]
     fn test_empty_constructor() {
         let c = Color::new();
@@ -108,132 +112,112 @@ mod tests {
             g: 7.0,
             b: 9.0,
         };
-        let sum: Color = c1 + c2;
 
-        assert_eq!(sum.r, c3.r);
-        assert_eq!(sum.g, c3.g);
-        assert_eq!(sum.b, c3.b);
+        assert_eq!(c1 + c2, c3);
     }
 
     // test product Color-Color
     #[test]
-    fn product_col_col(){
-        let c1: Color = Color{
+    fn product_col_col() {
+        let c1: Color = Color {
             r: 1.0,
             g: 2.0,
             b: 3.0,
         };
-        let c2: Color = Color{
+        let c2: Color = Color {
             r: 4.0,
             g: 5.0,
             b: 6.0,
         };
 
-        let c3: Color = Color{
+        let c3: Color = Color {
             r: 4.0,
             g: 10.0,
             b: 18.0,
         };
 
-        let prod_c1_c2: Color = c1*c2;
-
-        assert_eq!(prod_c1_c2.r, c3.r);
-        assert_eq!(prod_c1_c2.g, c3.g);
-        assert_eq!(prod_c1_c2.b, c3.b);
+        assert_eq!(c1 * c2, c3);
     }
 
     // Test Color * scalar
     #[test]
-    fn test_color_times_scalar(){
+    fn test_color_times_scalar() {
         let col: Color = Color {
             r: 1.0,
             g: 2.0,
             b: 3.0,
         };
-        let scalar:f32 = 2.5;
-        let expected = Color{
-            r : 2.5,
-            g : 5.0,
-            b : 7.5,
+        let scalar: f32 = 2.5;
+        let expected = Color {
+            r: 2.5,
+            g: 5.0,
+            b: 7.5,
         };
-        let result = col * scalar;
-        assert_eq!(result.r, expected.r);
-        assert_eq!(result.b, expected.b);
-        assert_eq!(result.g, expected.g);
 
-        let scalar:f32 = - 1.0 / 3.0;
-        let expected = Color{
-            r : -1.0/3.0,
-            g : - 2.0/3.0,
-            b : -1.0,
+        assert_eq!(col * scalar, expected);
+
+        let scalar: f32 = -1.0 / 3.0;
+        let expected = Color {
+            r: -1.0 / 3.0,
+            g: -2.0 / 3.0,
+            b: -1.0,
         };
-        let result = col * scalar;
-        assert_eq!(result.r, expected.r);
-        assert_eq!(result.g, expected.g);
-        assert_eq!(result.b, expected.b);
+
+        assert_eq!(col * scalar, expected);
     }
 
     // Test scalar * Color
     #[test]
-    fn test_scalar_times_colors(){
+    fn test_scalar_times_colors() {
         let col: Color = Color {
             r: 1.0,
             g: 20.0,
             b: 35.0,
         };
-        let scalar:f32 = 2.5;
-        let result = scalar * col;
-        let expected = Color{
+        let scalar: f32 = 2.5;
+        let expected = Color {
             r: 2.5,
             g: 50.0,
             b: 87.5,
         };
-        assert_eq!(result.r, expected.r);
-        assert_eq!(result.g, expected.g);
-        assert_eq!(result.b, expected.b);
+        assert_eq!(scalar * col, expected);
 
-        let scalar:f32 = - 10.1;
-        let result = scalar * col;
-        let expected = Color{
+        let scalar: f32 = -10.1;
+        let expected = Color {
             r: -10.1,
             g: -202.0,
             b: -353.5,
         };
-        assert_eq!(result.r, expected.r);
-        assert_eq!(result.g, expected.g);
-        assert_eq!(result.b, expected.b);
+        assert_eq!(scalar * col, expected);
     }
-    
+
     // Test Color / scalar
     #[test]
-    fn test_div(){
-        let col = Color{
+    fn test_div() {
+        let col = Color {
             r: 2.5,
             g: 50.0,
             b: 87.5,
         };
-        let scalar:f32 = - 2.5;
-        let result = col / scalar;
-        let expected = Color{
-            r: -  1.0,
-            g: - 20.0,
-            b: - 35.0,
+        let scalar: f32 = -2.5;
+        let expected = Color {
+            r: -1.0,
+            g: -20.0,
+            b: -35.0,
         };
-        assert_eq!(result.r, expected.r);
-        assert_eq!(result.g, expected.g);
-        assert_eq!(result.b, expected.b);
+        assert_eq!(col / scalar, expected);
     }
 
     // Test Color/0.0
     #[test]
-    #[should_panic]
+    #[should_panic(expected = "Cannot divide by zero-valued `Color`!")]
     fn divide_by_zero() {
-        let col = Color{
+        let col = Color {
             r: 1.0,
             g: 2.0,
             b: 3.0,
         };
-        let scalar:f32 = 0.0;
+        let scalar: f32 = 0.0;
         let _ = col / scalar;
     }
 }

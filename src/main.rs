@@ -26,15 +26,15 @@ fn main() {
     // Color product
     let prod_cc: color::Color = our_color * another_color;
     println! {"Hey! Here the prod cc: {:?} \n", prod_cc };
-    
+
     // Multiply and divide the second color by scalars
-    let lambda = - 0.5;
+    let lambda = -0.5;
     let product = lambda * another_color;
     println! {"Hey! Here the scalar * another_color product : {:?} \n", product };
     let product = another_color * lambda;
     println! {"Hey! Here the another_color * scalar product  : {:?} \n", product };
 
-    let lambda = - 0.25;
+    let lambda = -0.25;
     let division = product / lambda;
     println!("Hey! Here the quotient of division : {:?} \n", division);
 }

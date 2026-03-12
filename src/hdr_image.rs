@@ -46,11 +46,11 @@ impl HDR {
          */
     }
 
-    fn check_position(&self, x: usize, y: usize) -> Result<&HDR> {
+    fn check_position(&self, x: usize, y: usize) -> Result<()> {
         if x < self.width && y < self.height {
-            Ok(&self)
+            Ok(())
         } else {
-            Err(anyhow!("NON-EXISTING PIXEL ({},{})", x, y))
+            Err(anyhow!("OUT OF BOUND PIXEL ({},{})", x, y))
         }
     }
 }

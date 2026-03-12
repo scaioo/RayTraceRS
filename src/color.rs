@@ -17,7 +17,7 @@ impl Color {
         }
     }
 }
-// Empy constructor
+// Empty constructor
 impl Default for Color {
     fn default() -> Self {
         Color {

@@ -1,4 +1,6 @@
 use rstrace::color;
+use rstrace::hdr_image::HDR;
+
 fn main() {
     // Leave two lines between the execution and the printing of the main
     println! {"\n------------------------------------------------------\n"};
@@ -37,4 +39,13 @@ fn main() {
     let lambda = -0.25;
     let division = product / lambda;
     println!("Hey! Here the quotient of division : {:?} \n", division);
+
+
+
+    let mut image = HDR::new(10,10);
+    println! {"Hey! Here the image pixel (1,0) : {:?} \n", image.get_pixel(1,0).unwrap() };
+    image.set_pixel(1,0,another_color).unwrap();
+
+    println! {"Hey! Here the changed pixel (1,0) : {:?} \n", image.get_pixel(1, 0).unwrap() };
+
 }

@@ -1,5 +1,11 @@
 use crate::color::Color;
 use anyhow::{Result, anyhow};
+use std::io::BufWriter;
+use std::path::Path;
+use std::fs::File;
+use endianness::ByteOrder;
+use crate::functions;
+
 
 #[derive(Clone, Debug, PartialEq)]
 pub struct HDR {
@@ -17,6 +23,25 @@ impl HDR {
             height,
             pixels,
         }
+    }
+
+    pub fn write_pfm(&self, filename: &str, endianness : &ByteOrder) -> Result<()> {
+        // Create the new file with name 'filename'
+
+        let path = Path::new(filename); //Create a path to make the new file
+        let display = path.display();  //Create a variable to print the path
+        let mut file = match File::create(filename) {
+            Err(why) => panic!("couldn't create {}: {}", display, why),
+            Ok(file) => file,
+        };
+
+        // Need to find a way to write in the line.
+        // How can I write in bytes?
+
+        // Later I will need this...
+        let ENDIAN = functions::endianness_number(endianness);
+
+        Ok(())
     }
 
     pub fn set_pixel(&mut self, x: usize, y: usize, color: Color)->Result<()> {
@@ -43,6 +68,7 @@ impl HDR {
         }
     }
 }
+//                 tests
 
 #[cfg(test)]
 mod test {
@@ -109,4 +135,10 @@ mod test {
         let hdr = HDR::new(10, 55);
         hdr.check_position(11, 2).unwrap();
     }
+
+    #[test]
+    fn test_write_pfm() {
+        panic!("YOU NEED TO WRITE THE TEST!!!")
+    }
+
 }

@@ -88,7 +88,7 @@ mod test {
         assert_eq!(pixel.g, color.g);
         assert_eq!(pixel.b, color.b);
     }
-    
+
     #[test]
     #[should_panic]
     fn test_get_pixel_panic() {

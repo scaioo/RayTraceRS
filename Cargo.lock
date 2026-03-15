@@ -9,8 +9,15 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "7f202df86484c868dbad7eaa557ef785d5c66295e41b460ef922eca0723b842c"
 
 [[package]]
+name = "endianness"
+version = "0.2.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "a436ddc6a16e6d54d8dcd33162f355c2e0d18ef63c2687bcc69423862a3db256"
+
+[[package]]
 name = "rstrace"
 version = "0.1.0"
 dependencies = [
  "anyhow",
+ "endianness",
 ]

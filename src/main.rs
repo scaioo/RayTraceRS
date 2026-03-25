@@ -1,51 +1,71 @@
 use rstrace::color;
 use rstrace::hdr_image::HDR;
+use rstrace::hdr_image::_parse_img_size;
+use rstrace::hdr_image::_parse_endianness;
+use std::fs;
+use std::fs::File;
+use std::io;
+use std::io::BufRead;
+use endianness::ByteOrder;
+use endianness::ByteOrder::{BigEndian, LittleEndian};
+
+pub mod hdr_image;
 
 fn main() {
     // Leave two lines between the execution and the printing of the main
     println! {"\n------------------------------------------------------\n"};
 
-    // Implement the first color
-    let our_color: color::Color = color::Color {
-        r: 1.0,
-        g: 2.0,
-        b: 3.0,
-    };
-    println! {"Hey! Here's our fist color: {:?} \n", our_color };
-
-    // Implement the second color
-    let another_color: color::Color = color::Color {
-        r: 4.0,
-        g: 5.0,
-        b: 6.0,
-    };
-    println! {"Hey! Here's another color : {:?} \n", another_color };
-
-    // Sum the color
-    let sum: color::Color = our_color + another_color;
-    println! {"Hey! Here the sum!?!?     : {:?} \n", sum };
-
-    // Color product
-    let prod_cc: color::Color = our_color * another_color;
-    println! {"Hey! Here the prod cc: {:?} \n", prod_cc };
-
-    // Multiply and divide the second color by scalars
-    let lambda = -0.5;
-    let product = lambda * another_color;
-    println! {"Hey! Here the scalar * another_color product : {:?} \n", product };
-    let product = another_color * lambda;
-    println! {"Hey! Here the another_color * scalar product  : {:?} \n", product };
-
-    let lambda = -0.25;
-    let division = product / lambda;
-    println!("Hey! Here the quotient of division : {:?} \n", division);
 
 
+    // prove files pfm
 
-    let mut image = HDR::new(10,10);
-    println! {"Hey! Here the image pixel (1,0) : {:?} \n", image.get_pixel(1,0).unwrap() };
-    image.set_pixel(1,0,another_color).unwrap();
+    ////// vorrei fare in modo che l'utente possa inserire il nome del file da aprire
+    // ma quando a mano metto reference_le.pfm non gli piace (mi dice che non trova il file
+    //let mut file_name: String = String::new();
+    //std::io::stdin()
+    //   .read_line(&mut file_name).unwrap().to_string().trim();
+    //println!("{file_name}");
+    //let file = File::open(file_name);
 
-    println! {"Hey! Here the changed pixel (1,0) : {:?} \n", image.get_pixel(1, 0).unwrap() };
+    //// checks if file is pfm or not
+    //// tests are yet to be written and checks are to be made on error handling etc
+
+    let file = File::open("reference_le.pfm");
+    let mut reader = io::BufReader::new(file.unwrap());
+    let mut line: String = String::new();
+
+    let mut img_dim = _parse_img_size("reference_le.pfm");
+
+
+    // non sono sicura di quello che la funzione restituisce (in particolare non so bene returnare gli errori
+    // controllare !!!!!!
+
+    let tryyyy = _parse_endianness("reference_le.pfm");
+    let tryyyy = _parse_endianness("reference_be.pfm");
+
+    // reads endianness
+    // line.clear();
+    // let mut line: String = String::new();
+    // reader.read_line(&mut line).unwrap();
+    // let mut endianness; ////// i think there is going to be something wrong with lifetimes
+    // if line.len() == 1 {
+    // println!("there is something wrong with the length of endianness line: its length is {}", line.len());
+    // } else {
+    // let endianness_val: f32 = line.parse::<f32>().unwrap();
+    // println! {"Endianness: {:?}", endianness_val};
+    // if endianness_val > 0.0 {
+    // endianness = BigEndian;
+    // println!("it's a big endian!");
+    // } else if endianness_val < 0.0 {
+    // endianness = LittleEndian;
+    // println!("it's a little endian!");
+    // } else {
+    // panic!("endianness is not a valid floating point number: {}", endianness_val); }
+    //}
+
+
+    ///// expressions vs statements rust ?????
+
+
 
 }

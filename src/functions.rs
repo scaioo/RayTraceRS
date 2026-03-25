@@ -5,7 +5,6 @@ fn are_close(x: f32, y: f32) -> bool {
     (x - y).abs() < epsilon
 }
 
-
 //          ENDIANNESS --> +-1.0
 pub fn endianness_number(endianness: &ByteOrder) -> f32 {
     match endianness {
@@ -27,7 +26,7 @@ mod tests {
             panic!("are_close is not working");
         }
     }
-    
+
     #[test]
     fn test_endianness_number() {
         assert_eq!(-1.0, endianness_number(&ByteOrder::LittleEndian));

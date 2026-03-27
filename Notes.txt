@@ -1,0 +1,25 @@
+****************************************
+          NOTE PER PROGRAMMATORI
+****************************************
+
+===========================================
+Da Isacco (26/3/26)
+===========================================
+     su hdr_image.rs::_parse_img_size()
+
+if line != "PF" && line != "Pf" {
+        println!("NON è PFM RENDILO UN ERRORE");
+        println!("{}", line);
+    }
+
+Non sarebbe utile restituire un errore qua?
+
+===========================================
+     su hdr_image.rs::_parse_endianness
+
+Potremmo usare un ciclo for come il seguente:
+
+for i in 0..2 {
+    reader.read_line(&mut line).unwrap();
+    line.clear();
+}

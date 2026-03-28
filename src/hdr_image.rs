@@ -17,7 +17,9 @@ pub struct HDR {
     pub pixels: Vec<Color>,
 }
 
-
+// ====================
+//     Constructors
+// ====================
 
 impl HDR {
     // Implement the full-black image
@@ -29,26 +31,6 @@ impl HDR {
             pixels,
         }
     }
-
-    pub fn write_pfm(&self, filename: &str, endianness: &ByteOrder) -> Result<()> {
-        // Create the new file with name 'filename'
-
-        let path = Path::new(filename); //Create a path to make the new file
-        let display = path.display(); //Create a variable to print the path
-        let mut file = match File::create(filename) {
-            Err(why) => panic!("couldn't create {}: {}", display, why),
-            Ok(file) => file,
-        };
-
-        // Need to find a way to write in the line.
-        // How can I write in bytes?
-
-        // Later I will need this...
-        // let ENDIAN = functions::endianness_number(endianness);
-
-        Ok(())
-    }
-
     pub fn set_pixel(&mut self, x: usize, y: usize, color: Color) -> Result<()> {
         self.check_position(x, y)?;
         self.pixels[y * self.width + x] = color;
@@ -74,6 +56,31 @@ impl HDR {
     }
 }
 
+// ====================
+//   I/O operations
+// ====================
+
+impl HDR{
+    pub fn write_pfm(&self, filename: &str, endianness: &ByteOrder) -> Result<()> {
+        // Create the new file with name 'filename'
+
+        let path = Path::new(filename); //Create a path to make the new file
+        let display = path.display(); //Create a variable to print the path
+        let mut file = match File::create(filename) {
+            Err(why) => panic!("couldn't create {}: {}", display, why),
+            Ok(file) => file,
+        };
+
+        // Need to find a way to write in the line.
+        // How can I write in bytes?
+
+        // Later I will need this...
+        // let ENDIAN = functions::endianness_number(endianness);
+
+        Ok(())
+    }
+}
+
 pub enum EndiannessError{
     InvalidValue
 }
@@ -81,7 +88,8 @@ pub enum EndiannessError{
 // reading and writing pfm files
 
 //read_line already exists in Rust's standard library
-
+//      USEREI UNA TUPLA, NON UN VETTORE!
+//       Result<(u8,u8),EndiannessError>
 pub fn _parse_img_size(filename: &str) -> Result<Vec<u8>, anyhow::Error> {
 
     let file = File::open(filename);
@@ -146,16 +154,24 @@ pub fn _parse_endianness(filename: &str) -> Result<ByteOrder, EndiannessError> {
     } else {
         Err(EndiannessError::InvalidValue)
     }
-
-
 }
 
-//                 tests
+// ====================
+//     Tone Mapping
+// ====================
+
+impl HDR{
+    
+}
+
+// ====================
+//        Tests
+// ====================
 
 #[cfg(test)]
 mod test {
     use super::*;
-    // Test for
+    // ---------- Constructors ----------
     #[test]
     fn test_new() {
         let hdr = HDR::new(10, 55);
@@ -223,7 +239,7 @@ mod test {
         let hdr = HDR::new(10, 55);
         hdr.check_position(11, 2).unwrap();
     }
-
+    // ---------- I/O operators ----------
     #[test]
     fn test_write_pfm() {
         panic!("YOU NEED TO WRITE THE TEST!!!")

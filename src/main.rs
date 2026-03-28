@@ -40,8 +40,8 @@ fn main() {
     // non sono sicura di quello che la funzione restituisce (in particolare non so bene returnare gli errori
     // controllare !!!!!!
 
-    let tryyyy = _parse_endianness("reference_le.pfm");
-    let tryyyy = _parse_endianness("reference_be.pfm");
+    let _ = _parse_endianness("reference_le.pfm");
+    let _ = _parse_endianness("reference_be.pfm");
 
     // reads endianness
     // line.clear();

@@ -7,7 +7,12 @@ pub struct Color {
     pub b: f32,
 }
 
-// Constructor
+// ====================
+//     Constructor
+//     and methods
+// ====================
+
+// ----- Constructor ------
 impl Color {
     pub fn new(red: f32, green: f32, blue: f32) -> Self {
         Color {
@@ -17,7 +22,7 @@ impl Color {
         }
     }
 }
-// Empty constructor
+// ----- Empty Constructor ------
 impl Default for Color {
     fn default() -> Self {
         Color {
@@ -27,6 +32,22 @@ impl Default for Color {
         }
     }
 }
+
+// ----- Compute Luminosity ------
+impl Color{
+    pub fn sem_luminosity(&self) -> f32 {
+        // Shirley & Morley’s formula
+        let max = self.r.max(self.g.max(self.b));
+        let min = self.r.min(self.g.min(self.b));
+        (max + min) * 0.5
+
+        // Note: .max and .min automatically ignores NaN
+    }
+}
+
+// ====================
+// Trait implementation
+// ====================
 
 // Color + Color
 impl Add for Color {
@@ -237,5 +258,12 @@ mod tests {
         };
         let scalar: f32 = 0.0;
         let _ = col / scalar;
+    }
+
+
+    #[test]
+    fn test_sem_luminosity() {
+        let color1 = Color::new(1.0, 2.0,3.0);
+        assert_eq!(color1.sem_luminosity(), 0.5 * (1.0 + 3.0));
     }
 }

@@ -159,10 +159,10 @@ pub fn _parse_endianness(filename: &str) -> Result<ByteOrder, EndiannessError> {
 //     Tone Mapping
 // ====================
 
-impl HDR{
+impl HDR {
     pub fn average_luminosity(&self) -> Result<f32> {
         let count = self.pixels.len() as f32;
-        if count == 0.0{
+        if count == 0.0 {
             return Err(anyhow!("\naverage_luminosity():\npixel.len() == 0!!!!!"));
         }
 
@@ -172,6 +172,29 @@ impl HDR{
 
         Ok(10.0_f32.powf(log_sum / count))
     }
+
+    pub fn normalization(&mut self, wrapped_a: Option<f32>) -> Result<()> {
+        if self.pixels.len() == 0 {
+            return Err(anyhow!("\nnormalization():\npixels.len() == 0!!!!"))
+        }
+
+        let a = wrapped_a.unwrap_or(0.18);
+        if a <= 0.0 {
+            return Err(anyhow!("\nnormalization():
+            \n Cannot use a non-positive normalization factor: {a}!!!!"))
+        }
+
+        let avr = self.average_luminosity()?;
+        if avr == 0.0 {
+            return Err(anyhow!("Average luminosity is zero, cannot normalize."));
+        }
+
+        for color in self.pixels.iter_mut() {
+            *color = (*color * a) / avr;
+        }
+        Ok(())
+    }
+
 }
 
 // ====================
@@ -259,10 +282,10 @@ mod test {
     // ---------- Tone Mapping ----------
     #[test]
     fn test_average_luminosity() {
-        
+
         let hdr = HDR::new(10, 55);
         assert!(functions::are_close(hdr.average_luminosity().unwrap(),0.0));
-        
+
         let mut hdr = HDR::new(2, 3);
         for i in 0..3{
             hdr.set_pixel(0,i,Color{r:5.0,g:5.0,b:15.0}).unwrap();
@@ -276,12 +299,17 @@ mod test {
             log_avr += (2.0 + epsilon).log10();
         }
         log_avr /= hdr.pixels.len() as f32;
-        
+
         assert!(functions::are_close(
             hdr.average_luminosity().unwrap(),
             10.0_f32.powf(log_avr)
         ));
 
+    }
+
+    #[test]
+    fn test_normalization() {
+        panic!("YOU NEED TO WRITE THE TEST!!!");
     }
 }
 

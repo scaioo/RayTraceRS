@@ -117,6 +117,7 @@ impl Div<f32> for Color {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::functions;
 
     #[test]
     fn test_empty_constructor() {
@@ -264,6 +265,14 @@ mod tests {
     #[test]
     fn test_sem_luminosity() {
         let color1 = Color::new(1.0, 2.0,3.0);
-        assert_eq!(color1.sem_luminosity(), 0.5 * (1.0 + 3.0));
+        assert!(
+            functions::are_close(color1.sem_luminosity(), 0.5 * (1.0 + 3.0)),
+            "TEST_ERROR: sem_luminosity is incorrect!"
+        );
+        let color1 = Color::new(10.0, 2.0,12.0);
+        assert!(
+            functions::are_close(color1.sem_luminosity(), 0.5 * (12.0 + 2.0)),
+            "TEST_ERROR: sem_luminosity is incorrect!"
+        );
     }
 }

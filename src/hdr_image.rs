@@ -1,5 +1,4 @@
 use crate::color::Color;
-//use crate::functions;
 use anyhow::{Result, anyhow};
 use endianness::{ByteOrder, EndiannessResult};
 use std::fs::File;
@@ -161,7 +160,18 @@ pub fn _parse_endianness(filename: &str) -> Result<ByteOrder, EndiannessError> {
 // ====================
 
 impl HDR{
-    
+    pub fn average_luminosity(&self) -> Result<f32> {
+        let count = self.pixels.len() as f32;
+        if count == 0.0{
+            return Err(anyhow!("\naverage_luminosity():\npixel.len() == 0!!!!!"));
+        }
+
+        let log_sum: f32 = self.pixels.iter()
+            .map(|col| (col.sem_luminosity() + f32::EPSILON).log10())
+            .sum();
+
+        Ok(10.0_f32.powf(log_sum / count))
+    }
 }
 
 // ====================
@@ -171,6 +181,7 @@ impl HDR{
 #[cfg(test)]
 mod test {
     use super::*;
+    use crate::functions;
     // ---------- Constructors ----------
     #[test]
     fn test_new() {
@@ -243,6 +254,34 @@ mod test {
     #[test]
     fn test_write_pfm() {
         panic!("YOU NEED TO WRITE THE TEST!!!")
+    }
+
+    // ---------- Tone Mapping ----------
+    #[test]
+    fn test_average_luminosity() {
+        
+        let hdr = HDR::new(10, 55);
+        assert!(functions::are_close(hdr.average_luminosity().unwrap(),0.0));
+        
+        let mut hdr = HDR::new(2, 3);
+        for i in 0..3{
+            hdr.set_pixel(0,i,Color{r:5.0,g:5.0,b:15.0}).unwrap();
+            hdr.set_pixel(1,i,Color{r:1.0,g:2.0,b:3.0}).unwrap();
+        }
+
+        let mut log_avr : f32 = 0.0;
+        let epsilon = f32::EPSILON;
+        for i in 0..3{
+            log_avr += (10.0 + epsilon).log10();
+            log_avr += (2.0 + epsilon).log10();
+        }
+        log_avr /= hdr.pixels.len() as f32;
+        
+        assert!(functions::are_close(
+            hdr.average_luminosity().unwrap(),
+            10.0_f32.powf(log_avr)
+        ));
+
     }
 }
 

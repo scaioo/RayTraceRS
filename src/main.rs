@@ -8,8 +8,7 @@ use std::io;
 use std::io::BufRead;
 use endianness::ByteOrder;
 use endianness::ByteOrder::{BigEndian, LittleEndian};
-
-pub mod hdr_image;
+use rstrace::hdr_image;
 
 fn main() {
     // Leave two lines between the execution and the printing of the main

@@ -15,28 +15,31 @@ pub struct Color {
 
 // ----- Constructor ------
 impl Color {
-    
-    // NOTA: queste due funzioni devono includere il caso di -0.0, 
-    // che potrebbe influire nei conti 
     pub fn new(red: f32, green: f32, blue: f32) -> Self {
         // Conviene mettere Result? Mi interessa bloccare tutto?
         // È un controllo troppo pesante?
         if !(red>=0.0 && green>=0.0 && blue>=0.0)
             || !(red.is_finite() && green.is_finite() && blue.is_finite()) {
-            panic!("Color constructor: \
+            panic!("Color constructor:
             invalid color red({}), green({}), blue({})", red, green, blue);
         }
         Color {
             r: red.abs(),
             g: green.abs(),
             b: blue.abs(),
-        }
+        } // The .abs() is to transform -0.0 -> +0.0
+    }
+
+    fn condition(&self)->bool{
+        // Has this color all correct values?
+        // Must be a Real, positive number!
+        self.r.is_finite() && self.r.is_sign_positive() &&
+            self.g.is_finite() && self.g.is_sign_positive() &&
+            self.b.is_finite() && self.b.is_sign_positive()
     }
 
     pub fn self_check(&self) -> Result<()> {
-        let condition = (self.r >= 0.0 && self.g >= 0.0 && self.b >= 0.0)
-            && (self.r.is_finite() && self.g.is_finite() && self.b.is_finite());
-        if condition {
+        if self.condition() {
             Ok(())
         } else {
             Err(anyhow!("invalid color: red({}), green({}), blue({})",
@@ -63,9 +66,6 @@ impl Color{
         let max = self.r.max(self.g.max(self.b));
         let min = self.r.min(self.g.min(self.b));
         Ok((max + min) * 0.5)
-
-
-        // Note: .max and .min automatically ignores NaN
     }
 
     pub fn clamp(& mut self) -> Result<()> {
@@ -169,26 +169,21 @@ mod tests {
 
     #[test]
     #[should_panic]
-    fn test_constructor_2(){
-        let _ = Color::new(-0.1, 0.2, 0.3);
-        let _ = Color::new(0.1, -0.2, 0.3);
-        let _ = Color::new(0.1, 0.2, -0.3);
-        let _ = Color::new(-0.1, 0.2, -0.3);
-    }
+    fn test_constructor_2(){ let _ = Color::new(-0.1, 0.2, 0.3);}
 
     #[test]
     fn test_self_check(){
         let mut color = Color::new(1.0, 0.2, 0.3);
         assert!(color.self_check().is_ok());
         color.b = -0.0;
-        assert!(color.self_check().is_ok());
-        color.r = -1.0;
+        assert!(color.self_check().is_err());
+        color.b = -1.0;
         assert!(color.self_check().is_err());
         color.b = f32::INFINITY;
         assert!(color.self_check().is_err());
-        color.g = f32::NEG_INFINITY;
+        color.b = f32::NEG_INFINITY;
         assert!(color.self_check().is_err());
-        color.r = f32::NAN;
+        color.b = f32::NAN;
         assert!(color.self_check().is_err());
     }
 
@@ -336,5 +331,10 @@ mod tests {
     #[test]
     fn test_clamp(){
         panic!("YOU NEED TO WRITE THE TEST!!!");
+    }
+
+    #[test]
+    fn magic_test(){
+        println!("Magic test {}", -0.0 == 0.0);
     }
 }

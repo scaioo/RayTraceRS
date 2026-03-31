@@ -33,7 +33,7 @@ impl Default for Color {
     }
 }
 
-// ----- Compute Luminosity ------
+// ----- Tone mapping methods ------
 impl Color{
     pub fn sem_luminosity(&self) -> f32 {
         // Shirley & Morley’s formula
@@ -42,6 +42,12 @@ impl Color{
         (max + min) * 0.5
 
         // Note: .max and .min automatically ignores NaN
+    }
+    
+    pub fn clamp(& mut self){
+        self.r = self.r / (self.r + 1.0);
+        self.g = self.g / (self.g + 1.0);
+        self.b = self.b / (self.b + 1.0);
     }
 }
 

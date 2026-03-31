@@ -87,6 +87,7 @@ pub enum EndiannessError{
 // reading and writing pfm files
 
 //read_line already exists in Rust's standard library
+
 //      USEREI UNA TUPLA, NON UN VETTORE!
 //       Result<(u8,u8),EndiannessError>
 pub fn _parse_img_size(filename: &str) -> Result<Vec<u8>, anyhow::Error> {
@@ -132,7 +133,7 @@ pub fn _parse_endianness(filename: &str) -> Result<ByteOrder, EndiannessError> {
     let mut line: String = String::new();
 
     // reads PF line (read_line reads the lines in order,
-    // to read the third i need to read the other two first
+    // to read the third I need to read the other two first
     reader.read_line(&mut line).unwrap();
 
     // reads line cols rows
@@ -175,18 +176,19 @@ impl HDR {
 
     pub fn normalization(&mut self, wrapped_a: Option<f32>) -> Result<()> {
         if self.pixels.len() == 0 {
-            return Err(anyhow!("\nnormalization():\npixels.len() == 0!!!!"))
+            return Err(anyhow!("normalization(): no pixels to normalize!!!!"))
         }
 
         let a = wrapped_a.unwrap_or(0.18);
         if a <= 0.0 {
-            return Err(anyhow!("\nnormalization():
-            \n Cannot use a non-positive normalization factor: {a}!!!!"))
+            return Err(anyhow!("normalization():\
+             Cannot use a non-positive normalization factor: {a}!!!!"))
         }
 
         let avr = self.average_luminosity()?;
         if avr == 0.0 {
-            return Err(anyhow!("Average luminosity is zero, cannot normalize."));
+            return Err(anyhow!("normalization():
+            Average luminosity is zero, cannot normalize."));
         }
 
         for color in self.pixels.iter_mut() {
@@ -195,6 +197,17 @@ impl HDR {
         Ok(())
     }
 
+    pub fn sem_clamp_image(&mut self) -> Result<()> {
+        if self.pixels.len() == 0 {
+            return Err(anyhow!("clamp_image(): no pixel to clamp!!!!!"));
+        }
+
+        for color in self.pixels.iter_mut() {
+            color.clamp();
+        }
+
+        Ok(())
+    }
 }
 
 // ====================

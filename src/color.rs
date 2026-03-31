@@ -330,11 +330,13 @@ mod tests {
 
     #[test]
     fn test_clamp(){
-        panic!("YOU NEED TO WRITE THE TEST!!!");
-    }
-
-    #[test]
-    fn magic_test(){
-        println!("Magic test {}", -0.0 == 0.0);
+        let mut color = Color::new(0.0, 2.5, 5.0);
+        color.r = f32::NAN;
+        assert!(color.clamp().is_err());
+        color.r = 1.0;
+        color.clamp().unwrap();
+        assert_eq!(color.r, 1.0 / (1.0 + 1.0));
+        assert_eq!(color.g, 2.5 / (2.5 + 1.0));
+        assert_eq!(color.b, 5.0 / (5.0 + 1.0));
     }
 }

@@ -189,15 +189,17 @@ impl HDR {
         }
         Ok(())
     }
-}
 
     pub fn sem_clamp_image(&mut self) -> Result<()> {
         if self.pixels.len() == 0 {
             return Err(anyhow!("clamp_image(): no pixel to clamp!!!!!"));
         }
-
+        for color in self.pixels.iter_mut() {
+            color.clamp()?;
+        }
+        Ok(())
+    }
 }
-
 //                 tests
 
 #[cfg(test)]
@@ -275,6 +277,22 @@ mod test {
     #[test]
     fn test_write_pfm() {
         panic!("YOU NEED TO WRITE THE TEST!!!")
+    }
+
+    #[test]
+    fn test_sem_clamp_image() {
+        let mut hdr = HDR::new(1, 2);
+
+        hdr.sem_clamp_image().unwrap();
+        assert_eq!(hdr.get_pixel(0,0).unwrap().r, 0.0);
+
+        hdr.set_pixel(0,0,Color{r: 1.0, g: 2.0e02, b: 3.0e03}).unwrap();
+        hdr.sem_clamp_image().unwrap();
+
+        assert_eq!(hdr.get_pixel(0,0).unwrap().r, 1.0 / 2.0);
+        assert_eq!(hdr.get_pixel(0,0).unwrap().b, 3.0e3 / (1.0 + 3.0e3));
+        assert_eq!(hdr.get_pixel(0,0).unwrap().g, 2.0e2 / (1.0 + 2.0e2));
+        assert_eq!(hdr.get_pixel(0,1).unwrap().b, 0.0);
     }
 }
 

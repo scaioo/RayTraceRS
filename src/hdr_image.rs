@@ -324,6 +324,10 @@ mod test {
     fn test_normalization() {
         panic!("YOU NEED TO WRITE THE TEST!!!");
     }
+    
+    fn test_sem_clamp_image(){
+        panic!("YOU NEED TO WRITE THE TEST!!!");
+    }
 }
 
      //    .collect::<Vec<u8>>();

@@ -281,4 +281,9 @@ mod tests {
             "TEST_ERROR: sem_luminosity is incorrect!"
         );
     }
+    
+    #[test]
+    fn test_clamp(){
+        panic!("YOU NEED TO WRITE THE TEST!!!");
+    }
 }

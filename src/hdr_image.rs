@@ -146,7 +146,13 @@ pub fn _parse_endianness(filename: &str) -> Result<ByteOrder, EndiannessError> {
     } else {
         Err(EndiannessError::InvalidValue)
     }
+}
 
+//Reading a sequence of 4 bytes into a 32-bit floating point, considering the endianness
+// such function already exists f32::from_be_bytes
+
+pub fn read_pfm_file(filename: &str) {
+    let file = File::open(filename);
 
 }
 

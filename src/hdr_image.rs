@@ -148,11 +148,53 @@ pub fn _parse_endianness(filename: &str) -> Result<ByteOrder, EndiannessError> {
     }
 }
 
-//Reading a sequence of 4 bytes into a 32-bit floating point, considering the endianness
-// such function already exists f32::from_be_bytes
+// ====================
+//     Tone Mapping
+// ====================
 
-pub fn read_pfm_file(filename: &str) {
-    let file = File::open(filename);
+impl HDR {
+    pub fn average_luminosity(&self) -> Result<f32> {
+        let count = self.pixels.len() as f32;
+        if count == 0.0 {
+            return Err(anyhow!("average_luminosity():
+            no pixel to compute average_luminosity!!!!!"));
+        }
+
+        let log_sum: f32 = self.pixels.iter()
+            .map(|col| (col.sem_luminosity().unwrap() + f32::EPSILON).log10())
+            .sum();
+
+        Ok(10.0_f32.powf(log_sum / count))
+    }
+
+    pub fn normalization(&mut self, wrapped_a: Option<f32>) -> Result<()> {
+        if self.pixels.len() == 0 {
+            return Err(anyhow!("normalization(): no pixels to normalize!!!!"))
+        }
+
+        let a = wrapped_a.unwrap_or(0.18);
+        if a <= 0.0 {
+            return Err(anyhow!("normalization():\
+             Cannot use a non-positive normalization factor: {a}!!!!"))
+        }
+
+        let avr = self.average_luminosity()?;
+        if avr == 0.0 {
+            return Err(anyhow!("normalization():
+            Average luminosity is zero, cannot normalize."));
+        }
+
+        for color in self.pixels.iter_mut() {
+            *color = (*color * a) / avr;
+        }
+        Ok(())
+    }
+}
+
+    pub fn sem_clamp_image(&mut self) -> Result<()> {
+        if self.pixels.len() == 0 {
+            return Err(anyhow!("clamp_image(): no pixel to clamp!!!!!"));
+        }
 
 }
 

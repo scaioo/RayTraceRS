@@ -1,6 +1,6 @@
 use endianness::ByteOrder;
 
-fn are_close(x: f32, y: f32) -> bool {
+pub fn are_close(x: f32, y: f32) -> bool {
     let epsilon = 1e-5;
     (x - y).abs() < epsilon
 }

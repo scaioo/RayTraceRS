@@ -8,8 +8,7 @@ use std::io;
 use std::io::BufRead;
 use endianness::ByteOrder;
 use endianness::ByteOrder::{BigEndian, LittleEndian};
-
-pub mod hdr_image;
+use rstrace::hdr_image;
 
 fn main() {
     // Leave two lines between the execution and the printing of the main
@@ -40,8 +39,8 @@ fn main() {
     // non sono sicura di quello che la funzione restituisce (in particolare non so bene returnare gli errori
     // controllare !!!!!!
 
-    let tryyyy = _parse_endianness("reference_le.pfm");
-    let tryyyy = _parse_endianness("reference_be.pfm");
+    let _ = _parse_endianness("reference_le.pfm");
+    let _ = _parse_endianness("reference_be.pfm");
 
     // reads endianness
     // line.clear();

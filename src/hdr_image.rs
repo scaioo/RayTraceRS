@@ -164,11 +164,12 @@ impl HDR {
     pub fn average_luminosity(&self) -> Result<f32> {
         let count = self.pixels.len() as f32;
         if count == 0.0 {
-            return Err(anyhow!("\naverage_luminosity():\npixel.len() == 0!!!!!"));
+            return Err(anyhow!("average_luminosity(): 
+            no pixel to compute average_luminosity!!!!!"));
         }
 
         let log_sum: f32 = self.pixels.iter()
-            .map(|col| (col.sem_luminosity() + f32::EPSILON).log10())
+            .map(|col| (col.sem_luminosity().unwrap() + f32::EPSILON).log10())
             .sum();
 
         Ok(10.0_f32.powf(log_sum / count))
@@ -203,7 +204,7 @@ impl HDR {
         }
 
         for color in self.pixels.iter_mut() {
-            color.clamp();
+            color.clamp()?;
         }
 
         Ok(())
@@ -324,7 +325,7 @@ mod test {
     fn test_normalization() {
         panic!("YOU NEED TO WRITE THE TEST!!!");
     }
-    
+
     fn test_sem_clamp_image(){
         panic!("YOU NEED TO WRITE THE TEST!!!");
     }

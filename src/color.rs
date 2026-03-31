@@ -1,4 +1,5 @@
 use std::ops::{Add, Div, Mul};
+use anyhow::{Result, anyhow};
 
 #[derive(Copy, Clone, Debug, PartialEq)]
 pub struct Color {
@@ -14,11 +15,32 @@ pub struct Color {
 
 // ----- Constructor ------
 impl Color {
+    
+    // NOTA: queste due funzioni devono includere il caso di -0.0, 
+    // che potrebbe influire nei conti 
     pub fn new(red: f32, green: f32, blue: f32) -> Self {
+        // Conviene mettere Result? Mi interessa bloccare tutto?
+        // È un controllo troppo pesante?
+        if !(red>=0.0 && green>=0.0 && blue>=0.0)
+            || !(red.is_finite() && green.is_finite() && blue.is_finite()) {
+            panic!("Color constructor: \
+            invalid color red({}), green({}), blue({})", red, green, blue);
+        }
         Color {
-            r: red,
-            g: green,
-            b: blue,
+            r: red.abs(),
+            g: green.abs(),
+            b: blue.abs(),
+        }
+    }
+
+    pub fn self_check(&self) -> Result<()> {
+        let condition = (self.r >= 0.0 && self.g >= 0.0 && self.b >= 0.0)
+            && (self.r.is_finite() && self.g.is_finite() && self.b.is_finite());
+        if condition {
+            Ok(())
+        } else {
+            Err(anyhow!("invalid color: red({}), green({}), blue({})",
+                   self.r, self.g, self.b))
         }
     }
 }
@@ -35,19 +57,23 @@ impl Default for Color {
 
 // ----- Tone mapping methods ------
 impl Color{
-    pub fn sem_luminosity(&self) -> f32 {
+    pub fn sem_luminosity(&self) -> Result<f32> {
+        self.self_check()?;
         // Shirley & Morley’s formula
         let max = self.r.max(self.g.max(self.b));
         let min = self.r.min(self.g.min(self.b));
-        (max + min) * 0.5
+        Ok((max + min) * 0.5)
+
 
         // Note: .max and .min automatically ignores NaN
     }
-    
-    pub fn clamp(& mut self){
+
+    pub fn clamp(& mut self) -> Result<()> {
+        self.self_check()?;
         self.r = self.r / (self.r + 1.0);
         self.g = self.g / (self.g + 1.0);
         self.b = self.b / (self.b + 1.0);
+        Ok(())
     }
 }
 
@@ -139,6 +165,31 @@ mod tests {
         assert_eq!(c.r, 0.1);
         assert_eq!(c.g, 0.2);
         assert_eq!(c.b, 0.3);
+    }
+
+    #[test]
+    #[should_panic]
+    fn test_constructor_2(){
+        let _ = Color::new(-0.1, 0.2, 0.3);
+        let _ = Color::new(0.1, -0.2, 0.3);
+        let _ = Color::new(0.1, 0.2, -0.3);
+        let _ = Color::new(-0.1, 0.2, -0.3);
+    }
+
+    #[test]
+    fn test_self_check(){
+        let mut color = Color::new(1.0, 0.2, 0.3);
+        assert!(color.self_check().is_ok());
+        color.b = -0.0;
+        assert!(color.self_check().is_ok());
+        color.r = -1.0;
+        assert!(color.self_check().is_err());
+        color.b = f32::INFINITY;
+        assert!(color.self_check().is_err());
+        color.g = f32::NEG_INFINITY;
+        assert!(color.self_check().is_err());
+        color.r = f32::NAN;
+        assert!(color.self_check().is_err());
     }
 
     #[test]
@@ -272,16 +323,16 @@ mod tests {
     fn test_sem_luminosity() {
         let color1 = Color::new(1.0, 2.0,3.0);
         assert!(
-            functions::are_close(color1.sem_luminosity(), 0.5 * (1.0 + 3.0)),
+            functions::are_close(color1.sem_luminosity().unwrap(), 0.5 * (1.0 + 3.0)),
             "TEST_ERROR: sem_luminosity is incorrect!"
         );
         let color1 = Color::new(10.0, 2.0,12.0);
         assert!(
-            functions::are_close(color1.sem_luminosity(), 0.5 * (12.0 + 2.0)),
+            functions::are_close(color1.sem_luminosity().unwrap(), 0.5 * (12.0 + 2.0)),
             "TEST_ERROR: sem_luminosity is incorrect!"
         );
     }
-    
+
     #[test]
     fn test_clamp(){
         panic!("YOU NEED TO WRITE THE TEST!!!");

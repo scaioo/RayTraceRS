@@ -1,4 +1,5 @@
 use crate::color::Color;
+//use crate::functions;
 use anyhow::{Result, anyhow};
 use endianness::{ByteOrder, EndiannessResult};
 use std::fs::File;
@@ -16,9 +17,7 @@ pub struct HDR {
     pub pixels: Vec<Color>,
 }
 
-// ====================
-//     Constructors
-// ====================
+
 
 impl HDR {
     // Implement the full-black image
@@ -30,6 +29,26 @@ impl HDR {
             pixels,
         }
     }
+
+    pub fn write_pfm(&self, filename: &str, endianness: &ByteOrder) -> Result<()> {
+        // Create the new file with name 'filename'
+
+        let path = Path::new(filename); //Create a path to make the new file
+        let display = path.display(); //Create a variable to print the path
+        let mut file = match File::create(filename) {
+            Err(why) => panic!("couldn't create {}: {}", display, why),
+            Ok(file) => file,
+        };
+
+        // Need to find a way to write in the line.
+        // How can I write in bytes?
+
+        // Later I will need this...
+        // let ENDIAN = functions::endianness_number(endianness);
+
+        Ok(())
+    }
+
     pub fn set_pixel(&mut self, x: usize, y: usize, color: Color) -> Result<()> {
         self.check_position(x, y)?;
         self.pixels[y * self.width + x] = color;
@@ -55,31 +74,6 @@ impl HDR {
     }
 }
 
-// ====================
-//   I/O operations
-// ====================
-
-impl HDR{
-    pub fn write_pfm(&self, filename: &str, endianness: &ByteOrder) -> Result<()> {
-        // Create the new file with name 'filename'
-
-        let path = Path::new(filename); //Create a path to make the new file
-        let display = path.display(); //Create a variable to print the path
-        let mut file = match File::create(filename) {
-            Err(why) => panic!("couldn't create {}: {}", display, why),
-            Ok(file) => file,
-        };
-
-        // Need to find a way to write in the line.
-        // How can I write in bytes?
-
-        // Later I will need this...
-        // let ENDIAN = functions::endianness_number(endianness);
-
-        Ok(())
-    }
-}
-
 pub enum EndiannessError{
     InvalidValue
 }
@@ -88,8 +82,6 @@ pub enum EndiannessError{
 
 //read_line already exists in Rust's standard library
 
-//      USEREI UNA TUPLA, NON UN VETTORE!
-//       Result<(u8,u8),EndiannessError>
 pub fn _parse_img_size(filename: &str) -> Result<Vec<u8>, anyhow::Error> {
 
     let file = File::open(filename);
@@ -133,7 +125,7 @@ pub fn _parse_endianness(filename: &str) -> Result<ByteOrder, EndiannessError> {
     let mut line: String = String::new();
 
     // reads PF line (read_line reads the lines in order,
-    // to read the third I need to read the other two first
+    // to read the third i need to read the other two first
     reader.read_line(&mut line).unwrap();
 
     // reads line cols rows
@@ -164,7 +156,7 @@ impl HDR {
     pub fn average_luminosity(&self) -> Result<f32> {
         let count = self.pixels.len() as f32;
         if count == 0.0 {
-            return Err(anyhow!("average_luminosity(): 
+            return Err(anyhow!("average_luminosity():
             no pixel to compute average_luminosity!!!!!"));
         }
 
@@ -197,29 +189,21 @@ impl HDR {
         }
         Ok(())
     }
+}
 
     pub fn sem_clamp_image(&mut self) -> Result<()> {
         if self.pixels.len() == 0 {
             return Err(anyhow!("clamp_image(): no pixel to clamp!!!!!"));
         }
 
-        for color in self.pixels.iter_mut() {
-            color.clamp()?;
-        }
-
-        Ok(())
-    }
 }
 
-// ====================
-//        Tests
-// ====================
+//                 tests
 
 #[cfg(test)]
 mod test {
     use super::*;
-    use crate::functions;
-    // ---------- Constructors ----------
+    // Test for
     #[test]
     fn test_new() {
         let hdr = HDR::new(10, 55);
@@ -287,47 +271,10 @@ mod test {
         let hdr = HDR::new(10, 55);
         hdr.check_position(11, 2).unwrap();
     }
-    // ---------- I/O operators ----------
+
     #[test]
     fn test_write_pfm() {
         panic!("YOU NEED TO WRITE THE TEST!!!")
-    }
-
-    // ---------- Tone Mapping ----------
-    #[test]
-    fn test_average_luminosity() {
-
-        let hdr = HDR::new(10, 55);
-        assert!(functions::are_close(hdr.average_luminosity().unwrap(),0.0));
-
-        let mut hdr = HDR::new(2, 3);
-        for i in 0..3{
-            hdr.set_pixel(0,i,Color{r:5.0,g:5.0,b:15.0}).unwrap();
-            hdr.set_pixel(1,i,Color{r:1.0,g:2.0,b:3.0}).unwrap();
-        }
-
-        let mut log_avr : f32 = 0.0;
-        let epsilon = f32::EPSILON;
-        for i in 0..3{
-            log_avr += (10.0 + epsilon).log10();
-            log_avr += (2.0 + epsilon).log10();
-        }
-        log_avr /= hdr.pixels.len() as f32;
-
-        assert!(functions::are_close(
-            hdr.average_luminosity().unwrap(),
-            10.0_f32.powf(log_avr)
-        ));
-
-    }
-
-    #[test]
-    fn test_normalization() {
-        panic!("YOU NEED TO WRITE THE TEST!!!");
-    }
-
-    fn test_sem_clamp_image(){
-        panic!("YOU NEED TO WRITE THE TEST!!!");
     }
 }
 

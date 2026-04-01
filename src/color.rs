@@ -16,8 +16,8 @@ pub struct Color {
 // ----- Constructor ------
 impl Color {
     pub fn new(red: f32, green: f32, blue: f32) -> Self {
-        // Conviene mettere Result? Mi interessa bloccare tutto?
-        // È un controllo troppo pesante?
+        // Questi controlli saranno da eliminare non appena inizieremo
+        // a implementare l'algoritmo di RayTracing
         if !(red>=0.0 && green>=0.0 && blue>=0.0)
             || !(red.is_finite() && green.is_finite() && blue.is_finite()) {
             panic!("Color constructor:

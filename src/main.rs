@@ -1,7 +1,7 @@
 use rstrace::color;
 use rstrace::hdr_image::HDR;
-use rstrace::hdr_image::_parse_img_size;
-use rstrace::hdr_image::_parse_endianness;
+use rstrace::pfm_func::_parse_img_size;
+use rstrace::pfm_func::_parse_endianness;
 use std::fs;
 use std::fs::File;
 use std::io;

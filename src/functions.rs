@@ -5,7 +5,7 @@ pub fn are_close(x: f32, y: f32) -> bool {
     (x - y).abs() < epsilon
 }
 
-//          ENDIANNESS --> +-1.0
+
 pub fn endianness_number(endianness: &ByteOrder) -> f32 {
     match endianness {
         ByteOrder::LittleEndian => -1.0,

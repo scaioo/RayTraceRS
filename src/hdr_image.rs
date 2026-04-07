@@ -6,6 +6,7 @@ use std::fs::File;
 use std::io;
 //use std::io::BufWriter;
 use std::path::Path;
+use std::io::BufRead;
 //use std::num::ParseIntError;
 //use endianness::ByteOrder::{BigEndian, LittleEndian};
 

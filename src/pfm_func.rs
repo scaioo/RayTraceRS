@@ -1,7 +1,8 @@
 use std::fs::File;
 use std::io::{BufRead, BufReader};
-use endianness::ByteOrder;
-
+use byteorder::{BigEndian,LittleEndian, ReadBytesExt};
+use anyhow::{Result, anyhow};
+#[derive(Debug)]
 pub enum EndiannessError{
     InvalidValue
 }
@@ -32,7 +33,7 @@ pub fn _parse_img_size(filename: &str) -> anyhow::Result<Vec<u8>, anyhow::Error>
     // turns the strings (created by split_whitespace into numbers (cols and rows)
     let   line_u8 = line.split_whitespace()
         .map(|x| x.parse::<u8>())
-        .collect::<anyhow::Result<Vec<u8>, _>>();
+        .collect::<Result<Vec<u8>, _>>();
 
     match line_u8 {
         Ok(line) => {
@@ -46,8 +47,13 @@ pub fn _parse_img_size(filename: &str) -> anyhow::Result<Vec<u8>, anyhow::Error>
 }
 
 // read endianness takes the name of a file as an input
-//Result<ByteOrder, &str>
-pub fn _parse_endianness(filename: &str) -> anyhow::Result<ByteOrder, EndiannessError> {
+// Result<ByteOrder, &str>
+// Questo codice è tutto da rivedere!!!!!!
+pub enum BO{
+    LittleEndian,
+    BigEndian,
+}
+pub fn _parse_endianness(filename: &str) -> Result<BO, EndiannessError> {
     let file = File::open(filename);
     let mut reader = BufReader::new(file.unwrap());
     let mut line: String = String::new();
@@ -68,10 +74,19 @@ pub fn _parse_endianness(filename: &str) -> anyhow::Result<ByteOrder, Endianness
     println!("{}", line.trim());
 
     if endianness_number > 0.0 {
-        Ok(ByteOrder::BigEndian)
+        Ok(BO::LittleEndian)
     } else if endianness_number < 0.0 {
-        Ok(ByteOrder::LittleEndian)
+        Ok(BO::BigEndian)
     } else {
         Err(EndiannessError::InvalidValue)
     }
+}
+
+// Crate used: as-bytes, byteorder
+// https://crates.io/crates/as-bytes
+// https://docs.rs/byteorder/latest/byteorder/trait.ByteOrder.html
+
+
+pub fn _read_float<R: BufRead>(mut reader: R, endianness : BO) -> Result<f32> {
+    Ok(3.0)
 }

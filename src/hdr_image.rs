@@ -1,14 +1,6 @@
 use crate::color::Color;
-//use crate::functions;
 use anyhow::{Result, anyhow};
-use endianness::{ByteOrder, EndiannessResult};
-use std::fs::File;
-use std::io;
-//use std::io::BufWriter;
-use std::path::Path;
 use std::io::BufRead;
-//use std::num::ParseIntError;
-//use endianness::ByteOrder::{BigEndian, LittleEndian};
 
 #[derive(Clone, Debug, PartialEq)]
 pub struct HDR {
@@ -16,8 +8,6 @@ pub struct HDR {
     pub height: usize,
     pub pixels: Vec<Color>,
 }
-
-
 
 impl HDR {
     // Implement the full-black image

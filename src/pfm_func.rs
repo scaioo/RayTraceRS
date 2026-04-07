@@ -1,6 +1,8 @@
 use std::fs::File;
-use std::io::{BufRead, BufReader};
+use std::io::{Read, BufRead, BufReader};
 use endianness::ByteOrder;
+use anyhow::{anyhow, Result};
+use byteorder::{ReadBytesExt};
 
 pub enum EndiannessError{
     InvalidValue
@@ -73,5 +75,16 @@ pub fn _parse_endianness(filename: &str) -> anyhow::Result<ByteOrder, Endianness
         Ok(ByteOrder::LittleEndian)
     } else {
         Err(EndiannessError::InvalidValue)
+    }
+}
+
+pub fn _read_4bytes<R: Read>(endianness: ByteOrder,mut buf : R ) -> Result<f32> {
+    match endianness {
+        ByteOrder::LittleEndian => 
+            {buf.read_f32::<byteorder::LittleEndian>()
+            .map_err(|e| anyhow!(e))},
+        ByteOrder::BigEndian => 
+            {buf.read_f32::<byteorder::BigEndian>()
+            .map_err(|e| anyhow!(e))},
     }
 }

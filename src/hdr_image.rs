@@ -119,10 +119,10 @@ impl HDR {
 
     pub fn sem_clamp_image(&mut self) -> Result<()> {
         if self.pixels.len() == 0 {
-            return Err(anyhow!("clamp_image(): no pixel to clamp!!!!!"));
+            return Err(anyhow!("sem_clamp_image(): no pixel to tone_map_reinhard!!!!!"));
         }
         for color in self.pixels.iter_mut() {
-            color.clamp()?;
+            color.tone_map_reinhard()?;
         }
         Ok(())
     }

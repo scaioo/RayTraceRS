@@ -1,6 +1,41 @@
+//! Utility types and operations for colors used in the ray tracing crate.
+//!
+//! The code in this module is written with two goals in mind:
+//! - make invalid states easy to detect during development;
+//! - allow the validation checks to be removed later, once the renderer is
+//!   finalized and performance becomes more important.
+//!
+//! In the final version of the ray tracer, some checks are expected to be
+//! removed or reduced. For this reason, arithmetic operations do not enforce
+//! validity automatically, and callers remain responsible for preserving
+//! physically meaningful values when needed.
+
 use std::ops::{Add, Div, Mul};
 use anyhow::{Result, anyhow};
 
+/// RGB color stored as three linear floating-point components.
+///
+/// # Invariants
+/// A physically valid color should have:
+/// - finite components
+/// - non-negative components
+///
+/// # Validation policy
+/// During development, [`Color::new`] and [`Color::self_check`] enforce these
+/// invariants to help detect errors early.
+///
+/// In the future, these validation checks are expected to be removed or
+/// reduced for performance reasons. As a consequence:
+/// - arithmetic operations (`Add`, `Mul`, `Div`) do not enforce validity;
+/// - intermediate colors may temporarily contain invalid values such as
+///   negative numbers, `NaN`, or `∞`;
+/// - preserving physically meaningful values becomes the responsibility of
+///   the caller.
+///
+/// # Notes
+/// This design is common in ray tracing pipelines, where intermediate values
+/// may fall outside the physically meaningful range and are later corrected
+/// by tone mapping or other post-processing steps.
 #[derive(Copy, Clone, Debug, PartialEq)]
 pub struct Color {
     pub r: f32,
@@ -13,16 +48,28 @@ pub struct Color {
 //     and methods
 // ====================
 
-// ----- Constructor ------
 impl Color {
+    /// Creates a new validated color.
+    ///
+    /// # Panics
+    /// Panics if any component is negative or not finite.
+    ///
+    /// # Notes
+    /// `-0.0` is normalized to `+0.0`.
+    ///
+    /// This validation is intended to help during development. In the final
+    /// optimized renderer, these checks may be removed for performance.
     pub fn new(red: f32, green: f32, blue: f32) -> Self {
         // Questi controlli saranno da eliminare non appena inizieremo
         // a implementare l'algoritmo di RayTracing
-        if !(red>=0.0 && green>=0.0 && blue>=0.0)
+        if !(red >= 0.0 && green >= 0.0 && blue >= 0.0)
             || !(red.is_finite() && green.is_finite() && blue.is_finite()) {
-            panic!("Color constructor:
-            invalid color red({}), green({}), blue({})", red, green, blue);
+            panic!(
+                "Color constructor:\ninvalid color red({}), green({}), blue({})",
+                red, green, blue
+            );
         }
+
         Color {
             r: red.abs(),
             g: green.abs(),
@@ -30,24 +77,70 @@ impl Color {
         } // The .abs() is to transform -0.0 -> +0.0
     }
 
-    fn condition(&self)->bool{
+    fn condition(&self) -> bool {
         // Has this color all correct values?
         // Must be a Real, positive number!
-        self.r.is_finite() && self.r.is_sign_positive() &&
-            self.g.is_finite() && self.g.is_sign_positive() &&
-            self.b.is_finite() && self.b.is_sign_positive()
+        self.r.is_finite() && self.r.is_sign_positive()
+            && self.g.is_finite() && self.g.is_sign_positive()
+            && self.b.is_finite() && self.b.is_sign_positive()
     }
 
+    /// Verifies that the color satisfies the validity invariants.
+    ///
+    /// # Errors
+    /// Returns an error if any component is negative or not finite.
     pub fn self_check(&self) -> Result<()> {
         if self.condition() {
             Ok(())
         } else {
-            Err(anyhow!("invalid color: red({}), green({}), blue({})",
-                   self.r, self.g, self.b))
+            Err(anyhow!(
+                "invalid color: red({}), green({}), blue({})",
+                self.r, self.g, self.b
+            ))
         }
     }
+
+    /// Computes the semi-luminance of the color
+    /// by using the Shirley & Morley’s formula.
+    ///
+    /// The formula is:
+    /// `(max(r, g, b) + min(r, g, b)) / 2`
+    ///
+    /// # Errors
+    /// Returns an error if the color is invalid.
+    ///
+    /// # Notes
+    /// This is not a perceptual luminance measure.
+    pub fn sem_luminosity(&self) -> Result<f32> {
+        self.self_check()?;
+        // Shirley & Morley’s formula
+        let max = self.r.max(self.g.max(self.b));
+        let min = self.r.min(self.g.min(self.b));
+        Ok((max + min) * 0.5)
+    }
+
+    /// Applies a simple tone-mapping transform in place.
+    ///
+    /// Each component is mapped as:
+    /// `c -> c / (c + 1)`
+    ///
+    /// This compresses high dynamic range values into the interval `[0, 1)`.
+    ///
+    /// # Errors
+    /// Returns an error if the color is invalid.
+    ///
+    /// # Note
+    /// Despite the name, this is not a traditional tone_map_reinhard operation.
+    pub fn tone_map_reinhard(&mut self) -> Result<()> {
+        self.self_check()?;
+        self.r = self.r / (self.r + 1.0);
+        self.g = self.g / (self.g + 1.0);
+        self.b = self.b / (self.b + 1.0);
+        Ok(())
+    }
 }
-// ----- Empty Constructor ------
+
+/// Returns the default black color `(0.0, 0.0, 0.0)`.
 impl Default for Color {
     fn default() -> Self {
         Color {
@@ -58,32 +151,14 @@ impl Default for Color {
     }
 }
 
-// ----- Tone mapping methods ------
-impl Color{
-    pub fn sem_luminosity(&self) -> Result<f32> {
-        self.self_check()?;
-        // Shirley & Morley’s formula
-        let max = self.r.max(self.g.max(self.b));
-        let min = self.r.min(self.g.min(self.b));
-        Ok((max + min) * 0.5)
-    }
-
-    pub fn clamp(& mut self) -> Result<()> {
-        self.self_check()?;
-        self.r = self.r / (self.r + 1.0);
-        self.g = self.g / (self.g + 1.0);
-        self.b = self.b / (self.b + 1.0);
-        Ok(())
-    }
-}
-
 // ====================
 // Trait implementation
 // ====================
 
-// Color + Color
+/// Component-wise addition of two colors.
 impl Add for Color {
     type Output = Color;
+
     fn add(self, rhs: Color) -> Self::Output {
         Color {
             r: self.r + rhs.r,
@@ -93,9 +168,10 @@ impl Add for Color {
     }
 }
 
-// Color * Color
+/// Component-wise multiplication of two colors.
 impl Mul<Color> for Color {
     type Output = Color;
+
     fn mul(self, rhs: Color) -> Self::Output {
         Color {
             r: self.r * rhs.r,
@@ -105,33 +181,41 @@ impl Mul<Color> for Color {
     }
 }
 
-// Color * float
+/// Multiplies each component by a scalar.
 impl Mul<f32> for Color {
     type Output = Color;
+
     fn mul(self, rhs: f32) -> Self::Output {
         Color {
             r: self.r * rhs,
-            b: self.b * rhs,
             g: self.g * rhs,
+            b: self.b * rhs,
         }
     }
 }
 
-// float * Color
+/// Multiplies each component by a scalar.
+///
+/// This implementation allows writing `scalar * color`.
 impl Mul<Color> for f32 {
     type Output = Color;
+
     fn mul(self, rhs: Color) -> Self::Output {
         Color {
             r: self * rhs.r,
-            b: self * rhs.b,
             g: self * rhs.g,
+            b: self * rhs.b,
         }
     }
 }
 
-// Division by a scalar
+/// Divides each component by a scalar.
+///
+/// # Panics
+/// Panics if `rhs == 0.0`.
 impl Div<f32> for Color {
     type Output = Color;
+
     fn div(self, rhs: f32) -> Self::Output {
         if rhs == 0.0 {
             panic!("Cannot divide by zero-valued `Color`!");
@@ -139,8 +223,8 @@ impl Div<f32> for Color {
 
         Color {
             r: self.r / rhs,
-            b: self.b / rhs,
             g: self.g / rhs,
+            b: self.b / rhs,
         }
     }
 }
@@ -169,10 +253,12 @@ mod tests {
 
     #[test]
     #[should_panic]
-    fn test_constructor_2(){ let _ = Color::new(-0.1, 0.2, 0.3);}
+    fn test_constructor_2() {
+        let _ = Color::new(-0.1, 0.2, 0.3);
+    }
 
     #[test]
-    fn test_self_check(){
+    fn test_self_check() {
         let mut color = Color::new(1.0, 0.2, 0.3);
         assert!(color.self_check().is_ok());
         color.b = -0.0;
@@ -208,7 +294,6 @@ mod tests {
         assert_eq!(c1 + c2, c3);
     }
 
-    // test product Color-Color
     #[test]
     fn product_col_col() {
         let c1: Color = Color {
@@ -231,7 +316,6 @@ mod tests {
         assert_eq!(c1 * c2, c3);
     }
 
-    // Test Color * scalar
     #[test]
     fn test_color_times_scalar() {
         let col: Color = Color {
@@ -258,7 +342,6 @@ mod tests {
         assert_eq!(col * scalar, expected);
     }
 
-    // Test scalar * Color
     #[test]
     fn test_scalar_times_colors() {
         let col: Color = Color {
@@ -283,7 +366,6 @@ mod tests {
         assert_eq!(scalar * col, expected);
     }
 
-    // Test Color / scalar
     #[test]
     fn test_div() {
         let col = Color {
@@ -300,7 +382,6 @@ mod tests {
         assert_eq!(col / scalar, expected);
     }
 
-    // Test Color/0.0
     #[test]
     #[should_panic(expected = "Cannot divide by zero-valued `Color`!")]
     fn divide_by_zero() {
@@ -313,15 +394,14 @@ mod tests {
         let _ = col / scalar;
     }
 
-
     #[test]
     fn test_sem_luminosity() {
-        let color1 = Color::new(1.0, 2.0,3.0);
+        let color1 = Color::new(1.0, 2.0, 3.0);
         assert!(
             functions::are_close(color1.sem_luminosity().unwrap(), 0.5 * (1.0 + 3.0)),
             "TEST_ERROR: sem_luminosity is incorrect!"
         );
-        let color1 = Color::new(10.0, 2.0,12.0);
+        let color1 = Color::new(10.0, 2.0, 12.0);
         assert!(
             functions::are_close(color1.sem_luminosity().unwrap(), 0.5 * (12.0 + 2.0)),
             "TEST_ERROR: sem_luminosity is incorrect!"
@@ -329,12 +409,12 @@ mod tests {
     }
 
     #[test]
-    fn test_clamp(){
+    fn test_clamp() {
         let mut color = Color::new(0.0, 2.5, 5.0);
         color.r = f32::NAN;
-        assert!(color.clamp().is_err());
+        assert!(color.tone_map_reinhard().is_err());
         color.r = 1.0;
-        color.clamp().unwrap();
+        color.tone_map_reinhard().unwrap();
         assert_eq!(color.r, 1.0 / (1.0 + 1.0));
         assert_eq!(color.g, 2.5 / (2.5 + 1.0));
         assert_eq!(color.b, 5.0 / (5.0 + 1.0));

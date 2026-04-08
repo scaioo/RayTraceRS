@@ -49,11 +49,6 @@ impl HDR {
         }
     }
 
-    pub fn create_stream<P: AsRef<Path>>(path: P) -> Result<BufReader<File>> {
-        let file = File::open(path)?;
-        let stream = BufReader::new(file);
-        Ok(stream)
-    }
     pub fn write_pfm<W: Write>(&self, mut writer: W, endianness: &ByteOrder) -> anyhow::Result<()> {
         write!(
             writer,

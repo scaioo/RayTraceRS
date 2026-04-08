@@ -1,6 +1,5 @@
 use std::fs::File;
 use std::io::{BufRead, BufReader};
-use std::path::Path;
 use endianness::ByteOrder;
 
 pub enum EndiannessError{
@@ -54,7 +53,7 @@ pub fn _parse_endianness(filename: &str) -> anyhow::Result<ByteOrder, Endianness
     let mut line: String = String::new();
 
     // reads PF line (read_line reads the lines in order,
-    // to read the third I need to read the other two first
+    // to read the third i need to read the other two first
     reader.read_line(&mut line).unwrap();
 
     // reads line cols rows

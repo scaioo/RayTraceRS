@@ -1,14 +1,11 @@
 use crate::color::Color;
-//use crate::functions;
 use anyhow::{Result, anyhow};
-use endianness::{ByteOrder, EndiannessResult};
+use endianness::{ByteOrder};
 use std::fs::File;
-use std::io;
-//use std::io::BufWriter;
 use std::path::Path;
-use std::io::BufRead;
-//use std::num::ParseIntError;
-//use endianness::ByteOrder::{BigEndian, LittleEndian};
+use std::io::{Write,BufReader};
+use byteorder::{BigEndian, LittleEndian, WriteBytesExt};
+use crate::functions::endianness_number;
 
 #[derive(Clone, Debug, PartialEq)]
 pub struct HDR {
@@ -16,8 +13,6 @@ pub struct HDR {
     pub height: usize,
     pub pixels: Vec<Color>,
 }
-
-
 
 impl HDR {
     // Implement the full-black image
@@ -53,22 +48,38 @@ impl HDR {
             Err(anyhow!("OUT OF BOUND PIXEL ({},{})!", x, y))
         }
     }
-    pub fn write_pfm(&self, filename: &str, endianness: &ByteOrder) -> anyhow::Result<()> {
-        // Endianness
-        
-        // Create the new file with name 'filename'
-        let path = Path::new(filename); //Create a path to make the new file
-        let display = path.display(); //Create a variable to print the path
-        let mut file = match File::create(filename) {
-            Err(why) => panic!("couldn't create {}: {}", display, why),
-            Ok(file) => file,
-        };
 
-        // Need to find a way to write in the line.
-        // How can I write in bytes?
+    pub fn create_stream<P: AsRef<Path>>(path: P) -> Result<BufReader<File>>{
+        let file = File::open(path)?;
+        let stream = BufReader::new(file);
+        Ok(stream)
+    }
+    pub fn write_pfm<W: Write>(&self, mut writer: W, endianness: &ByteOrder) -> anyhow::Result<()> {
 
-        // Later I will need this...
-        // let ENDIAN = functions::endianness_number(endianness);
+        write!(writer, "PF\n{} {}\n{:.1}\n", self.width, self.height, endianness_number(endianness))?;
+
+        match endianness {
+            ByteOrder::LittleEndian => {
+                for y in (0..self.height).rev() {
+                    for x in 0..self.width {
+                        let color = self.get_pixel(x, y)?;
+                        writer.write_f32::<LittleEndian>(color.r)?;
+                        writer.write_f32::<LittleEndian>(color.g)?;
+                        writer.write_f32::<LittleEndian>(color.b)?;
+                    }
+                }
+            }
+            ByteOrder::BigEndian => {
+                for y in (0..self.height).rev() {
+                    for x in 0..self.width {
+                        let color = self.get_pixel(x, y)?;
+                        writer.write_f32::<BigEndian>(color.r)?;
+                        writer.write_f32::<BigEndian>(color.g)?;
+                        writer.write_f32::<BigEndian>(color.b)?;
+                    }
+                }
+            }
+        }
 
         Ok(())
     }
@@ -202,7 +213,39 @@ mod test {
 
     #[test]
     fn test_write_pfm() {
-        panic!("YOU NEED TO WRITE THE TEST!!!")
+        let reference_le_bytes = vec![
+            0x50, 0x46, 0x0a, 0x33, 0x20, 0x32, 0x0a, 0x2d, 0x31, 0x2e, 0x30, 0x0a,
+            0x00, 0x00, 0xc8, 0x42, 0x00, 0x00, 0x48, 0x43, 0x00, 0x00, 0x96, 0x43,
+            0x00, 0x00, 0xc8, 0x43, 0x00, 0x00, 0xfa, 0x43, 0x00, 0x00, 0x16, 0x44,
+            0x00, 0x00, 0x2f, 0x44, 0x00, 0x00, 0x48, 0x44, 0x00, 0x00, 0x61, 0x44,
+            0x00, 0x00, 0x20, 0x41, 0x00, 0x00, 0xa0, 0x41, 0x00, 0x00, 0xf0, 0x41,
+            0x00, 0x00, 0x20, 0x42, 0x00, 0x00, 0x48, 0x42, 0x00, 0x00, 0x70, 0x42,
+            0x00, 0x00, 0x8c, 0x42, 0x00, 0x00, 0xa0, 0x42, 0x00, 0x00, 0xb4, 0x42
+        ];
+
+        let reference_be_bytes = vec![
+            0x50, 0x46, 0x0a, 0x33, 0x20, 0x32, 0x0a, 0x31, 0x2e, 0x30, 0x0a, 0x42,
+            0xc8, 0x00, 0x00, 0x43, 0x48, 0x00, 0x00, 0x43, 0x96, 0x00, 0x00, 0x43,
+            0xc8, 0x00, 0x00, 0x43, 0xfa, 0x00, 0x00, 0x44, 0x16, 0x00, 0x00, 0x44,
+            0x2f, 0x00, 0x00, 0x44, 0x48, 0x00, 0x00, 0x44, 0x61, 0x00, 0x00, 0x41,
+            0x20, 0x00, 0x00, 0x41, 0xa0, 0x00, 0x00, 0x41, 0xf0, 0x00, 0x00, 0x42,
+            0x20, 0x00, 0x00, 0x42, 0x48, 0x00, 0x00, 0x42, 0x70, 0x00, 0x00, 0x42,
+            0x8c, 0x00, 0x00, 0x42, 0xa0, 0x00, 0x00, 0x42, 0xb4, 0x00, 0x00
+        ];
+        let mut img = HDR::new(3,2);
+
+        img.set_pixel(0, 0, Color::new(1.0e1, 2.0e1, 3.0e1)).unwrap(); // Each component is
+        img.set_pixel(1, 0, Color::new(4.0e1, 5.0e1, 6.0e1)).unwrap(); // different from any
+        img.set_pixel(2, 0, Color::new(7.0e1, 8.0e1, 9.0e1)).unwrap(); // other: important in
+        img.set_pixel(0, 1, Color::new(1.0e2, 2.0e2, 3.0e2)).unwrap(); // tests!
+        img.set_pixel(1, 1, Color::new(4.0e2, 5.0e2, 6.0e2)).unwrap();
+        img.set_pixel(2, 1, Color::new(7.0e2, 8.0e2, 9.0e2)).unwrap();
+        let mut buffer: Vec<u8> = vec![];
+        img.write_pfm(&mut buffer,&ByteOrder::LittleEndian).unwrap();
+        assert_eq!(buffer,reference_le_bytes);
+        buffer = vec![];
+        img.write_pfm(&mut buffer,&ByteOrder::BigEndian).unwrap();
+        assert_eq!(buffer,reference_be_bytes);
     }
 
     #[test]

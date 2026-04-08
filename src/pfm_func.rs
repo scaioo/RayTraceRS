@@ -5,7 +5,6 @@ use crate::color::Color;
 use crate::hdr_image::HDR;
 use anyhow::anyhow;
 use std::io::Cursor;
-use byteorder::{ByteOrder, ReadBytesExt};
 
 #[derive(Debug, PartialEq)]
 pub enum Endianness {
@@ -125,13 +124,13 @@ pub fn read_pfm_file(filename: &str) -> anyhow::Result<HDR, anyhow::Error> {
 
     println!("{}", line.trim());
 
-pub fn _read_4bytes<R: Read>(endianness: ByteOrder, buf : &mut R ) -> Result<f32> {
+pub fn _read_4bytes<R: Read>(endianness: Endianness, buf : &mut R ) -> Result<f32> {
     match endianness {
-        ByteOrder::LittleEndian =>
-            {buf.read_f32::<ByteOrder::LittleEndian>()
+        Endianness::LittleEndian =>
+            {buf.read_f32::<Endianness::LittleEndian>()
             .map_err(|e| anyhow!(e))},
-        ByteOrder::BigEndian =>
-            {buf.read_f32::<ByteOrder::BigEndian>()
+        Endianness::BigEndian =>
+            {buf.read_f32::<Endianness::BigEndian>()
             .map_err(|e| anyhow!(e))},
     }
 }
@@ -144,13 +143,9 @@ pub fn _read_4bytes<R: Read>(endianness: ByteOrder, buf : &mut R ) -> Result<f32
 // e che si arrabbi quando il numero è 0
 #[cfg(test)]
 mod test {
+    use crate::color::Color;
+    use crate::pfm_func::{Endianness, _parse_endianness, _read_hdr};
 
-    use super::*;
-    use std::io;
-    use std::io::{BufRead, Cursor};
-    use endianness::ByteOrder;
-    use crate::functions::are_close;
-    use crate::pfm_func::{Endianness, _parse_endianness, _read_magic, _parse_img_size, _read_hdr};
     const BE_ARRAY: &[u8] = &[
         0x50, 0x46, 0x0a, 0x33, 0x20, 0x32, 0x0a, 0x31, 0x2e, 0x30, 0x0a, 0x42,
         0xc8, 0x00, 0x00, 0x43, 0x48, 0x00, 0x00, 0x43, 0x96, 0x00, 0x00, 0x43,
@@ -160,6 +155,10 @@ mod test {
         0x20, 0x00, 0x00, 0x42, 0x48, 0x00, 0x00, 0x42, 0x70, 0x00, 0x00, 0x42,
         0x8c, 0x00, 0x00, 0x42, 0xa0, 0x00, 0x00, 0x42, 0xb4, 0x00, 0x00
     ];
+mod tests {
+    use anyhow::anyhow;
+    use crate::color::Color;
+    use crate::pfm_func::{Endianness, _parse_endianness, _read_magic, _parse_img_size, _read_hdr};
 
     const LE_ARRAY: &[u8] = &[
         0x50, 0x46, 0x0a, 0x33, 0x20, 0x32, 0x0a, 0x2d, 0x31, 0x2e, 0x30, 0x0a,
@@ -170,6 +169,11 @@ mod test {
         0x00, 0x00, 0x20, 0x42, 0x00, 0x00, 0x48, 0x42, 0x00, 0x00, 0x70, 0x42,
         0x00, 0x00, 0x8c, 0x42, 0x00, 0x00, 0xa0, 0x42, 0x00, 0x00, 0xb4, 0x42
     ];
+
+    use super::*;
+    use std::io;
+    use std::io::{BufRead, Cursor};
+    use crate::functions::are_close;
 
     // Test for read_4bytes()
     #[test]
@@ -188,16 +192,20 @@ mod test {
         }
 
         for i in 0..9 {
-            let val = _read_4bytes(ByteOrder::LittleEndian, &mut rdr).unwrap();
+            let val = _read_4bytes(Endianness::LittleEndian, &mut rdr).unwrap();
             let expected = ((i + 1) * 100) as f32;
             assert!(are_close(val, expected));
         }
         for i in 0..9 {
-            let val = _read_4bytes(ByteOrder::LittleEndian, &mut rdr).unwrap();
+            let val = _read_4bytes(Endianness::LittleEndian, &mut rdr).unwrap();
             let expected = ((i + 1) * 10) as f32;
             assert!(are_close(val, expected));
         }
-        _read_4bytes(ByteOrder::LittleEndian,&mut rdr).expect("no more floats!");
+        _read_4bytes(Endianness::LittleEndian,&mut rdr).expect("no more floats!");
+    }
+
+    fn _read_4bytes(p0: _, p1: &mut Cursor<&[u8]>) -> _ {
+        todo!()
     }
 
     //test _parse_img_size
@@ -219,16 +227,16 @@ mod test {
             let _ =rdr.read_line(& mut line).unwrap();
         }
         for i in 0..9 {
-            let val = _read_4bytes(ByteOrder::BigEndian, &mut rdr).unwrap();
+            let val = _read_4bytes(Endianness::BigEndian, &mut rdr).unwrap();
             let expected = ((i + 1) * 100) as f32;
             assert!(are_close(val, expected));
         }
         for i in 0..9 {
-            let val = _read_4bytes(ByteOrder::BigEndian, &mut rdr).unwrap();
+            let val = _read_4bytes(Endianness::BigEndian, &mut rdr).unwrap();
             let expected = ((i + 1) * 10) as f32;
             assert!(are_close(val, expected));
         }
-        _read_4bytes(ByteOrder::BigEndian,&mut rdr).expect("no more floats!");
+        _read_4bytes(Endianness::BigEndian,&mut rdr).expect("no more floats!");
     }
 }
     // test _parse_endianness

@@ -5,11 +5,7 @@ edition = "2024"
 
 [dependencies]
 anyhow = "1.0.102"
-<<<<<<< HEAD
 endianness = "0.2"
 buffered-reader = "1.4.0"
-=======
 as-bytes = "0.2.0"
 byteorder = "1.5.0"
-endianness = "0.2"
->>>>>>> 00c2afbd205d5c630879504d49d79061faefbe1c

@@ -1,15 +1,60 @@
+//! HDR Image Module
+//!
+//! This module defines the [`HDR`] struct, which represents a High Dynamic Range
+//! image using floating-point RGB pixels.
+//!
+//! It provides:
+//! - Image creation and pixel manipulation
+//! - Tone mapping utilities
+//! - Export to `.pfm` (Portable Float Map) format
+//!
+//! ## Features
+//!
+//! - Linear RGB floating-point storage
+//! - Safe pixel indexing with bounds checking
+//! - Basic tone mapping (Reinhard operator)
+//! - Log-average luminance computation
+//!
+//! ## Example
+//!
+//! ```rust
+//! use crate::color::Color;
+//! use crate::hdr::HDR;
+//!
+//! let mut img = HDR::new(512, 512);
+//!
+//! img.set_pixel(10, 10, Color { r: 1.0, g: 0.5, b: 0.2 }).unwrap();
+//! let px = img.get_pixel(10, 10).unwrap();
+//!
+//! assert_eq!(px.r, 1.0);
+//! ```
+//!
+
 use crate::color::Color;
-//use crate::functions;
 use anyhow::{Result, anyhow};
 use endianness::{ByteOrder, EndiannessResult};
 use std::fs::File;
 use std::io;
-//use std::io::BufWriter;
 use std::path::Path;
 use std::io::BufRead;
-//use std::num::ParseIntError;
-//use endianness::ByteOrder::{BigEndian, LittleEndian};
 
+/// Represents an HDR (High Dynamic Range) image.
+///
+/// Pixels are stored as a flat vector of [`Color`] in row-major order.
+///
+/// # Fields
+///
+/// - `width`: Image width in pixels
+/// - `height`: Image height in pixels
+/// - `pixels`: Flat vector of RGB colors
+///
+/// # Storage Layout
+///
+/// Pixels are stored row-by-row:
+///
+/// ```text
+/// index = x + y * width
+/// ```
 #[derive(Clone, Debug, PartialEq)]
 pub struct HDR {
     pub width: usize,
@@ -20,7 +65,16 @@ pub struct HDR {
 
 
 impl HDR {
-    // Implement the full-black image
+    /// Creates a new HDR image filled with black pixels.
+    ///
+    /// # Arguments
+    ///
+    /// * `width` - Image width
+    /// * `height` - Image height
+    ///
+    /// # Returns
+    ///
+    /// A new [`HDR`] image where all pixels are initialized to `Color::default()`.
     pub fn new(width: usize, height: usize) -> HDR {
         let pixels = vec![Color::default(); width * height];
         HDR {
@@ -30,7 +84,23 @@ impl HDR {
         }
     }
 
-    // DA FARE !!!
+    /// Writes the image to a `.pfm` (Portable Float Map) file.
+    ///
+    /// # Arguments
+    /// * `filename` - Output file path
+    /// * `endianness` - Byte order used for writing floats
+    ///
+    /// # Errors
+    /// Returns an error if:
+    /// - The file cannot be created
+    /// - Writing to the file fails
+    ///
+    /// # Notes
+    /// - The image is written in **binary format**
+    /// - Pixels are stored **bottom-to-top** as required by the PFM specification
+    /// - The scale factor encodes endianness:
+    ///   - Negative = little endian
+    ///   - Positive = big endian
     pub fn write_pfm(&self, filename: &str, endianness: &ByteOrder) -> Result<()> {
         // Create the new file with name 'filename'
 
@@ -50,22 +120,38 @@ impl HDR {
         Ok(())
     }
 
+    /// Sets the color of a pixel at `(x, y)`.
+    ///
+    /// # Errors
+    /// Returns an error if `(x, y)` is out of bounds.
     pub fn set_pixel(&mut self, x: usize, y: usize, color: Color) -> Result<()> {
         self.check_position(x, y)?;
         self.pixels[y * self.width + x] = color;
         Ok(())
     }
 
+    /// Returns the color of the pixel at `(x, y)`.
+    ///
+    /// # Errors
+    /// Returns an error if `(x, y)` is out of bounds.
     pub fn get_pixel(&self, x: usize, y: usize) -> Result<Color> {
         //Ok(self.pixels[y * self.width + x])  Is it better this previous version??
         Ok(self.pixels[self.vector_index(x, y)?])
     }
 
+    /// Converts `(x, y)` coordinates into a linear index.
+    ///
+    /// # Errors
+    /// Returns an error if `(x, y)` is out of bounds.
     pub fn vector_index(&self, x: usize, y: usize) -> Result<usize> {
         self.check_position(x, y)?;
         Ok(x + y * self.width)
     }
 
+    /// Checks whether `(x, y)` is inside image bounds.
+    ///
+    /// # Errors
+    /// Returns an error if the coordinates are out of bounds.
     fn check_position(&self, x: usize, y: usize) -> Result<()> {
         if x < self.width && y < self.height {
             Ok(())
@@ -80,6 +166,21 @@ impl HDR {
 // ====================
 
 impl HDR {
+    /// Computes the logarithmic average luminance of the image.
+    ///
+    /// # Returns
+    /// The log-average luminance as `f32`.
+    ///
+    /// # Errors
+    /// Returns an error if the image contains no pixels.
+    ///
+    /// # Notes
+    /// Uses:
+    /// ```text
+    /// L_avg = 10^( (1/N) * Σ log10(L_i + ε) )
+    /// ```
+    ///
+    /// where `ε` avoids log(0).
     pub fn average_luminosity(&self) -> Result<f32> {
         let count = self.pixels.len() as f32;
         if count == 0.0 {
@@ -94,6 +195,23 @@ impl HDR {
         Ok(10.0_f32.powf(log_sum / count))
     }
 
+    /// Normalizes the image luminance.
+    ///
+    /// # Arguments
+    /// * `wrapped_a` - Optional exposure scaling factor (default: `0.18`)
+    ///
+    /// # Errors
+    /// Returns an error if:
+    /// - The image is empty
+    /// - `a <= 0`
+    /// - Average luminance is zero
+    ///
+    /// # Description
+    /// Each pixel is scaled by:
+    ///
+    /// ```text
+    /// color = (color * a) / L_avg
+    /// ```
     pub fn normalization(&mut self, wrapped_a: Option<f32>) -> Result<()> {
         if self.pixels.len() == 0 {
             return Err(anyhow!("normalization(): no pixels to normalize!!!!"))
@@ -117,6 +235,19 @@ impl HDR {
         Ok(())
     }
 
+    /// Applies Reinhard tone mapping to all pixels.
+    ///
+    /// # Errors
+    ///
+    /// Returns an error if the image is empty.
+    ///
+    /// # Description
+    ///
+    /// Uses a per-channel Reinhard operator:
+    ///
+    /// ```text
+    /// c = c / (1 + c)
+    /// ```
     pub fn sem_clamp_image(&mut self) -> Result<()> {
         if self.pixels.len() == 0 {
             return Err(anyhow!("sem_clamp_image(): no pixel to tone_map_reinhard!!!!!"));

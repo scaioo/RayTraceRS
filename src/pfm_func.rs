@@ -50,8 +50,6 @@ pub fn _parse_endianness(line: & mut String) -> anyhow::Result<Endianness> {
 
     let endianness_number: f32 = line.trim().parse::<f32>()?;
 
-    println!("{}", line.trim());
-
     if endianness_number > 0.0 {
         Ok(Endianness::BigEndian)
     } else if endianness_number < 0.0 {
@@ -63,27 +61,26 @@ pub fn _parse_endianness(line: & mut String) -> anyhow::Result<Endianness> {
 
 // _read_hdr creates an HDR and returns it with colors assigned to each pixel read from a buffer
 // it supports both big and little endian. endianness is a parameter that needs to be passed from the calling function
-fn _read_hdr(line :&mut String, width :usize, height :usize, endianness :Endianness) -> anyhow::Result<HDR> {
+fn _read_hdr(reader: &mut BufReader<File>, width :usize, height :usize, endianness :Endianness) -> anyhow::Result<HDR> {
     let mut hdr_img :HDR = HDR::new(width, height);
     let mut buffer = [0; 4];
 
     //bytes to f32 is a closure that avoids code repetition, it takes an array of four bytes and,
-    //matching the endianness, it turns it into an f32
+    //matching the endianness, it turns it into f32
     let bytes_to_f32 = |buf: [u8; 4]| match endianness {
         Endianness::LittleEndian => f32::from_le_bytes(buf),
         Endianness::BigEndian => f32::from_be_bytes(buf),
     };
 
-    let mut cursor = Cursor::new(line.as_bytes());
-    cursor.read_exact(&mut buffer)?;
+
 
     for i in 0..height {
         for j in 0..width {
-            cursor.read_exact(&mut buffer)?;
+            reader.read_exact(&mut buffer)?;
             let r = bytes_to_f32(buffer);
-            cursor.read_exact(&mut buffer)?;
+            reader.read_exact(&mut buffer)?;
             let g = bytes_to_f32(buffer);
-            cursor.read_exact(&mut buffer)?;
+            reader.read_exact(&mut buffer)?;
             let b = bytes_to_f32(buffer);
             hdr_img.pixels[width*i + j] = Color::new(r, g, b);
         }
@@ -91,7 +88,7 @@ fn _read_hdr(line :&mut String, width :usize, height :usize, endianness :Endiann
     }
 
     let mut check_extra_bytes = Vec::new();
-    cursor.read_to_end(&mut check_extra_bytes);
+    reader.read_to_end(&mut check_extra_bytes);
     if !check_extra_bytes.is_empty() {
        return Err(anyhow!("extra bytes at end of file! (incorrect image dimensions or bytes stored)"));
     }
@@ -110,10 +107,10 @@ pub fn read_pfm_file(filename: &str) -> anyhow::Result<HDR, anyhow::Error> {
 
     reader.read_line(&mut line)?;
     _read_magic(&mut line)?;
+    println!("magic was read");
 
     //// checks the dimension of the image
     line.clear();
-
     reader.read_line(&mut line)?;
     let (width, height) = _parse_img_size(&mut line)?;
 
@@ -122,29 +119,30 @@ pub fn read_pfm_file(filename: &str) -> anyhow::Result<HDR, anyhow::Error> {
     reader.read_line(&mut line)?;
     let endianness = _parse_endianness(&mut line);
 
-    println!("{}", line.trim());
+    println!("endianness: {}", line.trim());
 
-pub fn _read_4bytes<R: Read>(endianness: Endianness, buf : &mut R ) -> Result<f32> {
-    match endianness {
-        Endianness::LittleEndian =>
-            {buf.read_f32::<Endianness::LittleEndian>()
-            .map_err(|e| anyhow!(e))},
-        Endianness::BigEndian =>
-            {buf.read_f32::<Endianness::BigEndian>()
-            .map_err(|e| anyhow!(e))},
-    }
-}
 
-    let hdr_img = _read_hdr(& mut line, width, height, endianness?)?;
+    let hdr_img = _read_hdr(& mut reader, width, height, endianness?)?;
     Ok(hdr_img)
 }
 
-// test parse endianness: verificare che mi dia l'endianness corretta
+/*pub fn _read_4bytes<R: Read>(endianness: Endianness, buf : &mut R ) -> Result<f32> {
+    match endianness {
+        Endianness::LittleEndian =>
+            {buf.read_f32::<Endianness::LittleEndian>()
+                .map_err(|e| anyhow!(e))},
+        Endianness::BigEndian =>
+            {buf.read_f32::<Endianness::BigEndian>()
+                .map_err(|e| anyhow!(e))},
+    }
+}*/
+
+// test parse endianness: verify endianness result is correct
 // e che si arrabbi quando il numero è 0
 #[cfg(test)]
 mod test {
     use crate::color::Color;
-    use crate::pfm_func::{Endianness, _parse_endianness, _read_hdr};
+    use crate::pfm_func::{Endianness, _parse_endianness, _read_magic, _parse_img_size, _read_hdr};
 
     const BE_ARRAY: &[u8] = &[
         0x50, 0x46, 0x0a, 0x33, 0x20, 0x32, 0x0a, 0x31, 0x2e, 0x30, 0x0a, 0x42,
@@ -155,10 +153,8 @@ mod test {
         0x20, 0x00, 0x00, 0x42, 0x48, 0x00, 0x00, 0x42, 0x70, 0x00, 0x00, 0x42,
         0x8c, 0x00, 0x00, 0x42, 0xa0, 0x00, 0x00, 0x42, 0xb4, 0x00, 0x00
     ];
-mod tests {
+
     use anyhow::anyhow;
-    use crate::color::Color;
-    use crate::pfm_func::{Endianness, _parse_endianness, _read_magic, _parse_img_size, _read_hdr};
 
     const LE_ARRAY: &[u8] = &[
         0x50, 0x46, 0x0a, 0x33, 0x20, 0x32, 0x0a, 0x2d, 0x31, 0x2e, 0x30, 0x0a,
@@ -182,7 +178,8 @@ mod tests {
         assert!(_read_magic(&mut  pf).is_err())
     }
 
-    should_panic(expected = "no more floats!")]
+    /*#[test]
+    #[should_panic(expected = "no more floats!")]
     fn test_read_4bytes_le() {
         let mut rdr = io::Cursor::new(LE_ARRAY);
         for _ in 0..3 {
@@ -201,11 +198,8 @@ mod tests {
             assert!(are_close(val, expected));
         }
         _read_4bytes(Endianness::LittleEndian,&mut rdr).expect("no more floats!");
-    }
+    }*/
 
-    fn _read_4bytes(p0: _, p1: &mut Cursor<&[u8]>) -> _ {
-        todo!()
-    }
 
     //test _parse_img_size
     #[test]
@@ -218,7 +212,7 @@ mod tests {
         Ok(())
     }
 
-    #[should_panic(expected = "no more floats!")]
+/*    #[should_panic(expected = "no more floats!")]
     fn test_read_4bytes_be() {
         let mut rdr = io::Cursor::new(BE_ARRAY);
         for _ in 0..3 {
@@ -237,7 +231,7 @@ mod tests {
         }
         _read_4bytes(Endianness::BigEndian,&mut rdr).expect("no more floats!");
     }
-}
+*/
     // test _parse_endianness
     #[test]
     fn test_parse_endianness() -> anyhow::Result<()> {
@@ -256,16 +250,16 @@ mod tests {
     }
 
     // test _read_hdr
-    fn test_read_hdr() -> anyhow::Result<()>{
+
+    // DA FINIRE
+    //#[test]
+    /*fn test_read_hdr() -> anyhow::Result<()>{
         let mut le = [0x00, 0x00, 0xc8, 0x42, 0x00, 0x00, 0x48, 0x43, 0x00, 0x00, 0x96, 0x43];
         let mut vec_le = le.to_vec();
         let mut str_le = String::from_utf8(vec_le)?;
         let img = _read_hdr(&mut  str_le, 3, 2, Endianness::LittleEndian)?;
 
-        assert_eq!(img.get_pixel(0, 1), Color::new(1.0, 2.0, 3.0));
-
-
-
+        //assert_eq!(img.get_pixel(0, 1), Color::new(1.0, 2.0, 3.0));
 
         let mut be = [0x42,
             0xc8, 0x00, 0x00, 0x43, 0x48, 0x00, 0x00, 0x43, 0x96, 0x00, 0x00, 0x43,
@@ -275,8 +269,11 @@ mod tests {
             0x20, 0x00, 0x00, 0x42, 0x48, 0x00, 0x00, 0x42, 0x70, 0x00, 0x00, 0x42,
             0x8c, 0x00, 0x00, 0x42, 0xa0, 0x00, 0x00, 0x42, 0xb4, 0x00, 0x00
         ];
+
+        Ok(())
     }
 
     // test read_pfm_file
-
+    // TODO
+*/
 }

@@ -4,6 +4,7 @@ use std::ptr::addr_of_mut;
 use crate::color::Color;
 use crate::hdr_image::HDR;
 use anyhow::anyhow;
+use std::io::Cursor;
 
 #[derive(Debug, PartialEq)]
 pub enum Endianness {
@@ -73,19 +74,28 @@ fn _read_hdr(line :&mut String, width :usize, height :usize, endianness :Endiann
         Endianness::BigEndian => f32::from_be_bytes(buf),
     };
 
+    let mut cursor = Cursor::new(line.as_bytes());
+    cursor.read_exact(&mut buffer)?;
+
     for i in 0..height {
         for j in 0..width {
-            line.as_bytes()
-                .read_exact(&mut buffer)?;
+            cursor.read_exact(&mut buffer)?;
             let r = bytes_to_f32(buffer);
-            line.as_bytes().read_exact(&mut buffer)?;
+            cursor.read_exact(&mut buffer)?;
             let g = bytes_to_f32(buffer);
-            line.as_bytes().read_exact(&mut buffer)?;
+            cursor.read_exact(&mut buffer)?;
             let b = bytes_to_f32(buffer);
             hdr_img.pixels[width*i + j] = Color::new(r, g, b);
         }
 
     }
+
+    let mut check_extra_bytes = Vec::new();
+    cursor.read_to_end(&mut check_extra_bytes);
+    if !check_extra_bytes.is_empty() {
+       return Err(anyhow!("extra bytes at end of file! (incorrect image dimensions or bytes stored)"));
+    }
+
      Ok(hdr_img)
 }
 
@@ -131,7 +141,8 @@ pub fn read_pfm_file(filename: &str) -> anyhow::Result<HDR, anyhow::Error> {
 #[cfg(test)]
 mod tests {
     use anyhow::anyhow;
-    use crate::pfm_func::{Endianness, _parse_endianness, _read_magic, _parse_img_size};
+    use crate::color::Color;
+    use crate::pfm_func::{Endianness, _parse_endianness, _read_magic, _parse_img_size, _read_hdr};
 
     //test read magic
     #[test]
@@ -169,11 +180,27 @@ mod tests {
     }
 
     // test _read_hdr
-    fn test_read_hdr() {
+    fn test_read_hdr() -> anyhow::Result<()>{
+        let mut le = [0x00, 0x00, 0xc8, 0x42, 0x00, 0x00, 0x48, 0x43, 0x00, 0x00, 0x96, 0x43];
+        let mut vec_le = le.to_vec();
+        let mut str_le = String::from_utf8(vec_le)?;
+        let img = _read_hdr(&mut  str_le, 3, 2, Endianness::LittleEndian)?;
 
+        assert_eq!(img.get_pixel(0, 1), Color::new(1.0, 2.0, 3.0));
+
+
+
+
+        let mut be = [0x42,
+            0xc8, 0x00, 0x00, 0x43, 0x48, 0x00, 0x00, 0x43, 0x96, 0x00, 0x00, 0x43,
+            0xc8, 0x00, 0x00, 0x43, 0xfa, 0x00, 0x00, 0x44, 0x16, 0x00, 0x00, 0x44,
+            0x2f, 0x00, 0x00, 0x44, 0x48, 0x00, 0x00, 0x44, 0x61, 0x00, 0x00, 0x41,
+            0x20, 0x00, 0x00, 0x41, 0xa0, 0x00, 0x00, 0x41, 0xf0, 0x00, 0x00, 0x42,
+            0x20, 0x00, 0x00, 0x42, 0x48, 0x00, 0x00, 0x42, 0x70, 0x00, 0x00, 0x42,
+            0x8c, 0x00, 0x00, 0x42, 0xa0, 0x00, 0x00, 0x42, 0xb4, 0x00, 0x00
+        ];
     }
 
     // test read_pfm_file
+    
 }
-
-//implement test for reading pfm file, change input parameter of support functions

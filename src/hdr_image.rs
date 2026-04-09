@@ -277,7 +277,7 @@ impl HDR {
             ));
         }
         for color in self.pixels.iter_mut() {
-            color.tone_map_reinhard()?;
+            color.tone_map()?;
         }
         Ok(())
     }

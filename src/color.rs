@@ -1,44 +1,28 @@
-//! # Color module
 //! Utility types and operations for colors used in the ray tracing crate.
 //!
-//! ## Notes
+//! This module provides the basic architecture to treat a single pixel color.
+//!
 //! The code in this module is written with two goals in mind:
 //! - make invalid states easy to detect during development;
-//! - allow the validation checks to be removed later, once the renderer is
-//!   finalized and performance becomes more important.
+//! - allow validation checks to be removed later for performance.
 //!
-//! In the final version of the ray tracer, some checks are expected to be
-//! removed or reduced. For this reason, arithmetic operations do not enforce
-//! validity automatically, and callers remain responsible for preserving
-//! physically meaningful values when needed.
-//!
+//! In the final version, most checks must be reduced or removed.
+//! Arithmetic operations do not enforce validity, so callers are
+//! responsible for preserving physically meaningful values.
 
 use anyhow::{Result, anyhow};
 use std::ops::{Add, Div, Mul};
 
 /// RGB color stored as three linear floating-point components.
 ///
-/// # Invariants
-/// A physically valid color should have:
-/// - finite components
-/// - non-negative components
+/// A physically valid color has finite, non-negative components.
 ///
-/// # Validation policy
-/// During development, [`Color::new`] and [`Color::self_check`] enforce these
-/// invariants to help detect errors early.
+/// During development, [`Color::new`] and [`Color::self_check`] enforce
+/// these constraints to help detect errors early. These checks may be
+/// relaxed in optimized builds.
 ///
-/// In the future, these validation checks are expected to be removed or
-/// reduced for performance reasons. As a consequence:
-/// - arithmetic operations (`Add`, `Mul`, `Div`) do not enforce validity;
-/// - intermediate colors may temporarily contain invalid values such as
-///   negative numbers, `NaN`, or `∞`;
-/// - preserving physically meaningful values becomes the responsibility of
-///   the caller.
-///
-/// # Notes
-/// This design is common in ray tracing pipelines, where intermediate values
-/// may fall outside the physically meaningful range and are later corrected
-/// by tone mapping or other post-processing steps.
+/// Arithmetic operations do not enforce validity, so intermediate values
+/// may be outside the physically meaningful range.
 #[derive(Copy, Clone, Debug, PartialEq)]
 pub struct Color {
     pub r: f32,
@@ -52,19 +36,21 @@ pub struct Color {
 // ====================
 
 impl Color {
-    /// Creates a new validated color.
+    /// Creates a new validated `Color`.
     ///
-    /// # Panics
-    /// Panics if any component is negative or not finite.
-    ///
-    /// # Notes
-    /// `-0.0` is normalized to `+0.0`.
-    ///
-    /// This validation is intended to help during development. In the final
+    /// ## Notes
+    /// All the validations are intended to help during development. In the final
     /// optimized renderer, these checks may be removed for performance.
+    /// # Examples
+    /// ```rust
+    /// use rstrace::color::Color;
+    ///
+    /// let c = Color::new(0.2, 0.4, 0.6);
+    /// assert_eq!(c.r, 0.2);
+    /// ```
     pub fn new(red: f32, green: f32, blue: f32) -> Self {
-        // Questi controlli saranno da eliminare non appena inizieremo
-        // a implementare l'algoritmo di RayTracing
+        // These checks are intended for development
+        // and may be removed later.
         if !(red >= 0.0 && green >= 0.0 && blue >= 0.0)
             || !(red.is_finite() && green.is_finite() && blue.is_finite())
         {
@@ -81,7 +67,7 @@ impl Color {
         } // The .abs() is to transform -0.0 -> +0.0
     }
 
-    fn condition(&self) -> bool {
+    fn is_valid(&self) -> bool {
         // Has this color all correct values?
         // Must be a Real, positive number!
         self.r.is_finite()
@@ -97,7 +83,7 @@ impl Color {
     /// # Errors
     /// Returns an error if any component is negative or not finite.
     pub fn self_check(&self) -> Result<()> {
-        if self.condition() {
+        if self.is_valid() {
             Ok(())
         } else {
             Err(anyhow!(
@@ -117,9 +103,6 @@ impl Color {
     ///
     /// # Errors
     /// Returns an error if the color is invalid.
-    ///
-    /// # Notes
-    /// This is not a perceptual luminance measure.
     pub fn sem_luminosity(&self) -> Result<f32> {
         self.self_check()?;
         // Shirley & Morley’s formula
@@ -130,6 +113,8 @@ impl Color {
 
     /// Applies a simple tone-mapping transform in place.
     ///
+    /// This is a simplified variant,
+    /// not a full Reinhard tone mapping operator.
     /// Each component is mapped as:
     /// `c -> c / (c + 1)`
     ///
@@ -140,7 +125,17 @@ impl Color {
     ///
     /// # Note
     /// Despite the name, this is not a traditional tone_map_reinhard operation.
-    pub fn tone_map_reinhard(&mut self) -> Result<()> {
+    ///
+    /// # Examples
+    /// ```rust
+    /// use rstrace::color::Color;
+    ///
+    /// let mut c = Color::new(2.0, 0.0, 0.0);
+    /// c.tone_map().unwrap();
+    ///
+    /// assert!(c.r < 1.0);
+    /// ```
+    pub fn tone_map(&mut self) -> Result<()> {
         self.self_check()?;
         self.r = self.r / (self.r + 1.0);
         self.g = self.g / (self.g + 1.0);
@@ -165,6 +160,18 @@ impl Default for Color {
 // ====================
 
 /// Component-wise addition of two colors.
+/// 
+/// # Examples
+/// ```rust
+/// use rstrace::color::Color;
+/// 
+/// let first_color = Color::new(1.0, 2.0, 3.0);
+/// let second_color = Color::new(10.0, 20.0, 30.0);
+/// 
+/// let sum = first_color + second_color;
+/// 
+/// assert_eq!(sum.r, 11.0);
+/// ```
 impl Add for Color {
     type Output = Color;
 
@@ -421,9 +428,9 @@ mod tests {
     fn test_clamp() {
         let mut color = Color::new(0.0, 2.5, 5.0);
         color.r = f32::NAN;
-        assert!(color.tone_map_reinhard().is_err());
+        assert!(color.tone_map().is_err());
         color.r = 1.0;
-        color.tone_map_reinhard().unwrap();
+        color.tone_map().unwrap();
         assert_eq!(color.r, 1.0 / (1.0 + 1.0));
         assert_eq!(color.g, 2.5 / (2.5 + 1.0));
         assert_eq!(color.b, 5.0 / (5.0 + 1.0));

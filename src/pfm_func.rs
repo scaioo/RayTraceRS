@@ -1,3 +1,30 @@
+//! PFM (Portable Float Map) image reading utilities.
+//!
+//! This module provides functions to parse and load `.pfm` files into the
+//! [`HDR`](crate::hdr_image::HDR) structure used by the raytracer.
+//!
+//! ## Supported features
+//! - Grayscale (`Pf`) and RGB (`PF`) formats
+//! - Little-endian and big-endian float encoding
+//! - Row-major pixel layout
+//!
+//! ## PFM format overview
+//! A `.pfm` file is structured as:
+//!
+//! ```text
+//! PF or Pf        # magic number (RGB or grayscale)
+//! <width> <height>
+//! <scale>         # sign indicates endianness
+//! <binary data>   # 32-bit floats (RGBRGB...)
+//! ```
+//!
+//! - Positive scale → big endian
+//! - Negative scale → little endian
+//!
+//! ## Notes
+//! - This implementation expects well-formed files.
+//! - Extra trailing bytes are treated as an error.
+//! - Pixel data is stored in row-major order.
 use crate::color::Color;
 use crate::hdr_image::HDR;
 use anyhow::anyhow;
@@ -6,9 +33,12 @@ use std::io::Cursor;
 use std::io::{BufRead, BufReader, Read};
 use std::ptr::addr_of_mut;
 
+/// Byte order used in the PFM file.
 #[derive(Debug, PartialEq)]
 pub enum Endianness {
+    /// Least significant byte first
     LittleEndian,
+    /// Most significant byte first
     BigEndian,
 }
 pub enum EndiannessError {
@@ -17,7 +47,10 @@ pub enum EndiannessError {
 
 // reading and writing pfm files
 
-//_read_magic reads a line from a buffer and returns an error if the line is not PF or Pf
+/// Validates the PFM magic number (`PF` or `Pf`).
+///
+/// # Errors
+/// Returns an error if the magic number is not valid.
 pub fn _read_magic(line: &mut String) -> anyhow::Result<()> {
     *line = line.trim().to_string();
     if line != "PF" && line != "Pf" {
@@ -26,7 +59,9 @@ pub fn _read_magic(line: &mut String) -> anyhow::Result<()> {
     Ok(())
 }
 
-// _parse_img_size takes a BufReader as an input and returns 2 usize values:
+/// Parses image dimensions from a header line.
+///
+/// Expected format: `<width> <height>`
 pub fn _parse_img_size(line: &mut String) -> anyhow::Result<(usize, usize)> {
     // turns the strings (created by split_whitespace into numbers (cols and rows)
     // map takes all the items created by split_whitespace (the dimensions of the image)
@@ -45,7 +80,14 @@ pub fn _parse_img_size(line: &mut String) -> anyhow::Result<(usize, usize)> {
     Ok((hdr_size[0], hdr_size[1]))
 }
 
-// _parse_endianness returns a result type containing and enum Endianness as defined above
+/// Parses the scale factor to determine endianness.
+///
+/// # Returns
+/// - `BigEndian` if value > 0
+/// - `LittleEndian` if value < 0
+///
+/// # Errors
+/// Returns an error if the value is zero or not a valid float.
 pub fn _parse_endianness(line: &mut String) -> anyhow::Result<Endianness> {
     let endianness_number: f32 = line.trim().parse::<f32>()?;
 
@@ -60,8 +102,25 @@ pub fn _parse_endianness(line: &mut String) -> anyhow::Result<Endianness> {
     }
 }
 
-// _read_hdr creates an HDR and returns it with colors assigned to each pixel read from a buffer
-// it supports both big and little endian. endianness is a parameter that needs to be passed from the calling function
+/// Reads pixel data and constructs an [`HDR`] image.
+///
+/// # Arguments
+/// * `width`, `height` - Image dimensions
+/// * `endianness` - Byte order of the pixel data
+///
+/// # Behavior
+/// - Reads 3 `f32` values per pixel (R, G, B)
+/// - Assumes row-major order
+/// - Converts bytes based on endianness
+///
+/// # Errors
+/// Returns an error if:
+/// - The buffer does not contain enough data
+/// - Extra bytes remain after reading all pixels
+///
+/// # Notes
+/// The function assumes that the cursor is positioned at the start
+/// of the binary pixel data.
 fn _read_hdr(
     line :&mut String,
     width: usize,

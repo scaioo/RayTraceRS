@@ -262,11 +262,9 @@ impl HDR {
     /// Applies Reinhard tone mapping to all pixels.
     ///
     /// # Errors
-    ///
     /// Returns an error if the image is empty.
     ///
     /// # Description
-    ///
     /// Uses a per-channel Reinhard operator:
     ///
     /// ```text

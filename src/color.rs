@@ -1,5 +1,7 @@
+//! # Color module
 //! Utility types and operations for colors used in the ray tracing crate.
 //!
+//! ## Notes
 //! The code in this module is written with two goals in mind:
 //! - make invalid states easy to detect during development;
 //! - allow the validation checks to be removed later, once the renderer is
@@ -9,6 +11,7 @@
 //! removed or reduced. For this reason, arithmetic operations do not enforce
 //! validity automatically, and callers remain responsible for preserving
 //! physically meaningful values when needed.
+//!
 
 use anyhow::{Result, anyhow};
 use std::ops::{Add, Div, Mul};

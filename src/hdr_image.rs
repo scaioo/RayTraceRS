@@ -34,9 +34,7 @@ use crate::functions::endianness_number;
 use anyhow::{Result, anyhow};
 use byteorder::{BigEndian, LittleEndian, WriteBytesExt};
 use endianness::ByteOrder;
-use std::fs::File;
-use std::io::{BufReader, Write};
-use std::path::Path;
+use std::io::Write;
 
 /// Represents an HDR (High Dynamic Range) image.
 ///
@@ -61,8 +59,6 @@ pub struct HDR {
     pub height: usize,
     pub pixels: Vec<Color>,
 }
-
-
 
 impl HDR {
     /// Creates a new HDR image filled with black pixels.
@@ -101,7 +97,7 @@ impl HDR {
     /// - The scale factor encodes endianness:
     ///   - Negative = little endian
     ///   - Positive = big endian
-    pub fn write_pfm<W: Write>(&self, mut writer: W, endianness: &ByteOrder) -> anyhow::Result<()> {
+    pub fn write_pfm<W: Write>(&self, mut writer: W, endianness: &ByteOrder) -> Result<()> {
         write!(
             writer,
             "PF\n{} {}\n{:.1}\n",

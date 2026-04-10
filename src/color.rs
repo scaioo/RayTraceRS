@@ -55,7 +55,7 @@ impl Color {
     /// Creates a new validated color.
     ///
     /// # Panics
-    /// Panics if any component is negative or not finite.
+    /// if any component is negative or not finite.
     ///
     /// # Notes
     /// `-0.0` is normalized to `+0.0`.
@@ -63,8 +63,7 @@ impl Color {
     /// This validation is intended to help during development. In the final
     /// optimized renderer, these checks may be removed for performance.
     pub fn new(red: f32, green: f32, blue: f32) -> Self {
-        // Questi controlli saranno da eliminare non appena inizieremo
-        // a implementare l'algoritmo di RayTracing
+        // This check will be deleted when the Raytracing algorithm will be implemented
         if !(red >= 0.0 && green >= 0.0 && blue >= 0.0)
             || !(red.is_finite() && green.is_finite() && blue.is_finite())
         {
@@ -221,7 +220,7 @@ impl Mul<Color> for f32 {
 /// Divides each component by a scalar.
 ///
 /// # Panics
-/// Panics if `rhs == 0.0`.
+///  if `rhs == 0.0`.
 impl Div<f32> for Color {
     type Output = Color;
 

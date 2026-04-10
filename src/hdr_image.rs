@@ -5,8 +5,8 @@ use endianness::{ByteOrder, EndiannessResult};
 use std::fs::File;
 use std::io;
 //use std::io::BufWriter;
-use std::path::Path;
 use std::io::BufRead;
+use std::path::Path;
 //use std::num::ParseIntError;
 //use endianness::ByteOrder::{BigEndian, LittleEndian};
 
@@ -16,8 +16,6 @@ pub struct HDR {
     pub height: usize,
     pub pixels: Vec<Color>,
 }
-
-
 
 impl HDR {
     // Implement the full-black image
@@ -83,11 +81,15 @@ impl HDR {
     pub fn average_luminosity(&self) -> Result<f32> {
         let count = self.pixels.len() as f32;
         if count == 0.0 {
-            return Err(anyhow!("average_luminosity():
-            no pixel to compute average_luminosity!!!!!"));
+            return Err(anyhow!(
+                "average_luminosity():
+            no pixel to compute average_luminosity!!!!!"
+            ));
         }
 
-        let log_sum: f32 = self.pixels.iter()
+        let log_sum: f32 = self
+            .pixels
+            .iter()
             .map(|col| (col.sem_luminosity().unwrap() + f32::EPSILON).log10())
             .sum();
 
@@ -96,19 +98,23 @@ impl HDR {
 
     pub fn normalization(&mut self, wrapped_a: Option<f32>) -> Result<()> {
         if self.pixels.len() == 0 {
-            return Err(anyhow!("normalization(): no pixels to normalize!!!!"))
+            return Err(anyhow!("normalization(): no pixels to normalize!!!!"));
         }
 
         let a = wrapped_a.unwrap_or(0.18);
         if a <= 0.0 {
-            return Err(anyhow!("normalization():\
-             Cannot use a non-positive normalization factor: {a}!!!!"))
+            return Err(anyhow!(
+                "normalization():\
+             Cannot use a non-positive normalization factor: {a}!!!!"
+            ));
         }
 
         let avr = self.average_luminosity()?;
         if avr == 0.0 {
-            return Err(anyhow!("normalization():
-            Average luminosity is zero, cannot normalize."));
+            return Err(anyhow!(
+                "normalization():
+            Average luminosity is zero, cannot normalize."
+            ));
         }
 
         for color in self.pixels.iter_mut() {
@@ -119,7 +125,9 @@ impl HDR {
 
     pub fn sem_clamp_image(&mut self) -> Result<()> {
         if self.pixels.len() == 0 {
-            return Err(anyhow!("sem_clamp_image(): no pixel to tone_map_reinhard!!!!!"));
+            return Err(anyhow!(
+                "sem_clamp_image(): no pixel to tone_map_reinhard!!!!!"
+            ));
         }
         for color in self.pixels.iter_mut() {
             color.tone_map_reinhard()?;
@@ -211,19 +219,27 @@ mod test {
         let mut hdr = HDR::new(1, 2);
 
         hdr.sem_clamp_image().unwrap();
-        assert_eq!(hdr.get_pixel(0,0).unwrap().r, 0.0);
+        assert_eq!(hdr.get_pixel(0, 0).unwrap().r, 0.0);
 
-        hdr.set_pixel(0,0,Color{r: 1.0, g: 2.0e02, b: 3.0e03}).unwrap();
+        hdr.set_pixel(
+            0,
+            0,
+            Color {
+                r: 1.0,
+                g: 2.0e02,
+                b: 3.0e03,
+            },
+        )
+        .unwrap();
         hdr.sem_clamp_image().unwrap();
 
-        assert_eq!(hdr.get_pixel(0,0).unwrap().r, 1.0 / 2.0);
-        assert_eq!(hdr.get_pixel(0,0).unwrap().b, 3.0e3 / (1.0 + 3.0e3));
-        assert_eq!(hdr.get_pixel(0,0).unwrap().g, 2.0e2 / (1.0 + 2.0e2));
-        assert_eq!(hdr.get_pixel(0,1).unwrap().b, 0.0);
+        assert_eq!(hdr.get_pixel(0, 0).unwrap().r, 1.0 / 2.0);
+        assert_eq!(hdr.get_pixel(0, 0).unwrap().b, 3.0e3 / (1.0 + 3.0e3));
+        assert_eq!(hdr.get_pixel(0, 0).unwrap().g, 2.0e2 / (1.0 + 2.0e2));
+        assert_eq!(hdr.get_pixel(0, 1).unwrap().b, 0.0);
     }
 }
 
-     //    .collect::<Vec<u8>>();
+//    .collect::<Vec<u8>>();
 
-     //// split_whitespace is implemented on str and returns a SplitWhitespace<'a str>
-
+//// split_whitespace is implemented on str and returns a SplitWhitespace<'a str>

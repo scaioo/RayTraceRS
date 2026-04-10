@@ -10,8 +10,8 @@
 //! validity automatically, and callers remain responsible for preserving
 //! physically meaningful values when needed.
 
-use std::ops::{Add, Div, Mul};
 use anyhow::{Result, anyhow};
+use std::ops::{Add, Div, Mul};
 
 /// RGB color stored as three linear floating-point components.
 ///
@@ -63,7 +63,8 @@ impl Color {
         // Questi controlli saranno da eliminare non appena inizieremo
         // a implementare l'algoritmo di RayTracing
         if !(red >= 0.0 && green >= 0.0 && blue >= 0.0)
-            || !(red.is_finite() && green.is_finite() && blue.is_finite()) {
+            || !(red.is_finite() && green.is_finite() && blue.is_finite())
+        {
             panic!(
                 "Color constructor:\ninvalid color red({}), green({}), blue({})",
                 red, green, blue
@@ -80,9 +81,12 @@ impl Color {
     fn condition(&self) -> bool {
         // Has this color all correct values?
         // Must be a Real, positive number!
-        self.r.is_finite() && self.r.is_sign_positive()
-            && self.g.is_finite() && self.g.is_sign_positive()
-            && self.b.is_finite() && self.b.is_sign_positive()
+        self.r.is_finite()
+            && self.r.is_sign_positive()
+            && self.g.is_finite()
+            && self.g.is_sign_positive()
+            && self.b.is_finite()
+            && self.b.is_sign_positive()
     }
 
     /// Verifies that the color satisfies the validity invariants.
@@ -95,7 +99,9 @@ impl Color {
         } else {
             Err(anyhow!(
                 "invalid color: red({}), green({}), blue({})",
-                self.r, self.g, self.b
+                self.r,
+                self.g,
+                self.b
             ))
         }
     }

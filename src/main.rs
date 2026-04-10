@@ -1,33 +1,27 @@
 use rstrace::color;
+use rstrace::hdr_image;
 use rstrace::hdr_image::HDR;
-use rstrace::pfm_func::{read_pfm_file};
+use rstrace::pfm_func;
 use rstrace::pfm_func::_parse_endianness;
+use rstrace::pfm_func::Parameter;
 use std::fs;
 use std::fs::File;
 use std::io;
 use std::io::BufRead;
-use rstrace::hdr_image;
 
 fn main() {
     // Leave two lines between the execution and the printing of the
     println! {"\n------------------------------------------------------\n"};
 
-    let img = read_pfm_file("reference_be.pfm");
+  /*  let boh = Parameter::parse_command_line();
 
-    match img {
-        Ok(img) => {
-            println!("r pixel 1: {}", img.pixels[0].r);
-            println!("g pixel 1: {}", img.pixels[0].g);
-            println!("b pixel 1: {}", img.pixels[0].b);
-
-            println!("r pixel 2: {}", img.pixels[1].r);
-            println!("g pixel 2: {}", img.pixels[1].g);
-            println!("b pixel 2: {}", img.pixels[1].b);
+    match boh {
+        Ok(boh) => {
+            println!("{}", boh.factor_a);
         }
-
-        Err(e) => {
-            println!("{e}");
-        }
-    }
-
+        Err(E) => (),
+    }*/
+    let mut par = Parameter::new(String::from("ahia"), 1.0, 1.0, String::from("arrive"));
+    pfm_func::hdr_to_ldr(&mut par);
+    println!("all done");
 }

@@ -119,6 +119,7 @@ pub fn _parse_endianness(line: &str) -> anyhow::Result<Endianness> {
 /// Reads pixel data and constructs an [`HDR`] image.
 ///
 /// # Arguments
+/// * `line`- Pixels string from file
 /// * `width`, `height` - Image dimensions
 /// * `endianness` - Byte order of the pixel data
 ///
@@ -136,12 +137,17 @@ pub fn _parse_endianness(line: &str) -> anyhow::Result<Endianness> {
 /// The function assumes that the cursor is positioned at the start
 /// of the binary pixel data.
 fn _read_hdr(
-    line: &mut String,
+    line: & str,    // WE RISK PROBLEMS DUE TO UTF-8 CONVERSION!!!! 
+                    // TO BE CHANGED!!!!
     width: usize,
     height: usize,
     endianness: Endianness,
 ) -> anyhow::Result<HDR> {
+    // Create an empty image
     let mut hdr_img: HDR = HDR::new(width, height);
+    // Create a cursor on the read bytes
+    let mut cursor = Cursor::new(line.as_bytes());
+    //cursor.read_exact(&mut buffer)?;
     let mut buffer = [0; 4];
 
     //bytes to f32 is a closure that avoids code repetition, it takes an array of four bytes and,
@@ -151,10 +157,8 @@ fn _read_hdr(
         Endianness::BigEndian => f32::from_be_bytes(buf),
     };
 
-    let mut cursor = Cursor::new(line.as_bytes());
-    cursor.read_exact(&mut buffer)?;
-
-    for i in 0..height {
+    // Color the empty image
+    for i in (0..height).rev() {
         for j in 0..width {
             cursor.read_exact(&mut buffer)?;
             let r = bytes_to_f32(buffer);
@@ -181,6 +185,7 @@ fn _read_hdr(
 // and returns an HDR type containing the datas in the pfm.
 // row-major order is used to read pixels
 
+// MISSING DOCUMENTATION!!!!
 pub fn read_pfm_file(filename: &str) -> anyhow::Result<HDR, anyhow::Error> {
     let file = File::open(filename);
     let mut reader = BufReader::new(file?);

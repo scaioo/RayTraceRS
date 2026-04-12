@@ -9,6 +9,5 @@ image = "0.25.10"
 
 endianness = "0.2"
 buffered-reader = "1.4.0"
-
 as-bytes = "0.2.0"
 byteorder = "1.5.0"

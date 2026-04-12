@@ -1,9 +1,8 @@
 use rstrace::color;
 use rstrace::hdr_image;
 use rstrace::hdr_image::HDR;
-use rstrace::pfm_func;
 use rstrace::pfm_func::_parse_endianness;
-use rstrace::pfm_func::Parameter;
+use rstrace::pfm_func::read_pfm_file;
 use std::fs;
 use std::fs::File;
 use std::io;

@@ -1,19 +1,28 @@
-//! ## RayTraceRS - Review this text: NOT THE FINAL FORM!
+//! # Raytracer Core Library
 //!
-//! This is a Rust engine to compute raytracing simulation.
+//! This crate defines the foundational components of the raytracer.
+//! It currently focuses on core data structures and utilities,
+//! without implementing the rendering pipeline yet.
 //!
-//! ### Basic Usage
-//! ```rust
-//! use RayTraceRS::color::Color;
+//! The provided modules cover:
+//! - color representation and manipulation
+//! - small mathematical utilities
+//! - HDR image storage
+//! - PFM (Portable Float Map) file handling
 //!
-//! // Create a new red color
-//! let red = Color::new(1.0, 0.0, 0.0);
-//!
-//! // Check that the red component is correct
-//! assert_eq!(red.r, 1.0);
-//! ```
+//! //! // Create a new red color
+// //! let red = Color::new(1.0, 0.0, 0.0);
+// //!
+// //! // Check that the red component is correct
+// //! assert_eq!(red.r, 1.0);
+// //! ```
+//! ## Modules
+//! - [`functions`] — Small utility and helper functions
+//! - [`color`] — RGB color representation and operations
+//! - [`hdr_image`] — High Dynamic Range image structure and manipulation
+//! - [`pfm_func`] — PFM file reading utilities
 
 pub mod color;
-pub mod functions;
 pub mod hdr_image;
+pub mod functions;
 pub mod pfm_func;

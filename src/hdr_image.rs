@@ -1,15 +1,60 @@
+//! HDR Image Module
+//!
+//! This module defines the [`HDR`] struct, which represents a High Dynamic Range
+//! image using floating-point RGB pixels.
+//!
+//! It provides:
+//! - Image creation and pixel manipulation
+//! - Tone mapping utilities
+//! - Export to `.pfm` (Portable Float Map) format
+//!
+//! ## Features
+//!
+//! - Linear RGB floating-point storage
+//! - Safe pixel indexing with bounds checking
+//! - Basic tone mapping (Reinhard operator)
+//! - Log-average luminance computation
+//!
+//! ## Example
+//!
+//! ```rust
+//! use crate::color::Color;
+//! use crate::hdr::HDR;
+//!
+//! let mut img = HDR::new(512, 512);
+//!
+//! img.set_pixel(10, 10, Color { r: 1.0, g: 0.5, b: 0.2 }).unwrap();
+//! let px = img.get_pixel(10, 10).unwrap();
+//!
+//! assert_eq!(px.r, 1.0);
+//! ```
+//!
 use crate::color::Color;
-//use crate::functions;
+use crate::functions::endianness_number;
 use anyhow::{Result, anyhow};
-use endianness::{ByteOrder, EndiannessResult};
+use byteorder::{BigEndian, LittleEndian, WriteBytesExt};
+use endianness::ByteOrder;
 use std::fs::File;
-use std::io;
-//use std::io::BufWriter;
-use std::io::BufRead;
+use std::io::{BufReader, Write};
 use std::path::Path;
-//use std::num::ParseIntError;
-//use endianness::ByteOrder::{BigEndian, LittleEndian};
 
+/// Represents an HDR (High Dynamic Range) image.
+///
+/// Pixels are stored as a flat vector of [`Color`] in row-major order.
+///
+/// # Fields
+///
+/// - `width`: Image width in pixels
+/// - `height`: Image height in pixels
+/// - `pixels`: Flat vector of RGB colors
+///
+/// # Storage Layout
+///
+/// Pixels are stored row-by-row:
+///
+/// ```text
+/// index = x + y * width
+/// ```
 #[derive(Clone, Debug, PartialEq)]
 pub struct HDR {
     pub width: usize,
@@ -17,8 +62,19 @@ pub struct HDR {
     pub pixels: Vec<Color>,
 }
 
+
+
 impl HDR {
-    // Implement the full-black image
+    /// Creates a new HDR image filled with black pixels.
+    ///
+    /// # Arguments
+    ///
+    /// * `width` - Image width
+    /// * `height` - Image height
+    ///
+    /// # Returns
+    ///
+    /// A new [`HDR`] image where all pixels are initialized to `Color::default()`.
     pub fn new(width: usize, height: usize) -> HDR {
         let pixels = vec![Color::default(); width * height];
         HDR {
@@ -28,42 +84,90 @@ impl HDR {
         }
     }
 
-    // DA FARE !!!
-    pub fn write_pfm(&self, filename: &str, endianness: &ByteOrder) -> Result<()> {
-        // Create the new file with name 'filename'
+    /// Writes the image to a `.pfm` (Portable Float Map) file.
+    ///
+    /// # Arguments
+    /// * `filename` - Output file path
+    /// * `endianness` - Byte order used for writing floats
+    ///
+    /// # Errors
+    /// Returns an error if:
+    /// - The file cannot be created
+    /// - Writing to the file fails
+    ///
+    /// # Notes
+    /// - The image is written in **binary format**
+    /// - Pixels are stored **bottom-to-top** as required by the PFM specification
+    /// - The scale factor encodes endianness:
+    ///   - Negative = little endian
+    ///   - Positive = big endian
+    pub fn write_pfm<W: Write>(&self, mut writer: W, endianness: &ByteOrder) -> anyhow::Result<()> {
+        write!(
+            writer,
+            "PF\n{} {}\n{:.1}\n",
+            self.width,
+            self.height,
+            endianness_number(endianness)
+        )?;
 
-        let path = Path::new(filename); //Create a path to make the new file
-        let display = path.display(); //Create a variable to print the path
-        let mut file = match File::create(filename) {
-            Err(why) => panic!("couldn't create {}: {}", display, why),
-            Ok(file) => file,
-        };
-
-        // Need to find a way to write in the line.
-        // How can I write in bytes?
-
-        // Later I will need this...
-        // let ENDIAN = functions::endianness_number(endianness);
+        match endianness {
+            ByteOrder::LittleEndian => {
+                for y in (0..self.height).rev() {
+                    for x in 0..self.width {
+                        let color = self.get_pixel(x, y)?;
+                        writer.write_f32::<LittleEndian>(color.r)?;
+                        writer.write_f32::<LittleEndian>(color.g)?;
+                        writer.write_f32::<LittleEndian>(color.b)?;
+                    }
+                }
+            }
+            ByteOrder::BigEndian => {
+                for y in (0..self.height).rev() {
+                    for x in 0..self.width {
+                        let color = self.get_pixel(x, y)?;
+                        writer.write_f32::<BigEndian>(color.r)?;
+                        writer.write_f32::<BigEndian>(color.g)?;
+                        writer.write_f32::<BigEndian>(color.b)?;
+                    }
+                }
+            }
+        }
 
         Ok(())
     }
 
+    /// Sets the color of a pixel at `(x, y)`.
+    ///
+    /// # Errors
+    /// Returns an error if `(x, y)` is out of bounds.
     pub fn set_pixel(&mut self, x: usize, y: usize, color: Color) -> Result<()> {
         self.check_position(x, y)?;
         self.pixels[y * self.width + x] = color;
         Ok(())
     }
 
+    /// Returns the color of the pixel at `(x, y)`.
+    ///
+    /// # Errors
+    /// Returns an error if `(x, y)` is out of bounds.
     pub fn get_pixel(&self, x: usize, y: usize) -> Result<Color> {
         //Ok(self.pixels[y * self.width + x])  Is it better this previous version??
         Ok(self.pixels[self.vector_index(x, y)?])
     }
 
+    /// Converts `(x, y)` coordinates into a linear index.
+    ///
+    /// # Errors
+    /// Returns an error if `(x, y)` is out of bounds.
     pub fn vector_index(&self, x: usize, y: usize) -> Result<usize> {
         self.check_position(x, y)?;
         Ok(x + y * self.width)
     }
 
+    /// Checks whether `(x, y)` is inside image bounds.
+    ///
+    /// # Errors
+    /// Returns an error if the coordinates are out of bounds.
     fn check_position(&self, x: usize, y: usize) -> Result<()> {
         if x < self.width && y < self.height {
             Ok(())
@@ -78,6 +182,21 @@ impl HDR {
 // ====================
 
 impl HDR {
+    /// Computes the logarithmic average luminance of the image.
+    ///
+    /// # Returns
+    /// The log-average luminance as `f32`.
+    ///
+    /// # Errors
+    /// Returns an error if the image contains no pixels.
+    ///
+    /// # Notes
+    /// Uses:
+    /// ```text
+    /// L_avg = 10^( (1/N) * Σ log10(L_i + ε) )
+    /// ```
+    ///
+    /// where `ε` avoids log(0).
     pub fn average_luminosity(&self) -> Result<f32> {
         let count = self.pixels.len() as f32;
         if count == 0.0 {
@@ -96,6 +215,23 @@ impl HDR {
         Ok(10.0_f32.powf(log_sum / count))
     }
 
+    /// Normalizes the image luminance.
+    ///
+    /// # Arguments
+    /// * `wrapped_a` - Optional exposure scaling factor (default: `0.18`)
+    ///
+    /// # Errors
+    /// Returns an error if:
+    /// - The image is empty
+    /// - `a <= 0`
+    /// - Average luminance is zero
+    ///
+    /// # Description
+    /// Each pixel is scaled by:
+    ///
+    /// ```text
+    /// color = (color * a) / L_avg
+    /// ```
     pub fn normalization(&mut self, wrapped_a: Option<f32>) -> Result<()> {
         if self.pixels.len() == 0 {
             return Err(anyhow!("normalization(): no pixels to normalize!!!!"));
@@ -123,6 +259,17 @@ impl HDR {
         Ok(())
     }
 
+    /// Applies Reinhard tone mapping to all pixels.
+    ///
+    /// # Errors
+    /// Returns an error if the image is empty.
+    ///
+    /// # Description
+    /// Uses a per-channel Reinhard operator:
+    ///
+    /// ```text
+    /// c = c / (1 + c)
+    /// ```
     pub fn sem_clamp_image(&mut self) -> Result<()> {
         if self.pixels.len() == 0 {
             return Err(anyhow!(
@@ -211,7 +358,44 @@ mod test {
 
     #[test]
     fn test_write_pfm() {
-        panic!("YOU NEED TO WRITE THE TEST!!!")
+        let reference_le_bytes = vec![
+            0x50, 0x46, 0x0a, 0x33, 0x20, 0x32, 0x0a, 0x2d, 0x31, 0x2e, 0x30, 0x0a, 0x00, 0x00,
+            0xc8, 0x42, 0x00, 0x00, 0x48, 0x43, 0x00, 0x00, 0x96, 0x43, 0x00, 0x00, 0xc8, 0x43,
+            0x00, 0x00, 0xfa, 0x43, 0x00, 0x00, 0x16, 0x44, 0x00, 0x00, 0x2f, 0x44, 0x00, 0x00,
+            0x48, 0x44, 0x00, 0x00, 0x61, 0x44, 0x00, 0x00, 0x20, 0x41, 0x00, 0x00, 0xa0, 0x41,
+            0x00, 0x00, 0xf0, 0x41, 0x00, 0x00, 0x20, 0x42, 0x00, 0x00, 0x48, 0x42, 0x00, 0x00,
+            0x70, 0x42, 0x00, 0x00, 0x8c, 0x42, 0x00, 0x00, 0xa0, 0x42, 0x00, 0x00, 0xb4, 0x42,
+        ];
+
+        let reference_be_bytes = vec![
+            0x50, 0x46, 0x0a, 0x33, 0x20, 0x32, 0x0a, 0x31, 0x2e, 0x30, 0x0a, 0x42, 0xc8, 0x00,
+            0x00, 0x43, 0x48, 0x00, 0x00, 0x43, 0x96, 0x00, 0x00, 0x43, 0xc8, 0x00, 0x00, 0x43,
+            0xfa, 0x00, 0x00, 0x44, 0x16, 0x00, 0x00, 0x44, 0x2f, 0x00, 0x00, 0x44, 0x48, 0x00,
+            0x00, 0x44, 0x61, 0x00, 0x00, 0x41, 0x20, 0x00, 0x00, 0x41, 0xa0, 0x00, 0x00, 0x41,
+            0xf0, 0x00, 0x00, 0x42, 0x20, 0x00, 0x00, 0x42, 0x48, 0x00, 0x00, 0x42, 0x70, 0x00,
+            0x00, 0x42, 0x8c, 0x00, 0x00, 0x42, 0xa0, 0x00, 0x00, 0x42, 0xb4, 0x00, 0x00,
+        ];
+        let mut img = HDR::new(3, 2);
+
+        img.set_pixel(0, 0, Color::new(1.0e1, 2.0e1, 3.0e1))
+            .unwrap(); // Each component is
+        img.set_pixel(1, 0, Color::new(4.0e1, 5.0e1, 6.0e1))
+            .unwrap(); // different from any
+        img.set_pixel(2, 0, Color::new(7.0e1, 8.0e1, 9.0e1))
+            .unwrap(); // other: important in
+        img.set_pixel(0, 1, Color::new(1.0e2, 2.0e2, 3.0e2))
+            .unwrap(); // tests!
+        img.set_pixel(1, 1, Color::new(4.0e2, 5.0e2, 6.0e2))
+            .unwrap();
+        img.set_pixel(2, 1, Color::new(7.0e2, 8.0e2, 9.0e2))
+            .unwrap();
+        let mut buffer: Vec<u8> = vec![];
+        img.write_pfm(&mut buffer, &ByteOrder::LittleEndian)
+            .unwrap();
+        assert_eq!(buffer, reference_le_bytes);
+        buffer = vec![];
+        img.write_pfm(&mut buffer, &ByteOrder::BigEndian).unwrap();
+        assert_eq!(buffer, reference_be_bytes);
     }
 
     #[test]
@@ -239,7 +423,3 @@ mod test {
         assert_eq!(hdr.get_pixel(0, 1).unwrap().b, 0.0);
     }
 }
-
-//    .collect::<Vec<u8>>();
-
-//// split_whitespace is implemented on str and returns a SplitWhitespace<'a str>

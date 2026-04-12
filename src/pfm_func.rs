@@ -41,6 +41,7 @@ pub enum Endianness {
     BigEndian,
 }
 pub enum EndiannessError {
+    /// Scale value is not a number
     InvalidValue,
 }
 
@@ -49,53 +50,69 @@ pub enum EndiannessError {
 /// Validates the PFM magic number (`PF` or `Pf`).
 ///
 /// # Errors
-/// Returns an error if the magic number is not valid.
-pub fn _read_magic(line: &mut String) -> anyhow::Result<()> {
-    *line = line.trim().to_string();
-    if line != "PF" && line != "Pf" {
+/// Returns an error if the provided line is not a valid PFM magic header.
+///
+/// # Notes
+/// The input is expected to be the first line of a PFM file, already read as text.
+pub fn _read_magic(line: &str) -> anyhow::Result<()> {
+    let trimmed = line.trim();
+    if trimmed != "PF" && trimmed != "Pf" {
         return Err(anyhow!("magic is not PF nor Pf! file is not PFM"));
     }
     Ok(())
 }
 
-/// Parses image dimensions from a header line.
+/// Parses the image dimensions from a PFM header line.
 ///
-/// Expected format: `<width> <height>`
-pub fn _parse_img_size(line: &mut String) -> anyhow::Result<(usize, usize)> {
-    // turns the strings (created by split_whitespace into numbers (cols and rows)
-    // map takes all the items created by split_whitespace (the dimensions of the image)
-    // and parse turns them from string into usize
-    let hdr_size: Vec<usize> = line
-        .split_whitespace()
-        .map(|x| x.parse::<usize>())
-        .collect::<Result<_, _>>()?;
-
-    if hdr_size.len() != 2 {
-        return Err(anyhow!(
-            "incorrect image size, _parse_img_size returns {} values",
-            hdr_size.len()
-        ));
-    }
-    Ok((hdr_size[0], hdr_size[1]))
-}
-
-/// Parses the scale factor to determine endianness.
-///
-/// # Returns
-/// - `BigEndian` if value > 0
-/// - `LittleEndian` if value < 0
+/// The input is expected to contain two whitespace-separated integers:
+/// `<width> <height>`.
 ///
 /// # Errors
-/// Returns an error if the value is zero or not a valid float.
-pub fn _parse_endianness(line: &mut String) -> anyhow::Result<Endianness> {
-    let endianness_number: f32 = line.trim().parse::<f32>()?;
-    
-    if endianness_number > 0.0 {
+/// Returns an error if:
+/// - the width or height is missing
+/// - parsing fails
+/// - more than two values are provided
+pub fn _parse_img_size(line: &str) -> anyhow::Result<(usize, usize)> {
+    // Note: no control is made to verify the input is a single line
+    // i.e. : "3\n2" is valid.
+    let mut parts = line.split_whitespace();
+
+    let width = parts
+        .next()
+        .ok_or_else(|| anyhow!("missing width"))?
+        .parse::<usize>()?;
+
+    let height = parts
+        .next()
+        .ok_or_else(|| anyhow!("missing height"))?
+        .parse::<usize>()?;
+
+    if parts.next().is_some() {
+        return Err(anyhow!("too many values for image size"));
+    }
+
+    Ok((width, height))
+}
+
+/// Parses the PFM scale factor to determine endianness.
+///
+/// # Returns
+/// - `BigEndian` if the value is positive
+/// - `LittleEndian` if the value is negative
+///
+/// # Errors
+/// Returns an error if:
+/// - the value is zero
+/// - parsing as `f32` fails
+pub fn _parse_endianness(line: &str) -> anyhow::Result<Endianness> {
+    let scale: f32 = line.trim().parse::<f32>()?;
+
+    if scale > 0.0 {
         Ok(Endianness::BigEndian)
-    } else if endianness_number < 0.0 {
+    } else if scale < 0.0 {
         Ok(Endianness::LittleEndian)
     } else {
-        Err(anyhow::anyhow!("invalid endianness value in pfm file"))
+        Err(anyhow::anyhow!("PFM scale factor cannot be zero"))
     }
 }
 
@@ -231,11 +248,15 @@ mod test {
     use std::io;
     use std::io::{BufRead, Cursor};
 
-    // Test for read_4bytes()
     #[test]
     fn test_read_magic() {
         let mut pf: String = String::from("pf");
-        assert!(_read_magic(&mut pf).is_err())
+        assert!(_read_magic(&mut pf).is_err());
+        assert!(_read_magic("PF\nERROR!!").is_err());
+
+        pf = String::from("\nPf\n");
+        assert!(_read_magic(&mut pf).is_ok());
+        assert!(_read_magic("PF\n\n\n\n\n").is_ok());
     }
 
     /*#[test]
@@ -265,11 +286,13 @@ mod test {
     fn test_parse_img_size() -> anyhow::Result<()> {
         let mut img_dim = String::from("3 2");
         assert_eq!(_parse_img_size(&mut img_dim)?, (3, 2));
-
-        let mut img_dim = String::from("3");
-        assert!(_parse_img_size(&mut img_dim).is_err());
+        assert!(_parse_img_size("   3 ").is_err());
+        assert!(_parse_img_size("3   2  ").is_ok());
+        assert!(_parse_img_size("3 2 3").is_err());
         Ok(())
     }
+
+
 
     /*    #[should_panic(expected = "no more floats!")]
         fn test_read_4bytes_be() {

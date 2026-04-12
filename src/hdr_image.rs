@@ -255,7 +255,7 @@ impl HDR {
         Ok(())
     }
 
-    /// Applies Reinhard tone mapping to all pixels.
+    /// Applies Tone mapping to all pixels.
     ///
     /// # Errors
     /// Returns an error if the image is empty.

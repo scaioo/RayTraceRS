@@ -282,20 +282,35 @@ impl HDR {
     }
 }
 
+// TODO MISSING DOCUMENTATION
+// Note:
+// After a little look to the code a couple of double-checks:
+// - [ ] What does the Box<> do?
+// - [ ] Why do you use .expect() instead of .unwrap() when treating the .pfm reading?
+//       Isn't it better to keep the original Err message we designed?
+// - [ ] What is the first loop for?
+// - [ [ Watch out for reversed pixel writing in .pfm files!
 pub fn hdr_to_ldr(img: &HDR, argv: &mut Parameter) -> Result<(), Box<dyn std::error::Error>> {
     println!("{}", &mut argv.input_pfm_file_name);
-    let mut img = read_pfm_file(&mut argv.input_pfm_file_name).expect("error reading input file");
+    // Creates HDR object and fill with the .pfm file
+    let mut img = read_pfm_file(&mut argv.input_pfm_file_name)
+        .expect("error reading input file");
 
     println!(
         "File {} has been opened and read",
         &mut argv.input_pfm_file_name
     );
+    
+    // Tone mapping of the HDR image
     img.normalization(Some(argv.factor_a))
         .expect("error during image normalization");
     img.sem_clamp_image().expect("error: sem_clamp_image");
 
+    // Create RgbImage box and fill it with the image
     let mut new_img: RgbImage = RgbImage::new(img.width as u32, img.height as u32);
-    for y in 0..new_img.height() {
+    
+    // What is this loop for? Did you want to change [`img`]? 
+    for y in 0..new_img.height() { // Shouldn't it .rev()?
         for x in 0..new_img.width() {
             let cur_color = new_img.get_pixel(x, y);
 
@@ -306,7 +321,7 @@ pub fn hdr_to_ldr(img: &HDR, argv: &mut Parameter) -> Result<(), Box<dyn std::er
     }
     let to_u8 = |x: f32| (x * 255.0).round() as u8;
 
-    for y in 0..img.height {
+    for y in 0..img.height { // What is LDR convention? Still .rev()? Another?
         for x in 0..img.width {
             let pixel = &img.pixels[img.width * (img.height - 1 - y) + x];
 

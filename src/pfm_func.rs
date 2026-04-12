@@ -28,18 +28,9 @@
 use crate::color::Color;
 use crate::hdr_image::HDR;
 use anyhow::anyhow;
-use std::arch::x86_64::_mm256_insert_epi16;
-use std::char::from_u32;
-use std::env;
 use std::fs::File;
-
-use std::io;
-use std::io::Seek;
 use std::io::{BufRead, BufReader, Read, stdin};
-use std::ptr::addr_of_mut;
 use std::string::ToString;
-
-use std::io::Cursor;
 
 /// Byte order used in the PFM file.
 #[derive(Debug, PartialEq)]
@@ -188,12 +179,37 @@ fn _read_hdr(
     Ok(hdr_img)
 }
 
-// read_pfm_image uses the functions defined above to read all the necessary information from a pfm file
-// and returns an HDR type containing the datas in the pfm.
-// row-major order is used to read pixels
 
-// MISSING DOCUMENTATION!!!!
-pub fn read_pfm_file(filename: &str) -> anyhow::Result<HDR, anyhow::Error> {
+/// Reads a `.pfm` (Portable Float Map) file and returns an [`HDR`] image.
+///
+/// This function parses the PFM header (magic number, dimensions, and scale)
+/// and reads the binary pixel data into an [`HDR`] structure.
+///
+/// Both RGB (`PF`) and grayscale (`Pf`) formats are supported. Pixel data
+/// is interpreted according to the endianness specified by the scale factor.
+///
+/// # Errors
+/// Returns an error if:
+/// - the file cannot be opened
+/// - the magic number is invalid
+/// - the image dimensions cannot be parsed
+/// - the scale factor is invalid or zero
+/// - the binary data is incomplete or malformed
+/// - extra bytes are found after the pixel data
+///
+/// # Examples
+/// ```rust,no_run
+/// use rstrace::pfm_func::read_pfm_file;
+///
+/// let image : HDR = read_pfm_file("image.pfm").unwrap();
+/// assert!(image.width > 0);
+/// assert!(image.height > 0);
+/// ```
+///
+/// # Notes
+/// The function expects a well-formed PFM file. Validation is performed
+/// during parsing, and any inconsistency results in an error.
+pub fn read_pfm_file(filename: &str) -> anyhow::Result<HDR> {
     let file = File::open(filename);
     let mut reader = BufReader::new(file?);
     let mut line: String = String::new();
@@ -228,9 +244,11 @@ pub struct Parameter {
 }
 
 impl Parameter {
+    // TODO: DOCUMENTATION!
     pub fn new(args: Vec<String>) -> anyhow::Result<Parameter> {
-        if args.len() != 5 {
-            return Err(anyhow!("wrong number of parameters"));
+        if args.len() != 5 { // can we specify better the expected parameters?
+            return Err(anyhow!("wrong number of parameters: expected\n\
+            <input_file_name> <factor_a> <gamma> <output_file_name>"));
         }
 
         let input_temp: &String = &args[1];
@@ -307,28 +325,6 @@ mod test {
         assert!(_read_magic("PF\n\n\n\n\n").is_ok());
     }
 
-    /*#[test]
-    #[should_panic(expected = "no more floats!")]
-    fn test_read_4bytes_le() {
-        let mut rdr = io::Cursor::new(LE_ARRAY);
-        for _ in 0..3 {
-            let mut line = String::new();
-            let _ =rdr.read_line(& mut line).unwrap();
-        }
-
-        for i in 0..9 {
-            let val = _read_4bytes(Endianness::LittleEndian, &mut rdr).unwrap();
-            let expected = ((i + 1) * 100) as f32;
-            assert!(are_close(val, expected));
-        }
-        for i in 0..9 {
-            let val = _read_4bytes(Endianness::LittleEndian, &mut rdr).unwrap();
-            let expected = ((i + 1) * 10) as f32;
-            assert!(are_close(val, expected));
-        }
-        _read_4bytes(Endianness::LittleEndian,&mut rdr).expect("no more floats!");
-    }*/
-
     //test _parse_img_size
     #[test]
     fn test_parse_img_size() -> anyhow::Result<()> {
@@ -340,28 +336,6 @@ mod test {
         Ok(())
     }
 
-
-
-    /*    #[should_panic(expected = "no more floats!")]
-        fn test_read_4bytes_be() {
-            let mut rdr = io::Cursor::new(BE_ARRAY);
-            for _ in 0..3 {
-                let mut line = String::new();
-                let _ =rdr.read_line(& mut line).unwrap();
-            }
-            for i in 0..9 {
-                let val = _read_4bytes(Endianness::BigEndian, &mut rdr).unwrap();
-                let expected = ((i + 1) * 100) as f32;
-                assert!(are_close(val, expected));
-            }
-            for i in 0..9 {
-                let val = _read_4bytes(Endianness::BigEndian, &mut rdr).unwrap();
-                let expected = ((i + 1) * 10) as f32;
-                assert!(are_close(val, expected));
-            }
-            _read_4bytes(Endianness::BigEndian,&mut rdr).expect("no more floats!");
-        }
-    */
     // test _parse_endianness
     #[test]
     fn test_parse_endianness() -> anyhow::Result<()> {
@@ -378,32 +352,4 @@ mod test {
         assert!(_parse_endianness(&mut test_char).is_err());
         Ok(())
     }
-
-    // test _read_hdr
-
-    // DA FINIRE
-    //#[test]
-    /*fn test_read_hdr() -> anyhow::Result<()>{
-            let mut le = [0x00, 0x00, 0xc8, 0x42, 0x00, 0x00, 0x48, 0x43, 0x00, 0x00, 0x96, 0x43];
-            let mut vec_le = le.to_vec();
-            let mut str_le = String::from_utf8(vec_le)?;
-            let img = _read_hdr(&mut  str_le, 3, 2, Endianness::LittleEndian)?;
-
-            //assert_eq!(img.get_pixel(0, 1), Color::new(1.0, 2.0, 3.0));
-
-            let mut be = [0x42,
-                0xc8, 0x00, 0x00, 0x43, 0x48, 0x00, 0x00, 0x43, 0x96, 0x00, 0x00, 0x43,
-                0xc8, 0x00, 0x00, 0x43, 0xfa, 0x00, 0x00, 0x44, 0x16, 0x00, 0x00, 0x44,
-                0x2f, 0x00, 0x00, 0x44, 0x48, 0x00, 0x00, 0x44, 0x61, 0x00, 0x00, 0x41,
-                0x20, 0x00, 0x00, 0x41, 0xa0, 0x00, 0x00, 0x41, 0xf0, 0x00, 0x00, 0x42,
-                0x20, 0x00, 0x00, 0x42, 0x48, 0x00, 0x00, 0x42, 0x70, 0x00, 0x00, 0x42,
-                0x8c, 0x00, 0x00, 0x42, 0xa0, 0x00, 0x00, 0x42, 0xb4, 0x00, 0x00
-            ];
-
-            Ok(())
-        }
-
-        // test read_pfm_file
-        // TODO
-    */
 }

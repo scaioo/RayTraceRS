@@ -1,12 +1,7 @@
-use rstrace::hdr_image;
-use rstrace::hdr_image::{HDR, hdr_to_ldr};
+use rstrace::hdr_image::{hdr_to_ldr};
 use rstrace::pfm_func::read_pfm_file;
-use rstrace::pfm_func::{_parse_endianness, Parameter};
-use rstrace::{color, pfm_func};
-use std::fs;
-use std::fs::File;
-use std::io;
-use std::io::BufRead;
+use rstrace::pfm_func::{ Parameter};
+
 
 fn main() {
     // Leave two lines between the execution and the printing of the

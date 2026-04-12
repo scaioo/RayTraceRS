@@ -23,6 +23,6 @@
 //! - [`pfm_func`] — PFM file reading utilities
 
 pub mod color;
-pub mod hdr_image;
 pub mod functions;
+pub mod hdr_image;
 pub mod pfm_func;

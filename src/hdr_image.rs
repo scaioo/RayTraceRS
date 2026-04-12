@@ -38,6 +38,9 @@ use std::fs::File;
 use std::io::{BufReader, Write};
 use std::path::Path;
 
+use crate::pfm_func::{Parameter, read_pfm_file};
+use image::{Rgb, RgbImage};
+
 /// Represents an HDR (High Dynamic Range) image.
 ///
 /// Pixels are stored as a flat vector of [`Color`] in row-major order.
@@ -61,8 +64,6 @@ pub struct HDR {
     pub height: usize,
     pub pixels: Vec<Color>,
 }
-
-
 
 impl HDR {
     /// Creates a new HDR image filled with black pixels.
@@ -281,6 +282,51 @@ impl HDR {
         }
         Ok(())
     }
+}
+
+pub fn hdr_to_ldr(img: &HDR, argv: &mut Parameter) -> Result<(), Box<dyn std::error::Error>> {
+    println!("{}", &mut argv.input_pfm_file_name);
+    let mut img = read_pfm_file(&mut argv.input_pfm_file_name).expect("error reading input file");
+
+    println!(
+        "File {} has been opened and read",
+        &mut argv.input_pfm_file_name
+    );
+    img.normalization(Some(argv.factor_a))
+        .expect("error during image normalization");
+    img.sem_clamp_image().expect("error: sem_clamp_image");
+
+    let mut new_img: RgbImage = RgbImage::new(img.width as u32, img.height as u32);
+    for y in 0..new_img.height() {
+        for x in 0..new_img.width() {
+            let cur_color = new_img.get_pixel(x, y);
+
+            let r = (cur_color[0].pow((1.0 / argv.gamma) as u32));
+            let g = (cur_color[1].pow((1.0 / argv.gamma) as u32));
+            let b = (cur_color[2].pow((1.0 / argv.gamma) as u32));
+        }
+    }
+    let to_u8 = |x: f32| (x * 255.0).round() as u8;
+
+    for y in 0..img.height {
+        for x in 0..img.width {
+            let pixel = &img.pixels[img.width * (img.height - 1 - y) + x];
+
+            let r = to_u8(pixel.r);
+            let g = to_u8(pixel.g);
+            let b = to_u8(pixel.b);
+
+            new_img.put_pixel(x as u32, y as u32, Rgb([r, g, b]));
+        }
+    }
+
+    let out_file_name = &argv.output_file_name;
+    let out_file_name_str = out_file_name.to_string();
+
+    new_img.save(out_file_name_str)?;
+    println!("all done");
+
+    Ok(())
 }
 //                 tests
 

@@ -40,8 +40,6 @@ use std::string::ToString;
 
 use std::io::Cursor;
 
-
-
 /// Byte order used in the PFM file.
 #[derive(Debug, PartialEq)]
 pub enum Endianness {
@@ -129,7 +127,7 @@ pub fn _parse_endianness(line: &mut String) -> anyhow::Result<Endianness> {
 /// The function assumes that the cursor is positioned at the start
 /// of the binary pixel data.
 fn _read_hdr(
-    reader :&mut BufReader<File>,
+    reader: &mut BufReader<File>,
     width: usize,
     height: usize,
     endianness: Endianness,
@@ -143,8 +141,6 @@ fn _read_hdr(
         Endianness::LittleEndian => f32::from_le_bytes(buf),
         Endianness::BigEndian => f32::from_be_bytes(buf),
     };
-
-
 
     for i in 0..height {
         for j in 0..width {
@@ -209,12 +205,17 @@ pub struct Parameter {
 }
 
 impl Parameter {
-    pub fn new(
-        input_pfm_file_name: String,
-        mut factor_a: f32,
-        mut gamma: f32,
-        output_file_name: String,
-    ) -> Parameter {
+    pub fn new(args: Vec<String>) -> anyhow::Result<Parameter> {
+        if args.len() != 5 {
+            return Err(anyhow!("wrong number of parameters"));
+        }
+
+        let input_temp: &String = &args[1];
+        let input_pfm_file_name = input_temp.to_string();
+        let mut factor_a: f32 = args[2].parse::<f32>().expect("invalid factor_ value");
+        let mut gamma: f32 = args[3].parse::<f32>().expect("invalid gamma value");
+        let output_temp: &String = &args[4];
+        let output_file_name: String = output_temp.to_string();
         if factor_a <= 0.0 {
             println!("factor 'a' was automatically set to 0.18");
             factor_a = 0.18;
@@ -225,59 +226,18 @@ impl Parameter {
             gamma = 1.0;
         }
 
-        Parameter {
+        Ok(Parameter {
             input_pfm_file_name,
             factor_a,
             gamma,
             output_file_name,
-        }
-    }
-
-    // parse_command_line takes input parameters,
-    // checks their number and format
-    // and returns a Parameter type containing all the information
-    pub fn parse_command_line() -> anyhow::Result<Parameter> {
-        println!("insert name of pfm file");
-        let mut input_file = String::new();
-        stdin().read_line(&mut input_file)?;
-
-        println!("insert factor_a value");
-        let mut str_factor_a = String::new();
-        stdin()
-            .read_line(&mut str_factor_a)
-            .expect("invalid factor_a value");
-        let str_factor_a = str_factor_a.trim();
-        let factor_a = str_factor_a.parse::<f32>()?;
-
-        println!(
-            "insert gamma value. 0 or negative values will automatically be discarded, 1 is the default value"
-        );
-        let mut str_gamma = String::new();
-        stdin()
-            .read_line(&mut str_gamma)
-            .expect("invalid gamma value");
-        let str_gamma = str_gamma.trim();
-        let gamma = str_gamma.parse::<f32>()?;
-
-        println!("insert output file name");
-        let mut output_file = String::new();
-        stdin().read_line(&mut output_file)?;
-
-        let par = Parameter::new(input_file, factor_a, gamma, output_file);
-        Ok(par)
+        })
     }
 }
 
-pub fn hdr_to_ldr(argv: &mut Parameter) {
-    println!("{}", &mut argv.input_pfm_file_name);
-    let mut img = read_pfm_file(&mut argv.input_pfm_file_name).expect("error reading input file");
-
-    println!("File {} has been opened and read", &mut argv.input_pfm_file_name);
-    img.normalization(Some(argv.factor_a)).expect("error during image normalization");
-    img.sem_clamp_image().expect("error: sem_clamp_image");
-
-
-}
+// parse_command_line takes input parameters,
+// checks their number and format
+// and returns a Parameter type containing all the information
 
 // images are indexed with (0,0) at the top left corner.
 
@@ -288,133 +248,133 @@ mod test {
     use crate::color::Color;
     use crate::pfm_func::{_parse_endianness, _parse_img_size, _read_hdr, _read_magic, Endianness};
 
-        const BE_ARRAY: &[u8] = &[
-            0x50, 0x46, 0x0a, 0x33, 0x20, 0x32, 0x0a, 0x31, 0x2e, 0x30, 0x0a, 0x42, 0xc8, 0x00, 0x00,
-            0x43, 0x48, 0x00, 0x00, 0x43, 0x96, 0x00, 0x00, 0x43, 0xc8, 0x00, 0x00, 0x43, 0xfa, 0x00,
-            0x00, 0x44, 0x16, 0x00, 0x00, 0x44, 0x2f, 0x00, 0x00, 0x44, 0x48, 0x00, 0x00, 0x44, 0x61,
-            0x00, 0x00, 0x41, 0x20, 0x00, 0x00, 0x41, 0xa0, 0x00, 0x00, 0x41, 0xf0, 0x00, 0x00, 0x42,
-            0x20, 0x00, 0x00, 0x42, 0x48, 0x00, 0x00, 0x42, 0x70, 0x00, 0x00, 0x42, 0x8c, 0x00, 0x00,
-            0x42, 0xa0, 0x00, 0x00, 0x42, 0xb4, 0x00, 0x00,
-        ];
+    const BE_ARRAY: &[u8] = &[
+        0x50, 0x46, 0x0a, 0x33, 0x20, 0x32, 0x0a, 0x31, 0x2e, 0x30, 0x0a, 0x42, 0xc8, 0x00, 0x00,
+        0x43, 0x48, 0x00, 0x00, 0x43, 0x96, 0x00, 0x00, 0x43, 0xc8, 0x00, 0x00, 0x43, 0xfa, 0x00,
+        0x00, 0x44, 0x16, 0x00, 0x00, 0x44, 0x2f, 0x00, 0x00, 0x44, 0x48, 0x00, 0x00, 0x44, 0x61,
+        0x00, 0x00, 0x41, 0x20, 0x00, 0x00, 0x41, 0xa0, 0x00, 0x00, 0x41, 0xf0, 0x00, 0x00, 0x42,
+        0x20, 0x00, 0x00, 0x42, 0x48, 0x00, 0x00, 0x42, 0x70, 0x00, 0x00, 0x42, 0x8c, 0x00, 0x00,
+        0x42, 0xa0, 0x00, 0x00, 0x42, 0xb4, 0x00, 0x00,
+    ];
 
-        use anyhow::anyhow;
+    use anyhow::anyhow;
 
-        const LE_ARRAY: &[u8] = &[
-            0x50, 0x46, 0x0a, 0x33, 0x20, 0x32, 0x0a, 0x2d, 0x31, 0x2e, 0x30, 0x0a, 0x00, 0x00, 0xc8,
-            0x42, 0x00, 0x00, 0x48, 0x43, 0x00, 0x00, 0x96, 0x43, 0x00, 0x00, 0xc8, 0x43, 0x00, 0x00,
-            0xfa, 0x43, 0x00, 0x00, 0x16, 0x44, 0x00, 0x00, 0x2f, 0x44, 0x00, 0x00, 0x48, 0x44, 0x00,
-            0x00, 0x61, 0x44, 0x00, 0x00, 0x20, 0x41, 0x00, 0x00, 0xa0, 0x41, 0x00, 0x00, 0xf0, 0x41,
-            0x00, 0x00, 0x20, 0x42, 0x00, 0x00, 0x48, 0x42, 0x00, 0x00, 0x70, 0x42, 0x00, 0x00, 0x8c,
-            0x42, 0x00, 0x00, 0xa0, 0x42, 0x00, 0x00, 0xb4, 0x42,
-        ];
+    const LE_ARRAY: &[u8] = &[
+        0x50, 0x46, 0x0a, 0x33, 0x20, 0x32, 0x0a, 0x2d, 0x31, 0x2e, 0x30, 0x0a, 0x00, 0x00, 0xc8,
+        0x42, 0x00, 0x00, 0x48, 0x43, 0x00, 0x00, 0x96, 0x43, 0x00, 0x00, 0xc8, 0x43, 0x00, 0x00,
+        0xfa, 0x43, 0x00, 0x00, 0x16, 0x44, 0x00, 0x00, 0x2f, 0x44, 0x00, 0x00, 0x48, 0x44, 0x00,
+        0x00, 0x61, 0x44, 0x00, 0x00, 0x20, 0x41, 0x00, 0x00, 0xa0, 0x41, 0x00, 0x00, 0xf0, 0x41,
+        0x00, 0x00, 0x20, 0x42, 0x00, 0x00, 0x48, 0x42, 0x00, 0x00, 0x70, 0x42, 0x00, 0x00, 0x8c,
+        0x42, 0x00, 0x00, 0xa0, 0x42, 0x00, 0x00, 0xb4, 0x42,
+    ];
 
-        use super::*;
-        use crate::functions::are_close;
-        use std::io;
-        use std::io::{BufRead, Cursor};
+    use super::*;
+    use crate::functions::are_close;
+    use std::io;
+    use std::io::{BufRead, Cursor};
 
-        // Test for read_4bytes()
-        #[test]
-        fn test_read_magic() {
-            let mut pf: String = String::from("pf");
-            assert!(_read_magic(&mut pf).is_err())
+    // Test for read_4bytes()
+    #[test]
+    fn test_read_magic() {
+        let mut pf: String = String::from("pf");
+        assert!(_read_magic(&mut pf).is_err())
+    }
+
+    /*#[test]
+    #[should_panic(expected = "no more floats!")]
+    fn test_read_4bytes_le() {
+        let mut rdr = io::Cursor::new(LE_ARRAY);
+        for _ in 0..3 {
+            let mut line = String::new();
+            let _ =rdr.read_line(& mut line).unwrap();
         }
 
-        /*#[test]
-        #[should_panic(expected = "no more floats!")]
-        fn test_read_4bytes_le() {
-            let mut rdr = io::Cursor::new(LE_ARRAY);
-            for _ in 0..3 {
-                let mut line = String::new();
-                let _ =rdr.read_line(& mut line).unwrap();
-            }
-
-            for i in 0..9 {
-                let val = _read_4bytes(Endianness::LittleEndian, &mut rdr).unwrap();
-                let expected = ((i + 1) * 100) as f32;
-                assert!(are_close(val, expected));
-            }
-            for i in 0..9 {
-                let val = _read_4bytes(Endianness::LittleEndian, &mut rdr).unwrap();
-                let expected = ((i + 1) * 10) as f32;
-                assert!(are_close(val, expected));
-            }
-            _read_4bytes(Endianness::LittleEndian,&mut rdr).expect("no more floats!");
-        }*/
+        for i in 0..9 {
+            let val = _read_4bytes(Endianness::LittleEndian, &mut rdr).unwrap();
+            let expected = ((i + 1) * 100) as f32;
+            assert!(are_close(val, expected));
+        }
+        for i in 0..9 {
+            let val = _read_4bytes(Endianness::LittleEndian, &mut rdr).unwrap();
+            let expected = ((i + 1) * 10) as f32;
+            assert!(are_close(val, expected));
+        }
+        _read_4bytes(Endianness::LittleEndian,&mut rdr).expect("no more floats!");
+    }*/
 
     //test _parse_img_size
     #[test]
     fn test_parse_img_size() -> anyhow::Result<()> {
         let mut img_dim = String::from("3 2");
         assert_eq!(_parse_img_size(&mut img_dim)?, (3, 2));
-        
+
         let mut img_dim = String::from("3");
         assert!(_parse_img_size(&mut img_dim).is_err());
         Ok(())
     }
 
-        /*    #[should_panic(expected = "no more floats!")]
-            fn test_read_4bytes_be() {
-                let mut rdr = io::Cursor::new(BE_ARRAY);
-                for _ in 0..3 {
-                    let mut line = String::new();
-                    let _ =rdr.read_line(& mut line).unwrap();
-                }
-                for i in 0..9 {
-                    let val = _read_4bytes(Endianness::BigEndian, &mut rdr).unwrap();
-                    let expected = ((i + 1) * 100) as f32;
-                    assert!(are_close(val, expected));
-                }
-                for i in 0..9 {
-                    let val = _read_4bytes(Endianness::BigEndian, &mut rdr).unwrap();
-                    let expected = ((i + 1) * 10) as f32;
-                    assert!(are_close(val, expected));
-                }
-                _read_4bytes(Endianness::BigEndian,&mut rdr).expect("no more floats!");
+    /*    #[should_panic(expected = "no more floats!")]
+        fn test_read_4bytes_be() {
+            let mut rdr = io::Cursor::new(BE_ARRAY);
+            for _ in 0..3 {
+                let mut line = String::new();
+                let _ =rdr.read_line(& mut line).unwrap();
             }
-        */
-        // test _parse_endianness
-        #[test]
-        fn test_parse_endianness() -> anyhow::Result<()> {
-            let mut minus_one = String::from("-1.0");
-            let mut plus_one = String::from("+1.0");
-            let mut zero = String::from("0.0");
-            let mut minus_zero = String::from("-0.0");
-            let mut test_char = String::from("a");
-
-            assert_eq!(_parse_endianness(&mut minus_one)?, Endianness::LittleEndian);
-            assert_eq!(_parse_endianness(&mut plus_one)?, Endianness::BigEndian);
-            assert!(_parse_endianness(&mut zero).is_err());
-            assert!(_parse_endianness(&mut minus_zero).is_err());
-            assert!(_parse_endianness(&mut test_char).is_err());
-            Ok(())
+            for i in 0..9 {
+                let val = _read_4bytes(Endianness::BigEndian, &mut rdr).unwrap();
+                let expected = ((i + 1) * 100) as f32;
+                assert!(are_close(val, expected));
+            }
+            for i in 0..9 {
+                let val = _read_4bytes(Endianness::BigEndian, &mut rdr).unwrap();
+                let expected = ((i + 1) * 10) as f32;
+                assert!(are_close(val, expected));
+            }
+            _read_4bytes(Endianness::BigEndian,&mut rdr).expect("no more floats!");
         }
+    */
+    // test _parse_endianness
+    #[test]
+    fn test_parse_endianness() -> anyhow::Result<()> {
+        let mut minus_one = String::from("-1.0");
+        let mut plus_one = String::from("+1.0");
+        let mut zero = String::from("0.0");
+        let mut minus_zero = String::from("-0.0");
+        let mut test_char = String::from("a");
 
-        // test _read_hdr
-
-        // DA FINIRE
-        //#[test]
-        /*fn test_read_hdr() -> anyhow::Result<()>{
-                let mut le = [0x00, 0x00, 0xc8, 0x42, 0x00, 0x00, 0x48, 0x43, 0x00, 0x00, 0x96, 0x43];
-                let mut vec_le = le.to_vec();
-                let mut str_le = String::from_utf8(vec_le)?;
-                let img = _read_hdr(&mut  str_le, 3, 2, Endianness::LittleEndian)?;
-
-        //assert_eq!(img.get_pixel(0, 1), Color::new(1.0, 2.0, 3.0));
-
-        let mut be = [0x42,
-            0xc8, 0x00, 0x00, 0x43, 0x48, 0x00, 0x00, 0x43, 0x96, 0x00, 0x00, 0x43,
-            0xc8, 0x00, 0x00, 0x43, 0xfa, 0x00, 0x00, 0x44, 0x16, 0x00, 0x00, 0x44,
-            0x2f, 0x00, 0x00, 0x44, 0x48, 0x00, 0x00, 0x44, 0x61, 0x00, 0x00, 0x41,
-            0x20, 0x00, 0x00, 0x41, 0xa0, 0x00, 0x00, 0x41, 0xf0, 0x00, 0x00, 0x42,
-            0x20, 0x00, 0x00, 0x42, 0x48, 0x00, 0x00, 0x42, 0x70, 0x00, 0x00, 0x42,
-            0x8c, 0x00, 0x00, 0x42, 0xa0, 0x00, 0x00, 0x42, 0xb4, 0x00, 0x00
-        ];
-
+        assert_eq!(_parse_endianness(&mut minus_one)?, Endianness::LittleEndian);
+        assert_eq!(_parse_endianness(&mut plus_one)?, Endianness::BigEndian);
+        assert!(_parse_endianness(&mut zero).is_err());
+        assert!(_parse_endianness(&mut minus_zero).is_err());
+        assert!(_parse_endianness(&mut test_char).is_err());
         Ok(())
     }
 
-    // test read_pfm_file
-    // TODO
-*/
+    // test _read_hdr
+
+    // DA FINIRE
+    //#[test]
+    /*fn test_read_hdr() -> anyhow::Result<()>{
+                    let mut le = [0x00, 0x00, 0xc8, 0x42, 0x00, 0x00, 0x48, 0x43, 0x00, 0x00, 0x96, 0x43];
+                    let mut vec_le = le.to_vec();
+                    let mut str_le = String::from_utf8(vec_le)?;
+                    let img = _read_hdr(&mut  str_le, 3, 2, Endianness::LittleEndian)?;
+
+            //assert_eq!(img.get_pixel(0, 1), Color::new(1.0, 2.0, 3.0));
+
+            let mut be = [0x42,
+                0xc8, 0x00, 0x00, 0x43, 0x48, 0x00, 0x00, 0x43, 0x96, 0x00, 0x00, 0x43,
+                0xc8, 0x00, 0x00, 0x43, 0xfa, 0x00, 0x00, 0x44, 0x16, 0x00, 0x00, 0x44,
+                0x2f, 0x00, 0x00, 0x44, 0x48, 0x00, 0x00, 0x44, 0x61, 0x00, 0x00, 0x41,
+                0x20, 0x00, 0x00, 0x41, 0xa0, 0x00, 0x00, 0x41, 0xf0, 0x00, 0x00, 0x42,
+                0x20, 0x00, 0x00, 0x42, 0x48, 0x00, 0x00, 0x42, 0x70, 0x00, 0x00, 0x42,
+                0x8c, 0x00, 0x00, 0x42, 0xa0, 0x00, 0x00, 0x42, 0xb4, 0x00, 0x00
+            ];
+
+            Ok(())
+        }
+
+        // test read_pfm_file
+        // TODO
+    */
 }

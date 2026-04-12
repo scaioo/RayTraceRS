@@ -89,9 +89,7 @@ pub fn _parse_img_size(line: &mut String) -> anyhow::Result<(usize, usize)> {
 /// Returns an error if the value is zero or not a valid float.
 pub fn _parse_endianness(line: &mut String) -> anyhow::Result<Endianness> {
     let endianness_number: f32 = line.trim().parse::<f32>()?;
-
-    println!("{}", line.trim());
-
+    
     if endianness_number > 0.0 {
         Ok(Endianness::BigEndian)
     } else if endianness_number < 0.0 {

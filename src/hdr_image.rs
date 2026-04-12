@@ -34,9 +34,7 @@ use crate::functions::endianness_number;
 use anyhow::{Result, anyhow};
 use byteorder::{BigEndian, LittleEndian, WriteBytesExt};
 use endianness::ByteOrder;
-use std::fs::File;
-use std::io::{BufReader, Write};
-use std::path::Path;
+use std::io::Write;
 
 use crate::pfm_func::{Parameter, read_pfm_file};
 use image::{Rgb, RgbImage};
@@ -102,7 +100,7 @@ impl HDR {
     /// - The scale factor encodes endianness:
     ///   - Negative = little endian
     ///   - Positive = big endian
-    pub fn write_pfm<W: Write>(&self, mut writer: W, endianness: &ByteOrder) -> anyhow::Result<()> {
+    pub fn write_pfm<W: Write>(&self, mut writer: W, endianness: &ByteOrder) -> Result<()> {
         write!(
             writer,
             "PF\n{} {}\n{:.1}\n",
@@ -260,7 +258,7 @@ impl HDR {
         Ok(())
     }
 
-    /// Applies Reinhard tone mapping to all pixels.
+    /// Applies Tone mapping to all pixels.
     ///
     /// # Errors
     /// Returns an error if the image is empty.
@@ -278,7 +276,7 @@ impl HDR {
             ));
         }
         for color in self.pixels.iter_mut() {
-            color.tone_map_reinhard()?;
+            color.tone_map()?;
         }
         Ok(())
     }

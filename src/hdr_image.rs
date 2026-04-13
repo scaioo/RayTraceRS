@@ -18,8 +18,8 @@
 //! ## Example
 //!
 //! ```rust, no_run
-//! use rstrace::color::Color;
-//! use rstrace::hdr_image::HDR;
+//! use crate::color::Color;
+//! use crate::hdr::HDR;
 //!
 //! let mut img = HDR::new(512, 512);
 //!
@@ -200,7 +200,8 @@ impl HDR {
         let count = self.pixels.len() as f32;
         if count == 0.0 {
             return Err(anyhow!(
-                "average_luminosity(): no pixels to compute average"
+                "average_luminosity():
+            no pixel to compute average_luminosity!"
             ));
         }
 
@@ -231,6 +232,10 @@ impl HDR {
     /// color = (color * a) / L_avg
     /// ```
     pub fn normalization(&mut self, wrapped_a: Option<f32>) -> Result<()> {
+        if self.pixels.len() == 0 {
+            return Err(anyhow!("normalization(): no pixels to normalize!!!!"));
+        }
+
         let a = wrapped_a.unwrap_or(0.18);
         if a <= 0.0 {
             return Err(anyhow!(
@@ -240,6 +245,13 @@ impl HDR {
         }
 
         let avr = self.average_luminosity()?;
+        if avr == 0.0 {
+            return Err(anyhow!(
+                "normalization():
+            Average luminosity is zero, cannot normalize."
+            ));
+        }
+
         for color in self.pixels.iter_mut() {
             *color = (*color * a) / avr;
         }
@@ -313,8 +325,11 @@ pub fn hdr_to_ldr(argv: &mut Parameter) -> Result<()> {
     // Creates HDR object and fill with the .pfm file
     let mut img = read_pfm_file(&mut argv.input_pfm_file_name)?;
 
-    println!("File {} has been opened and read", argv.input_pfm_file_name);
-
+    println!(
+        "File {} has been opened and read",
+        argv.input_pfm_file_name
+    );
+    
     // Tone mapping of the HDR image
     img.normalization(Some(argv.factor_a))?;
     img.sem_clamp_image()?;

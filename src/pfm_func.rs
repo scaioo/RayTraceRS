@@ -262,9 +262,10 @@ impl Parameter {
             factor_a = 0.18;
         }
 
+        /////// gamma <0 or <1 ???????????
         if gamma <= 0.0 {
-            println!("gamma was automatically set to 1.0");
-            gamma = 1.0;
+            println!("gamma was automatically set to 2.2");
+            gamma = 2.2;
         }
 
         Ok(Parameter {

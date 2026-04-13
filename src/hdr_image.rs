@@ -285,16 +285,20 @@ impl HDR {
 // TODO MISSING DOCUMENTATION
 // Note:
 // After a little look to the code a couple of double-checks:
-// - [ ] What does the Box<> do?
-// - [ ] Why do you use .expect() instead of .unwrap() when treating the .pfm reading?
+// - [X] What does the Box<> do? it lets you return any type of error
+//// some functions do not return an anyhow error and those cannot be returned bt a fn that return anyhow::result
+//// (i should check whether this is idiomatic rust or not)
+// - [X] Why do you use .expect() instead of .unwrap() when treating the .pfm reading?
 //       Isn't it better to keep the original Err message we designed?
-// - [ ] What is the first loop for?
-// - [ [ Watch out for reversed pixel writing in .pfm files!
+//// you are right
+// - [X] What is the first loop for?
+//// merged into the first loop
+// - [X] Watch out for reversed pixel writing in .pfm files!
+///// reversed pixels should be accounted for in the loop
 pub fn hdr_to_ldr(img: &HDR, argv: &mut Parameter) -> Result<(), Box<dyn std::error::Error>> {
     println!("{}", &mut argv.input_pfm_file_name);
     // Creates HDR object and fill with the .pfm file
-    let mut img = read_pfm_file(&mut argv.input_pfm_file_name)
-        .expect("error reading input file");
+    let mut img = read_pfm_file(&mut argv.input_pfm_file_name)?;
 
     println!(
         "File {} has been opened and read",
@@ -309,17 +313,11 @@ pub fn hdr_to_ldr(img: &HDR, argv: &mut Parameter) -> Result<(), Box<dyn std::er
     // Create RgbImage box and fill it with the image
     let mut new_img: RgbImage = RgbImage::new(img.width as u32, img.height as u32);
     
-    // What is this loop for? Did you want to change [`img`]? 
-    for y in 0..new_img.height() { // Shouldn't it .rev()?
-        for x in 0..new_img.width() {
-            let cur_color = new_img.get_pixel(x, y);
 
-            let r = (cur_color[0].pow((1.0 / argv.gamma) as u32));
-            let g = (cur_color[1].pow((1.0 / argv.gamma) as u32));
-            let b = (cur_color[2].pow((1.0 / argv.gamma) as u32));
-        }
-    }
-    let to_u8 = |x: f32| (x * 255.0).round() as u8;
+    let to_u8 = |x: f32| {
+        let corrected = x.powf(1.0 / argv.gamma);
+        (corrected.clamp(0.0, 1.0) * 255.0).round() as u8
+    };
 
     for y in 0..img.height { // What is LDR convention? Still .rev()? Another?
         for x in 0..img.width {

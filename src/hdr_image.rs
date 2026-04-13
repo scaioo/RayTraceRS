@@ -502,4 +502,29 @@ mod test {
         assert_eq!(hdr.get_pixel(0, 0).unwrap().g, 2.0e2 / (1.0 + 2.0e2));
         assert_eq!(hdr.get_pixel(0, 1).unwrap().b, 0.0);
     }
+
+    #[test]
+    fn test_average_luminosity(){
+        let img = HDR::new(0, 0);
+        assert!(img.average_luminosity().is_err());
+
+        let mut img = HDR::new(3, 1);
+        for i in 0..3{
+            let pow = 10.0_f32.powi(i as i32);
+            let mut color = Color::new(1.0, 2.0, 3.0);
+            color = color * pow * ((i+1) as f32);
+            img.set_pixel(i, 0, color).unwrap();
+        }
+
+        panic!("TO FINISH!!");
+    }
+
+    #[test]
+    fn test_normalization(){
+        let mut hdr = HDR::new(1, 2);
+        hdr.set_pixel(0, 0, Color::new(1.0, 20.0, 300.0)).unwrap();
+        hdr.set_pixel(0, 1, Color::new(4000.0, 50.0, 600.0)).unwrap();
+
+        panic!("FINISH THE TEST!");
+    }
 }

@@ -160,16 +160,16 @@ impl Default for Color {
 // ====================
 
 /// Component-wise addition of two colors.
-/// 
+///
 /// # Examples
 /// ```rust
 /// use rstrace::color::Color;
-/// 
+///
 /// let first_color = Color::new(1.0, 2.0, 3.0);
 /// let second_color = Color::new(10.0, 20.0, 30.0);
-/// 
+///
 /// let sum = first_color + second_color;
-/// 
+///
 /// assert_eq!(sum.r, 11.0);
 /// ```
 impl Add for Color {

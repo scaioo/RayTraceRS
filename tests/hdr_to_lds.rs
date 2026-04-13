@@ -1,8 +1,8 @@
+use image::GenericImageView;
+use rstrace::hdr_image::hdr_to_ldr;
+use rstrace::pfm_func::Parameter;
 use std::fs;
 use tempfile::tempdir;
-use image::GenericImageView;
-use rstrace::hdr_image::{hdr_to_ldr};
-use rstrace::pfm_func::Parameter;
 
 #[test]
 fn hdr_to_ldr_with_reference_be_pfm() -> anyhow::Result<()> {

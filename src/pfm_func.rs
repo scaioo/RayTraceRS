@@ -29,7 +29,7 @@ use crate::color::Color;
 use crate::hdr_image::HDR;
 use anyhow::anyhow;
 use std::fs::File;
-use std::io::{BufRead, BufReader, Read, stdin};
+use std::io::{BufRead, BufReader, Read};
 use std::string::ToString;
 
 /// Byte order used in the PFM file.
@@ -136,8 +136,9 @@ pub fn _parse_endianness(line: &str) -> anyhow::Result<Endianness> {
 /// # Notes
 /// The function assumes that the cursor is positioned at the start
 /// of the binary pixel data.
-fn _read_hdr(
-    reader: &mut BufReader<File>,
+fn _read_hdr<R: Read>(
+    //reader: &mut BufReader<File>,
+    reader: &mut R,
     width: usize,
     height: usize,
     endianness: Endianness,
@@ -179,7 +180,6 @@ fn _read_hdr(
     Ok(hdr_img)
 }
 
-
 /// Reads a `.pfm` (Portable Float Map) file and returns an [`HDR`] image.
 ///
 /// This function parses the PFM header (magic number, dimensions, and scale)
@@ -211,8 +211,14 @@ fn _read_hdr(
 /// The function expects a well-formed PFM file. Validation is performed
 /// during parsing, and any inconsistency results in an error.
 pub fn read_pfm_file(filename: &str) -> anyhow::Result<HDR> {
-    let file = File::open(filename);
-    let mut reader = BufReader::new(file?);
+    let file = File::open(filename)?;
+    let reader = BufReader::new(file);
+    read_pfm(reader)
+}
+pub fn read_pfm<R: BufRead>(mut reader: R) -> anyhow::Result<HDR> {
+    // Before it was read_pfm_file(filename: &str) and so were necessary the two following lines
+    //let file = File::open(filename);
+    //let mut reader = BufReader::new(file?);
     let mut line: String = String::new();
 
     reader.read_line(&mut line)?;
@@ -287,10 +293,11 @@ impl Parameter {
     /// ```
     pub fn new(args: Vec<String>) -> anyhow::Result<Parameter> {
         if args.len() != 5 {
-            return Err(anyhow!("wrong number of parameters: expected\n\
-            <input_file_name> <factor_a> <gamma> <output_file_name>"));
+            return Err(anyhow!(
+                "wrong number of parameters: expected\n\
+            <input_file_name> <factor_a> <gamma> <output_file_name>"
+            ));
         }
-
 
         let input_pfm_file_name = args[1].clone();
         let mut factor_a: f32 = args[2].parse::<f32>().expect("invalid factor_ value");
@@ -321,14 +328,14 @@ impl Parameter {
 // checks their number and format
 // and returns a Parameter type containing all the information
 
-// images are indexed with (0,0) at the top left corner.
+// images are indexed with (0,0) in the top left corner.
 
 // test parse endianness: verify endianness result is correct
 // e che si arrabbi quando il numero è 0
 #[cfg(test)]
 mod test {
     use crate::color::Color;
-    use crate::pfm_func::{_parse_endianness, _parse_img_size, _read_hdr, _read_magic, Endianness};
+    use crate::pfm_func::{_parse_endianness, _parse_img_size, _read_magic, Endianness};
 
     const BE_ARRAY: &[u8] = &[
         0x50, 0x46, 0x0a, 0x33, 0x20, 0x32, 0x0a, 0x31, 0x2e, 0x30, 0x0a, 0x42, 0xc8, 0x00, 0x00,
@@ -338,8 +345,6 @@ mod test {
         0x20, 0x00, 0x00, 0x42, 0x48, 0x00, 0x00, 0x42, 0x70, 0x00, 0x00, 0x42, 0x8c, 0x00, 0x00,
         0x42, 0xa0, 0x00, 0x00, 0x42, 0xb4, 0x00, 0x00,
     ];
-
-    use anyhow::anyhow;
 
     const LE_ARRAY: &[u8] = &[
         0x50, 0x46, 0x0a, 0x33, 0x20, 0x32, 0x0a, 0x2d, 0x31, 0x2e, 0x30, 0x0a, 0x00, 0x00, 0xc8,
@@ -351,9 +356,7 @@ mod test {
     ];
 
     use super::*;
-    use crate::functions::are_close;
-    use std::io;
-    use std::io::{BufRead, Cursor};
+    use std::io::Cursor;
 
     #[test]
     fn test_read_magic() {
@@ -391,6 +394,23 @@ mod test {
         assert!(_parse_endianness(&mut zero).is_err());
         assert!(_parse_endianness(&mut minus_zero).is_err());
         assert!(_parse_endianness(&mut test_char).is_err());
+        Ok(())
+    }
+
+    #[test]
+    fn test_read_pfm() -> anyhow::Result<()> {
+        for _reference_bytes in [BE_ARRAY, LE_ARRAY] {
+            let mut stream = Cursor::new(_reference_bytes);
+            let img = read_pfm(&mut stream)?;
+            assert_eq!(img.width, 3);
+            assert_eq!(img.height, 2);
+            assert_eq!(img.get_pixel(0, 0)?, Color::new(1.0e1, 2.0e1, 3.0e1));
+            assert_eq!(img.get_pixel(1, 0)?, Color::new(4.0e1, 5.0e1, 6.0e1));
+            assert_eq!(img.get_pixel(2, 0)?, Color::new(7.0e1, 8.0e1, 9.0e1));
+            assert_eq!(img.get_pixel(0, 1)?, Color::new(1.0e2, 2.0e2, 3.0e2));
+            assert_eq!(img.get_pixel(1, 1)?, Color::new(4.0e2, 5.0e2, 6.0e2));
+            assert_eq!(img.get_pixel(2, 1)?, Color::new(7.0e2, 8.0e2, 9.0e2));
+        }
         Ok(())
     }
 }

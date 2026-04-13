@@ -317,14 +317,6 @@ impl Parameter {
     }
 }
 
-// parse_command_line takes input parameters,
-// checks their number and format
-// and returns a Parameter type containing all the information
-
-// images are indexed with (0,0) at the top left corner.
-
-// test parse endianness: verify endianness result is correct
-// e che si arrabbi quando il numero è 0
 #[cfg(test)]
 mod test {
     use crate::color::Color;

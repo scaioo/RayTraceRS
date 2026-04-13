@@ -1,8 +1,10 @@
 use std::fs;
+use std::fs::File;
+use std::io::{BufRead, BufReader};
 use tempfile::tempdir;
 use image::GenericImageView;
 use rstrace::hdr_image::{hdr_to_ldr};
-use rstrace::pfm_func::Parameter;
+use rstrace::pfm_func::{Parameter, _parse_img_size};
 
 #[test]
 fn hdr_to_ldr_with_reference_be_pfm() -> anyhow::Result<()> {
@@ -33,9 +35,20 @@ fn hdr_to_ldr_with_reference_be_pfm() -> anyhow::Result<()> {
     // 7. Open the output image
     let img = image::open(&output_path)?;
 
-    // 8. Basic sanity checks
+    // 8. Dimension checks
+    let file = File::open(&params.input_pfm_file_name);
+    let mut reader = BufReader::new(file?);
+    let mut line: String = String::new();
+    reader.read_line(&mut line)?;
+    line.clear();
+    reader.read_line(&mut line)?;
+    let (original_width, original_height) = _parse_img_size(&mut line)?;
+    
     let (width, height) = img.dimensions();
     assert!(width > 0 && height > 0, "Image has invalid dimensions");
+    assert_eq!(original_width, width as usize);
+    assert_eq!(original_height, height as usize);
+    
 
     println!("Output image size: {}x{}", width, height);
 

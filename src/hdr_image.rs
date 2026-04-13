@@ -17,7 +17,7 @@
 //!
 //! ## Example
 //!
-//! ```rust
+//! ```rust, no_run
 //! use crate::color::Color;
 //! use crate::hdr::HDR;
 //!

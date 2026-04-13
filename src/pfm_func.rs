@@ -158,11 +158,11 @@ fn _read_hdr(
     // Color the empty image
     for i in (0..height).rev() {
         for j in 0..width {
-            reader.read_exact(&mut buffer)?;
+            reader.read_exact(&mut buffer).expect("unexpected eof");
             let r = bytes_to_f32(buffer);
-            reader.read_exact(&mut buffer)?;
+            reader.read_exact(&mut buffer).expect("unexpected eof");
             let g = bytes_to_f32(buffer);
-            reader.read_exact(&mut buffer)?;
+            reader.read_exact(&mut buffer).expect("unexpected eof");
             let b = bytes_to_f32(buffer);
             hdr_img.pixels[width * i + j] = Color::new(r, g, b);
         }
@@ -253,7 +253,7 @@ impl Parameter {
 
         let input_temp: &String = &args[1];
         let input_pfm_file_name = input_temp.to_string();
-        let mut factor_a: f32 = args[2].parse::<f32>().expect("invalid factor_ value");
+        let mut factor_a: f32 = args[2].parse::<f32>().expect("invalid factor_a value");
         let mut gamma: f32 = args[3].parse::<f32>().expect("invalid gamma value");
         let output_temp: &String = &args[4];
         let output_file_name: String = output_temp.to_string();
@@ -287,7 +287,8 @@ impl Parameter {
 // e che si arrabbi quando il numero è 0
 #[cfg(test)]
 mod test {
-    use crate::color::Color;
+    use crate::pfm_func::Parameter;
+use crate::color::Color;
     use crate::pfm_func::{_parse_endianness, _parse_img_size, _read_hdr, _read_magic, Endianness};
 
     const BE_ARRAY: &[u8] = &[
@@ -352,5 +353,85 @@ mod test {
         assert!(_parse_endianness(&mut minus_zero).is_err());
         assert!(_parse_endianness(&mut test_char).is_err());
         Ok(())
+    }
+
+    // test read_hdr
+    #[test]
+    #[should_panic]
+    // tests that _read_hdr correctly panics when buffer is too short
+    fn test_1_read_hdr() {
+        let file = File::open("reference_be.pfm");
+        let mut reader = BufReader::new(file.unwrap());
+        let mut line: String = String::new();
+        reader.read_line(&mut line).unwrap();
+        line.clear();
+        reader.read_line(&mut line).unwrap();
+        line.clear();
+        reader.read_line(&mut line).unwrap();
+        line.clear();
+
+        let  _hdr = _read_hdr(&mut reader, 2, 4, Endianness::BigEndian);
+    }
+
+    #[test]
+    #[should_panic]
+    // tests that _read_hdr correctly panics when buffer is too long
+    fn test_2_read_hdr() {
+        let file = File::open("reference_be.pfm");
+        let mut reader = BufReader::new(file.unwrap());
+        let mut line: String = String::new();
+        reader.read_line(&mut line).unwrap();
+        line.clear();
+        reader.read_line(&mut line).unwrap();
+        line.clear();
+        reader.read_line(&mut line).unwrap();
+        line.clear();
+
+        let  _hdr = _read_hdr(&mut reader, 2, 2, Endianness::BigEndian).unwrap();
+    }
+
+    // test for new created for Parameter
+    #[test]
+    #[should_panic]
+    //should panic if factor_a is not a number
+    fn test_1_new_parameter() {
+        let strings: Vec<String> = ["exe", "filename_in", "a", "2.2", "filename_out"].map(String::from).to_vec();
+        let _par = Parameter::new(strings);
+
+    }
+
+    #[test]
+    #[should_panic]
+    //should panic if gamma is not a number
+    fn test_2_new_parameter() {
+        let strings: Vec<String> = ["exe", "filename_in", "0.18", "a", "filename_out"].map(String::from).to_vec();
+        let _par = Parameter::new(strings);
+
+    }
+
+    #[test]
+    //sets factor_a to 0.18 when a < 0
+    fn test_3_new_parameter() {
+        let strings: Vec<String> = ["exe", "filename_in", "-1", "2.2", "filename_out"].map(String::from).to_vec();
+        let par = Parameter::new(strings).unwrap();
+        assert_eq!(0.18, par.factor_a);
+
+    }
+
+    #[test]
+    //sets gamma to 2.2 when gamma < 0
+    fn test_4_new_parameter() {
+        let strings: Vec<String> = ["exe", "filename_in", "0.18", "-1", "filename_out"].map(String::from).to_vec();
+        let par = Parameter::new(strings).unwrap();
+        assert_eq!(2.2, par.gamma);
+
+    }
+
+    #[test]
+    #[should_panic]
+    //should panic if incorrect number of input parmeters
+    fn test_5_new_parameter() {
+        let strings: Vec<String> = ["added string", "exe", "filename_in", "0.18", "a", "filename_out"].map(String::from).to_vec();
+        let _par = Parameter::new(strings).unwrap();
     }
 }

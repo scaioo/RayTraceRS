@@ -17,7 +17,7 @@ fn main() -> Result<()> {
 
     img.sem_clamp_image()?;
 
-    hdr_to_ldr(&mut params).unwrap();
+    hdr_to_ldr(&mut params)?;
 
     Ok(())
 }

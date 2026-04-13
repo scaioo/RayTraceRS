@@ -17,9 +17,9 @@
 //!
 //! ## Example
 //!
-//! ```rust
-//! use crate::color::Color;
-//! use crate::hdr::HDR;
+//! ```rust, no_run
+//! use rstrace::color::Color;
+//! use rstrace::hdr_image::HDR;
 //!
 //! let mut img = HDR::new(512, 512);
 //!
@@ -295,7 +295,9 @@ impl HDR {
 /// - Output values are clamped to `[0, 1]` before conversion to `[0, 255]`
 ///
 /// # Example
-/// ```no_run
+/// ```rust, no_run
+/// use rstrace::pfm_func::Parameter;
+/// use rstrace::hdr_image::hdr_to_ldr;
 /// let mut params = Parameter {
 ///     input_pfm_file_name: "input.pfm".into(),
 ///     output_file_name: "output.png".into(),
@@ -303,7 +305,7 @@ impl HDR {
 ///     gamma: 2.2,
 /// };
 ///
-/// hdr_to_ldr(&mut params)?;
+/// hdr_to_ldr(&mut params).unwrap();
 /// ```
 pub fn hdr_to_ldr(argv: &mut Parameter) -> Result<()> {
     // Creates HDR object and fill with the .pfm file
@@ -546,7 +548,7 @@ mod test {
         img1.normalization(None).unwrap();
         assert_eq!(img1.get_pixel(0, 0).unwrap().r,
                    img.get_pixel(0, 0).unwrap().r * 0.18 / log_average );
-        
+
         // Test the input value option
         img2.normalization(Some(5.0)).unwrap();
         assert_eq!(img2.get_pixel(0, 0).unwrap().r,

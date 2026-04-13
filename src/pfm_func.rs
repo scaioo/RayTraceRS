@@ -198,8 +198,9 @@ fn _read_hdr(
 /// - extra bytes are found after the pixel data
 ///
 /// # Examples
-/// ```rust,no_run
+/// ```rust, no_run
 /// use rstrace::pfm_func::read_pfm_file;
+/// use rstrace::hdr_image::HDR;
 ///
 /// let image : HDR = read_pfm_file("image.pfm").unwrap();
 /// assert!(image.width > 0);
@@ -272,7 +273,8 @@ impl Parameter {
     /// - Invalid numeric values are handled via `expect`, which will terminate the program
     ///
     /// # Example
-    /// ```no_run
+    /// ```rust, no_run
+    /// use rstrace::pfm_func::Parameter;
     /// let args = vec![
     ///     "program".into(),
     ///     "input.pfm".into(),
@@ -281,7 +283,7 @@ impl Parameter {
     ///     "output.png".into(),
     /// ];
     ///
-    /// let params = Parameter::new(args)?;
+    /// let params = Parameter::new(args).unwrap();
     /// ```
     pub fn new(args: Vec<String>) -> anyhow::Result<Parameter> {
         if args.len() != 5 {

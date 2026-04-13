@@ -116,7 +116,7 @@ pub fn _parse_endianness(line: &str) -> anyhow::Result<Endianness> {
     }
 }
 
-/// Reads pixel data and constructs an [`HDR`] image.
+/// Reads pixel data and constructs an [`HDR`] image **top to bottom**.
 ///
 /// # Arguments
 /// * `line`- Pixels string from file
@@ -183,7 +183,7 @@ fn _read_hdr(
 /// Reads a `.pfm` (Portable Float Map) file and returns an [`HDR`] image.
 ///
 /// This function parses the PFM header (magic number, dimensions, and scale)
-/// and reads the binary pixel data into an [`HDR`] structure.
+/// and reads the binary pixel data into an [`HDR`] structure **TOP TO BOTTOM**.
 ///
 /// Both RGB (`PF`) and grayscale (`Pf`) formats are supported. Pixel data
 /// is interpreted according to the endianness specified by the scale factor.
@@ -198,8 +198,9 @@ fn _read_hdr(
 /// - extra bytes are found after the pixel data
 ///
 /// # Examples
-/// ```rust,no_run
+/// ```rust, no_run
 /// use rstrace::pfm_func::read_pfm_file;
+/// use rstrace::hdr_image::HDR;
 ///
 /// let image : HDR = read_pfm_file("image.pfm").unwrap();
 /// assert!(image.width > 0);
@@ -244,9 +245,48 @@ pub struct Parameter {
 }
 
 impl Parameter {
-    // TODO: DOCUMENTATION!
+    /// Constructs a [`Parameter`] instance from command-line arguments.
+    ///
+    /// The expected argument format is:
+    /// ```text
+    /// <program> <input_file_name> <factor_a> <gamma> <output_file_name>
+    /// ```
+    ///
+    /// # Parameters
+    /// - `args`: Vector of command-line arguments (typically from `std::env::args()`)
+    ///
+    /// # Behavior
+    /// - Parses `factor_a` and `gamma` as `f32` values
+    /// - If `factor_a <= 0.0`, it is replaced with a default value of `0.18`
+    /// - If `gamma <= 0.0`, it is replaced with a default value of `2.2`
+    ///
+    /// # Errors
+    /// Returns an error if:
+    /// - The number of arguments is not exactly 5
+    ///
+    /// # Panics
+    /// This function will panic if:
+    /// - `factor_a` or `gamma` cannot be parsed as `f32`
+    ///
+    /// # Notes
+    /// - Argument validation is minimal: only the argument count is checked
+    /// - Invalid numeric values are handled via `expect`, which will terminate the program
+    ///
+    /// # Example
+    /// ```rust, no_run
+    /// use rstrace::pfm_func::Parameter;
+    /// let args = vec![
+    ///     "program".into(),
+    ///     "input.pfm".into(),
+    ///     "0.18".into(),
+    ///     "2.2".into(),
+    ///     "output.png".into(),
+    /// ];
+    ///
+    /// let params = Parameter::new(args).unwrap();
+    /// ```
     pub fn new(args: Vec<String>) -> anyhow::Result<Parameter> {
-        if args.len() != 5 { // can we specify better the expected parameters?
+        if args.len() != 5 {
             return Err(anyhow!("wrong number of parameters: expected\n\
             <input_file_name> <factor_a> <gamma> <output_file_name>"));
         }
@@ -277,14 +317,6 @@ impl Parameter {
     }
 }
 
-// parse_command_line takes input parameters,
-// checks their number and format
-// and returns a Parameter type containing all the information
-
-// images are indexed with (0,0) at the top left corner.
-
-// test parse endianness: verify endianness result is correct
-// e che si arrabbi quando il numero è 0
 #[cfg(test)]
 mod test {
     use crate::pfm_func::Parameter;

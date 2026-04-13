@@ -60,3 +60,63 @@ RayTraceRS/
 ├── Cargo.toml            # Project dependencies and metadata
 └── LICENSE               # MIT License
 ```
+
+## Examples
+
+---
+
+### 1. Tone Mapping an Existing Image
+This example shows how to load a .pfm image, apply normalization and clamping, 
+and save it back to disk as a high-dynamic-range file.
+
+```rust
+use rstrace::pfm_func::read_pfm_file;
+use endianness::ByteOrder;
+use std::fs::File;
+use std::io::BufWriter;
+
+fn main() -> anyhow::Result<()> {
+  // Load a PFM image into an HDR structure
+  let mut img = read_pfm_file("input.pfm")?;
+
+  // Apply simple tone mapping (Normalization + simple clamping)
+  img.normalization(Some(0.18))?;
+  img.sem_clamp_image()?;
+
+  // Save the HDR result back to disk
+  let file = File::create("output.pfm")?;
+  let mut writer = BufWriter::new(file);
+  img.write_pfm(&mut writer, &ByteOrder::LittleEndian)?;
+
+  Ok(())
+}
+```
+
+### 2. Convert HDR to LDR (PNG/JPEG)
+
+This example demonstrates how to convert a high-dynamic-range .pfm file 
+into a standard low-dynamic-range image suitable for viewing, 
+applying both tone mapping and gamma correction.
+
+```rust
+use rstrace::pfm_func::Parameter;
+use rstrace::hdr_image::hdr_to_ldr;
+
+fn main() -> anyhow::Result<()> {
+  // Define parameters for the conversion
+  let mut params = Parameter {
+    input_pfm_file_name: "input.pfm".to_string(),
+    output_file_name: "output.png".to_string(),
+    factor_a: 0.18,
+    gamma: 2.2,
+  };
+
+  // Process and save the LDR image
+  hdr_to_ldr(&mut params)?;
+
+  println!("LDR image saved to {}", params.output_file_name);
+  Ok(())
+}
+```
+
+---

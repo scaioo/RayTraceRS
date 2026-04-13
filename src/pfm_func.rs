@@ -336,8 +336,8 @@ impl Parameter {
 // e che si arrabbi quando il numero è 0
 #[cfg(test)]
 mod test {
-use crate::color::Color;
-    use crate::pfm_func::{_parse_endianness, _parse_img_size, _read_magic, Endianness};
+    use crate::color::Color;
+    use crate::pfm_func::{Endianness, _parse_endianness, _parse_img_size, _read_magic};
 
     const BE_ARRAY: &[u8] = &[
         0x50, 0x46, 0x0a, 0x33, 0x20, 0x32, 0x0a, 0x31, 0x2e, 0x30, 0x0a, 0x42, 0xc8, 0x00, 0x00,
@@ -358,8 +358,6 @@ use crate::color::Color;
     ];
 
     use super::*;
-    use crate::functions::are_close;
-    use std::io;
     use std::io::{BufRead, Cursor};
 
     #[test]

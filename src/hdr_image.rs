@@ -199,10 +199,7 @@ impl HDR {
     pub fn average_luminosity(&self) -> Result<f32> {
         let count = self.pixels.len() as f32;
         if count == 0.0 {
-            return Err(anyhow!(
-                "average_luminosity():
-            no pixel to compute average_luminosity!!!!!"
-            ));
+            return Err(anyhow!("average_luminosity(): no pixels to compute average"));
         }
 
         let log_sum: f32 = self
@@ -232,26 +229,15 @@ impl HDR {
     /// color = (color * a) / L_avg
     /// ```
     pub fn normalization(&mut self, wrapped_a: Option<f32>) -> Result<()> {
-        if self.pixels.len() == 0 {
-            return Err(anyhow!("normalization(): no pixels to normalize!!!!"));
-        }
-
         let a = wrapped_a.unwrap_or(0.18);
         if a <= 0.0 {
             return Err(anyhow!(
                 "normalization():\
-             Cannot use a non-positive normalization factor: {a}!!!!"
+              Cannot use a non-positive normalization factor such as {a}!!!!"
             ));
         }
 
         let avr = self.average_luminosity()?;
-        if avr == 0.0 {
-            return Err(anyhow!(
-                "normalization():
-            Average luminosity is zero, cannot normalize."
-            ));
-        }
-
         for color in self.pixels.iter_mut() {
             *color = (*color * a) / avr;
         }
@@ -366,6 +352,7 @@ pub fn hdr_to_ldr(argv: &mut Parameter) -> Result<()> {
 
 #[cfg(test)]
 mod test {
+    use crate::functions::are_close;
     use super::*;
     // Test for
     #[test]
@@ -508,23 +495,61 @@ mod test {
         let img = HDR::new(0, 0);
         assert!(img.average_luminosity().is_err());
 
-        let mut img = HDR::new(3, 1);
-        for i in 0..3{
-            let pow = 10.0_f32.powi(i as i32);
-            let mut color = Color::new(1.0, 2.0, 3.0);
-            color = color * pow * ((i+1) as f32);
-            img.set_pixel(i, 0, color).unwrap();
+        let mut img = HDR::new(1, 4);
+        assert!(img.average_luminosity().is_ok());
+        // The use of are_close() is justified by the difference
+        // from the analytic solution (f32::EPSILON)
+        // and the rounded result of average_luminosity()
+        println!("average_luminosity: {:?}", img.average_luminosity().unwrap());
+        println!("expected average luminosity: {:?}", f32::EPSILON);
+        assert!(are_close(img.average_luminosity().unwrap(), f32::EPSILON));
+        let mut sum = 0.0;
+        for i in 0..4{
+            let mut color = Color::new(1.0, 20.0, 300.0);
+            color = 10.0_f32.powi(i) * color;
+            img.set_pixel(0, i as usize ,color).unwrap();
+            sum += (color.sem_luminosity().unwrap() + f32::EPSILON).log10()/4.0;
         }
-
-        panic!("TO FINISH!!");
+        assert_eq!(img.average_luminosity().unwrap(), 10.0_f32.powf(sum));
     }
 
     #[test]
-    fn test_normalization(){
-        let mut hdr = HDR::new(1, 2);
-        hdr.set_pixel(0, 0, Color::new(1.0, 20.0, 300.0)).unwrap();
-        hdr.set_pixel(0, 1, Color::new(4000.0, 50.0, 600.0)).unwrap();
+    fn test_normalization() {
+        // Test the empty image
+        let mut img1 = HDR::new(0, 0);
+        assert!(img1.normalization(Some(1.0)).is_err());
 
-        panic!("FINISH THE TEST!");
+        // Test wrong parameters input
+        let mut img = HDR::new(1, 4);
+        let mut img1 = HDR::new(1, 4);
+        let mut img2 = HDR::new(1, 4);
+        match img1.normalization(Some(-1.0)){
+            Ok(_) => panic!("Should fail!"),
+            Err(e) => println!("Error obtained: {:?}", e)
+        }
+        match img1.normalization(Some(0.0)){
+            Ok(_) => panic!("Should fail!"),
+            Err(e) => println!("Error obtained: {:?}", e)
+        }
+
+        // Fill the HDR image and get the average
+        for i in 0..4{
+            let mut color = Color::new(1.0, 20.0, 300.0);
+            color = 10.0_f32.powi(i) * color;
+            img.set_pixel(0, i as usize ,color).unwrap();
+            img1.set_pixel(0, i as usize ,color).unwrap();
+            img2.set_pixel(0, i as usize ,color).unwrap();
+        }
+        let log_average = img.average_luminosity().unwrap();
+
+        // Test the None option
+        img1.normalization(None).unwrap();
+        assert_eq!(img1.get_pixel(0, 0).unwrap().r,
+                   img.get_pixel(0, 0).unwrap().r * 0.18 / log_average );
+        
+        // Test the input value option
+        img2.normalization(Some(5.0)).unwrap();
+        assert_eq!(img2.get_pixel(0, 0).unwrap().r,
+                   img.get_pixel(0, 0).unwrap().r * 5.0 / log_average );
     }
 }

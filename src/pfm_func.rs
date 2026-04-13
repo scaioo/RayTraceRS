@@ -116,7 +116,7 @@ pub fn _parse_endianness(line: &str) -> anyhow::Result<Endianness> {
     }
 }
 
-/// Reads pixel data and constructs an [`HDR`] image.
+/// Reads pixel data and constructs an [`HDR`] image **top to bottom**.
 ///
 /// # Arguments
 /// * `line`- Pixels string from file
@@ -183,7 +183,7 @@ fn _read_hdr(
 /// Reads a `.pfm` (Portable Float Map) file and returns an [`HDR`] image.
 ///
 /// This function parses the PFM header (magic number, dimensions, and scale)
-/// and reads the binary pixel data into an [`HDR`] structure.
+/// and reads the binary pixel data into an [`HDR`] structure **TOP TO BOTTOM**.
 ///
 /// Both RGB (`PF`) and grayscale (`Pf`) formats are supported. Pixel data
 /// is interpreted according to the endianness specified by the scale factor.
@@ -244,15 +244,53 @@ pub struct Parameter {
 }
 
 impl Parameter {
-    // TODO: DOCUMENTATION!
+    /// Constructs a [`Parameter`] instance from command-line arguments.
+    ///
+    /// The expected argument format is:
+    /// ```text
+    /// <program> <input_file_name> <factor_a> <gamma> <output_file_name>
+    /// ```
+    ///
+    /// # Parameters
+    /// - `args`: Vector of command-line arguments (typically from `std::env::args()`)
+    ///
+    /// # Behavior
+    /// - Parses `factor_a` and `gamma` as `f32` values
+    /// - If `factor_a <= 0.0`, it is replaced with a default value of `0.18`
+    /// - If `gamma <= 0.0`, it is replaced with a default value of `2.2`
+    ///
+    /// # Errors
+    /// Returns an error if:
+    /// - The number of arguments is not exactly 5
+    ///
+    /// # Panics
+    /// This function will panic if:
+    /// - `factor_a` or `gamma` cannot be parsed as `f32`
+    ///
+    /// # Notes
+    /// - Argument validation is minimal: only the argument count is checked
+    /// - Invalid numeric values are handled via `expect`, which will terminate the program
+    ///
+    /// # Example
+    /// ```no_run
+    /// let args = vec![
+    ///     "program".into(),
+    ///     "input.pfm".into(),
+    ///     "0.18".into(),
+    ///     "2.2".into(),
+    ///     "output.png".into(),
+    /// ];
+    ///
+    /// let params = Parameter::new(args)?;
+    /// ```
     pub fn new(args: Vec<String>) -> anyhow::Result<Parameter> {
-        if args.len() != 5 { // can we specify better the expected parameters?
+        if args.len() != 5 {
             return Err(anyhow!("wrong number of parameters: expected\n\
             <input_file_name> <factor_a> <gamma> <output_file_name>"));
         }
 
-        let input_temp: &String = &args[1];
-        let input_pfm_file_name = input_temp.to_string();
+
+        let input_pfm_file_name = args[1].clone();
         let mut factor_a: f32 = args[2].parse::<f32>().expect("invalid factor_ value");
         let mut gamma: f32 = args[3].parse::<f32>().expect("invalid gamma value");
         let output_temp: &String = &args[4];

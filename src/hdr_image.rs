@@ -282,46 +282,70 @@ impl HDR {
     }
 }
 
-// TODO MISSING DOCUMENTATION
-// Note:
-// After a little look to the code a couple of double-checks:
-// - [X] What does the Box<> do? it lets you return any type of error
-//// some functions do not return an anyhow error and those cannot be returned bt a fn that return anyhow::result
-//// (i should check whether this is idiomatic rust or not)
-// - [X] Why do you use .expect() instead of .unwrap() when treating the .pfm reading?
-//       Isn't it better to keep the original Err message we designed?
-//// you are right
-// - [X] What is the first loop for?
-//// merged into the first loop
-// - [X] Watch out for reversed pixel writing in .pfm files!
-///// reversed pixels should be accounted for in the loop
-pub fn hdr_to_ldr(img: &HDR, argv: &mut Parameter) -> Result<(), Box<dyn std::error::Error>> {
-    println!("{}", &mut argv.input_pfm_file_name);
+/// Converts an HDR image stored in `.pfm` (Portable Float Map) format into an LDR image.
+///
+/// The function performs the following steps:
+/// - Reads the input `.pfm` file into an HDR image structure
+/// - Applies tone mapping via normalization and clamping
+/// - Converts floating-point pixel values to 8-bit RGB using gamma correction
+/// - Writes the resulting LDR image to disk
+///
+/// # Parameters
+/// - `argv`: Configuration parameters including:
+///   - `input_pfm_file_name`: Path to the input `.pfm` file
+///   - `output_file_name`: Path where the LDR image will be saved
+///   - `factor_a`: Normalization factor used during tone mapping
+///   - `gamma`: Gamma value used for gamma correction (typically ~2.2)
+///
+/// # Errors
+/// Returns an error if:
+/// - The input file cannot be read or parsed
+/// - Tone mapping operations fail
+/// - The output image cannot be written to disk
+///
+/// # Notes
+/// - Pixel values are assumed to be in row-major order
+/// - Gamma correction is applied as `x^(1/gamma)`
+/// - Output values are clamped to `[0, 1]` before conversion to `[0, 255]`
+///
+/// # Example
+/// ```no_run
+/// let mut params = Parameter {
+///     input_pfm_file_name: "input.pfm".into(),
+///     output_file_name: "output.png".into(),
+///     factor_a: 1.0,
+///     gamma: 2.2,
+/// };
+///
+/// hdr_to_ldr(&mut params)?;
+/// ```
+pub fn hdr_to_ldr(argv: &mut Parameter) -> Result<()> {
     // Creates HDR object and fill with the .pfm file
     let mut img = read_pfm_file(&mut argv.input_pfm_file_name)?;
 
     println!(
         "File {} has been opened and read",
-        &mut argv.input_pfm_file_name
+        argv.input_pfm_file_name
     );
     
     // Tone mapping of the HDR image
-    img.normalization(Some(argv.factor_a))
-        .expect("error during image normalization");
-    img.sem_clamp_image().expect("error: sem_clamp_image");
+    img.normalization(Some(argv.factor_a))?;
+    img.sem_clamp_image()?;
 
     // Create RgbImage box and fill it with the image
     let mut new_img: RgbImage = RgbImage::new(img.width as u32, img.height as u32);
-    
+
+
+    // Pixel by pixel mapping to LDR
 
     let to_u8 = |x: f32| {
         let corrected = x.powf(1.0 / argv.gamma);
         (corrected.clamp(0.0, 1.0) * 255.0).round() as u8
     };
 
-    for y in 0..img.height { // What is LDR convention? Still .rev()? Another?
+    for y in 0..img.height {
         for x in 0..img.width {
-            let pixel = &img.pixels[img.width * (img.height - 1 - y) + x];
+            let pixel = &img.pixels[img.width * y + x];
 
             let r = to_u8(pixel.r);
             let g = to_u8(pixel.g);
@@ -331,11 +355,10 @@ pub fn hdr_to_ldr(img: &HDR, argv: &mut Parameter) -> Result<(), Box<dyn std::er
         }
     }
 
+    // Saving the LDR
     let out_file_name = &argv.output_file_name;
-    let out_file_name_str = out_file_name.to_string();
-
-    new_img.save(out_file_name_str)?;
-    println!("all done");
+    new_img.save(out_file_name)?;
+    println!("File {} has been created", out_file_name);
 
     Ok(())
 }

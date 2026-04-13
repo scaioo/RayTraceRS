@@ -60,3 +60,26 @@ RayTraceRS/
 ├── Cargo.toml            # Project dependencies and metadata
 └── LICENSE               # MIT License
 ```
+
+## Examples
+
+---
+
+This example shows how to load a `.pfm` image, apply a simple tone mapping,
+and process it as an HDR image.
+
+```rust,no_run
+use rstrace::pfm_func::read_pfm_file;
+
+fn main() -> anyhow::Result<()> {
+    // Load a PFM image into an HDR structure
+    let mut img = read_pfm_file("input.pfm")?;
+
+    // Apply simple tone mapping
+    img.normalization(Some(0.18))?;
+    img.sem_clamp_image()?;
+
+    Ok(())
+}
+```
+---

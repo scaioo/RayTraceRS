@@ -302,7 +302,6 @@ impl Parameter {
             factor_a = 0.18;
         }
 
-        /////// gamma <0 or <1 ???????????
         if gamma <= 0.0 {
             println!("gamma was automatically set to 2.2");
             gamma = 2.2;
@@ -344,9 +343,7 @@ use crate::color::Color;
     ];
 
     use super::*;
-    use crate::functions::are_close;
-    use std::io;
-    use std::io::{BufRead, Cursor};
+    use std::io::{BufRead};
 
     #[test]
     fn test_read_magic() {
@@ -429,7 +426,6 @@ use crate::color::Color;
     fn test_1_new_parameter() {
         let strings: Vec<String> = ["exe", "filename_in", "a", "2.2", "filename_out"].map(String::from).to_vec();
         let _par = Parameter::new(strings);
-
     }
 
     #[test]

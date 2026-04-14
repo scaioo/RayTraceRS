@@ -210,11 +210,8 @@ fn _read_hdr(
 /// # Notes
 /// The function expects a well-formed PFM file. Validation is performed
 /// during parsing, and any inconsistency results in an error.
-pub fn read_pfm_file(filename: &str) -> anyhow::Result<HDR> {
-    let file = File::open(filename);
-    let mut reader = BufReader::new(file?);
+pub fn read_pfm_file(mut reader: &mut BufReader<File>) -> anyhow::Result<HDR> {
     let mut line: String = String::new();
-
     reader.read_line(&mut line)?;
     _read_magic(&mut line)?;
 

@@ -1,3 +1,5 @@
+use std::fs::File;
+use std::io::BufReader;
 use rstrace::hdr_image::{hdr_to_ldr};
 use rstrace::pfm_func::read_pfm_file;
 use rstrace::pfm_func::{ Parameter};
@@ -11,9 +13,12 @@ fn main() -> Result<()> {
     let args: Vec<String> = std::env::args().collect();
     let mut params = Parameter::new(args)?;
 
-    let mut img = read_pfm_file(&mut params.input_pfm_file_name)?;
+    let file = File::open(& params.input_pfm_file_name);
+    let mut reader: BufReader<File> = BufReader::new(file?);
 
-    img.normalization(Some(params.factor_a))?;
+    let mut img = read_pfm_file(&mut reader)?;
+
+    img.normalization(Some(& params.factor_a))?;
 
     img.sem_clamp_image()?;
 

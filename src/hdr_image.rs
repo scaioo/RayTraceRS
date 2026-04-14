@@ -29,12 +29,14 @@
 //! assert_eq!(px.r, 1.0);
 //! ```
 //!
+
+use std::fs::File;
 use crate::color::Color;
 use crate::functions::endianness_number;
 use anyhow::{Result, anyhow};
 use byteorder::{BigEndian, LittleEndian, WriteBytesExt};
 use endianness::ByteOrder;
-use std::io::Write;
+use std::io::{BufReader, Write};
 
 use crate::pfm_func::{Parameter, read_pfm_file};
 use image::{Rgb, RgbImage};
@@ -231,12 +233,12 @@ impl HDR {
     /// ```text
     /// color = (color * a) / L_avg
     /// ```
-    pub fn normalization(&mut self, wrapped_a: Option<f32>) -> Result<()> {
+    pub fn normalization(&mut self, wrapped_a: Option<&f32>) -> Result<()> {
         if self.pixels.len() == 0 {
             return Err(anyhow!("normalization(): no pixels to normalize!!!!"));
         }
 
-        let a = wrapped_a.unwrap_or(0.18);
+        let a = *wrapped_a.unwrap_or(&0.18);
         if a <= 0.0 {
             return Err(anyhow!(
                 "normalization():\
@@ -323,7 +325,14 @@ impl HDR {
 /// ```
 pub fn hdr_to_ldr(argv: &mut Parameter) -> Result<()> {
     // Creates HDR object and fill with the .pfm file
-    let mut img = read_pfm_file(&mut argv.input_pfm_file_name)?;
+    let args: Vec<String> = std::env::args().collect();
+    let mut params = Parameter::new(args)?;
+
+    let file = File::open(& params.input_pfm_file_name);
+    let mut reader: BufReader<File> = BufReader::new(file?);
+
+    let mut img = read_pfm_file(&mut reader)?;
+    
 
     println!(
         "File {} has been opened and read",
@@ -331,7 +340,7 @@ pub fn hdr_to_ldr(argv: &mut Parameter) -> Result<()> {
     );
     
     // Tone mapping of the HDR image
-    img.normalization(Some(argv.factor_a))?;
+    img.normalization(Some(& argv.factor_a))?;
     img.sem_clamp_image()?;
 
     // Create RgbImage box and fill it with the image
@@ -533,17 +542,17 @@ mod test {
     fn test_normalization() {
         // Test the empty image
         let mut img1 = HDR::new(0, 0);
-        assert!(img1.normalization(Some(1.0)).is_err());
+        assert!(img1.normalization(Some(& 1.0)).is_err());
 
         // Test wrong parameters input
         let mut img = HDR::new(1, 4);
         let mut img1 = HDR::new(1, 4);
         let mut img2 = HDR::new(1, 4);
-        match img1.normalization(Some(-1.0)){
+        match img1.normalization(Some(& -1.0)){
             Ok(_) => panic!("Should fail!"),
             Err(e) => println!("Error obtained: {:?}", e)
         }
-        match img1.normalization(Some(0.0)){
+        match img1.normalization(Some(& 0.0)){
             Ok(_) => panic!("Should fail!"),
             Err(e) => println!("Error obtained: {:?}", e)
         }
@@ -564,7 +573,7 @@ mod test {
                    img.get_pixel(0, 0).unwrap().r * 0.18 / log_average );
 
         // Test the input value option
-        img2.normalization(Some(5.0)).unwrap();
+        img2.normalization(Some(& 5.0)).unwrap();
         assert_eq!(img2.get_pixel(0, 0).unwrap().r,
                    img.get_pixel(0, 0).unwrap().r * 5.0 / log_average );
     }

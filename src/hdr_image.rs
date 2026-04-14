@@ -18,8 +18,8 @@
 //! ## Example
 //!
 //! ```rust, no_run
-//! use crate::color::Color;
-//! use crate::hdr::HDR;
+//!use crate::color::Color;
+//! use crate::hdr_image::HDR;
 //!
 //! let mut img = HDR::new(512, 512);
 //!
@@ -325,10 +325,8 @@ impl HDR {
 /// ```
 pub fn hdr_to_ldr(argv: &mut Parameter) -> Result<()> {
     // Creates HDR object and fill with the .pfm file
-    let args: Vec<String> = std::env::args().collect();
-    let params = Parameter::new(args)?;
 
-    let file = File::open(&params.input_pfm_file_name);
+    let file = File::open(&argv.input_pfm_file_name);
     let mut reader: BufReader<File> = BufReader::new(file?);
 
     let mut img = read_pfm(&mut reader)?;

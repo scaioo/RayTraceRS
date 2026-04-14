@@ -29,7 +29,7 @@ use crate::color::Color;
 use crate::hdr_image::HDR;
 use anyhow::anyhow;
 use std::fs::File;
-use std::io::{BufRead, BufReader, Read, stdin};
+use std::io::{BufRead, BufReader, Read};
 use std::string::ToString;
 
 /// Byte order used in the PFM file.
@@ -136,8 +136,8 @@ pub fn _parse_endianness(line: &str) -> anyhow::Result<Endianness> {
 /// # Notes
 /// The function assumes that the cursor is positioned at the start
 /// of the binary pixel data.
-fn _read_hdr(
-    reader: &mut BufReader<File>,
+fn _read_hdr<R: Read>(
+    reader: &mut R,
     width: usize,
     height: usize,
     endianness: Endianness,
@@ -179,7 +179,6 @@ fn _read_hdr(
     Ok(hdr_img)
 }
 
-
 /// Reads a `.pfm` (Portable Float Map) file and returns an [`HDR`] image.
 ///
 /// This function parses the PFM header (magic number, dimensions, and scale)
@@ -211,10 +210,15 @@ fn _read_hdr(
 /// The function expects a well-formed PFM file. Validation is performed
 /// during parsing, and any inconsistency results in an error.
 pub fn read_pfm_file(filename: &str) -> anyhow::Result<HDR> {
-    let file = File::open(filename);
-    let mut reader = BufReader::new(file?);
+    let file = File::open(filename)?;
+    let reader = BufReader::new(file);
+    read_pfm(reader)
+}
+pub fn read_pfm<R: BufRead>(mut reader: R) -> anyhow::Result<HDR> {
+    // Before it was read_pfm_file(filename: &str) and so were necessary the two following lines
+    //let file = File::open(filename);
+    //let mut reader = BufReader::new(file?);
     let mut line: String = String::new();
-
     reader.read_line(&mut line)?;
     _read_magic(&mut line)?;
 
@@ -287,8 +291,10 @@ impl Parameter {
     /// ```
     pub fn new(args: Vec<String>) -> anyhow::Result<Parameter> {
         if args.len() != 5 {
-            return Err(anyhow!("wrong number of parameters: expected\n\
-            <input_file_name> <factor_a> <gamma> <output_file_name>"));
+            return Err(anyhow!(
+                "wrong number of parameters: expected\n\
+            <input_file_name> <factor_a> <gamma> <output_file_name>"
+            ));
         }
 
         let input_temp: &String = &args[1];
@@ -318,9 +324,8 @@ impl Parameter {
 
 #[cfg(test)]
 mod test {
-    use crate::pfm_func::Parameter;
-use crate::color::Color;
-    use crate::pfm_func::{_parse_endianness, _parse_img_size, _read_hdr, _read_magic, Endianness};
+    use crate::color::Color;
+    use crate::pfm_func::{_parse_endianness, _parse_img_size, _read_magic, Endianness};
 
     const BE_ARRAY: &[u8] = &[
         0x50, 0x46, 0x0a, 0x33, 0x20, 0x32, 0x0a, 0x31, 0x2e, 0x30, 0x0a, 0x42, 0xc8, 0x00, 0x00,
@@ -330,8 +335,6 @@ use crate::color::Color;
         0x20, 0x00, 0x00, 0x42, 0x48, 0x00, 0x00, 0x42, 0x70, 0x00, 0x00, 0x42, 0x8c, 0x00, 0x00,
         0x42, 0xa0, 0x00, 0x00, 0x42, 0xb4, 0x00, 0x00,
     ];
-
-    use anyhow::anyhow;
 
     const LE_ARRAY: &[u8] = &[
         0x50, 0x46, 0x0a, 0x33, 0x20, 0x32, 0x0a, 0x2d, 0x31, 0x2e, 0x30, 0x0a, 0x00, 0x00, 0xc8,
@@ -343,7 +346,7 @@ use crate::color::Color;
     ];
 
     use super::*;
-    use std::io::{BufRead};
+    use std::io::{BufRead, Cursor};
 
     #[test]
     fn test_read_magic() {
@@ -399,7 +402,7 @@ use crate::color::Color;
         reader.read_line(&mut line).unwrap();
         line.clear();
 
-        let  _hdr = _read_hdr(&mut reader, 2, 4, Endianness::BigEndian);
+        let _hdr = _read_hdr(&mut reader, 2, 4, Endianness::BigEndian);
     }
 
     #[test]
@@ -416,7 +419,7 @@ use crate::color::Color;
         reader.read_line(&mut line).unwrap();
         line.clear();
 
-        let  _hdr = _read_hdr(&mut reader, 2, 2, Endianness::BigEndian).unwrap();
+        let _hdr = _read_hdr(&mut reader, 2, 2, Endianness::BigEndian).unwrap();
     }
 
     // test for new created for Parameter
@@ -424,7 +427,9 @@ use crate::color::Color;
     #[should_panic]
     //should panic if factor_a is not a number
     fn test_1_new_parameter() {
-        let strings: Vec<String> = ["exe", "filename_in", "a", "2.2", "filename_out"].map(String::from).to_vec();
+        let strings: Vec<String> = ["exe", "filename_in", "a", "2.2", "filename_out"]
+            .map(String::from)
+            .to_vec();
         let _par = Parameter::new(strings);
     }
 
@@ -432,34 +437,63 @@ use crate::color::Color;
     #[should_panic]
     //should panic if gamma is not a number
     fn test_2_new_parameter() {
-        let strings: Vec<String> = ["exe", "filename_in", "0.18", "a", "filename_out"].map(String::from).to_vec();
+        let strings: Vec<String> = ["exe", "filename_in", "0.18", "a", "filename_out"]
+            .map(String::from)
+            .to_vec();
         let _par = Parameter::new(strings);
-
     }
 
     #[test]
     //sets factor_a to 0.18 when a < 0
     fn test_3_new_parameter() {
-        let strings: Vec<String> = ["exe", "filename_in", "-1", "2.2", "filename_out"].map(String::from).to_vec();
+        let strings: Vec<String> = ["exe", "filename_in", "-1", "2.2", "filename_out"]
+            .map(String::from)
+            .to_vec();
         let par = Parameter::new(strings).unwrap();
         assert_eq!(0.18, par.factor_a);
-
     }
 
     #[test]
     //sets gamma to 2.2 when gamma < 0
     fn test_4_new_parameter() {
-        let strings: Vec<String> = ["exe", "filename_in", "0.18", "-1", "filename_out"].map(String::from).to_vec();
+        let strings: Vec<String> = ["exe", "filename_in", "0.18", "-1", "filename_out"]
+            .map(String::from)
+            .to_vec();
         let par = Parameter::new(strings).unwrap();
         assert_eq!(2.2, par.gamma);
-
     }
 
     #[test]
     #[should_panic]
-    //should panic if incorrect number of input parmeters
+    //should panic if incorrect number of input parameters
     fn test_5_new_parameter() {
-        let strings: Vec<String> = ["added string", "exe", "filename_in", "0.18", "a", "filename_out"].map(String::from).to_vec();
+        let strings: Vec<String> = [
+            "added string",
+            "exe",
+            "filename_in",
+            "0.18",
+            "a",
+            "filename_out",
+        ]
+        .map(String::from)
+        .to_vec();
         let _par = Parameter::new(strings).unwrap();
+    }
+
+    #[test]
+    fn test_read_pfm() -> anyhow::Result<()> {
+        for _reference_bytes in [BE_ARRAY, LE_ARRAY] {
+            let mut stream = Cursor::new(_reference_bytes);
+            let img = read_pfm(&mut stream)?;
+            assert_eq!(img.width, 3);
+            assert_eq!(img.height, 2);
+            assert_eq!(img.get_pixel(0, 0)?, Color::new(1.0e1, 2.0e1, 3.0e1));
+            assert_eq!(img.get_pixel(1, 0)?, Color::new(4.0e1, 5.0e1, 6.0e1));
+            assert_eq!(img.get_pixel(2, 0)?, Color::new(7.0e1, 8.0e1, 9.0e1));
+            assert_eq!(img.get_pixel(0, 1)?, Color::new(1.0e2, 2.0e2, 3.0e2));
+            assert_eq!(img.get_pixel(1, 1)?, Color::new(4.0e2, 5.0e2, 6.0e2));
+            assert_eq!(img.get_pixel(2, 1)?, Color::new(7.0e2, 8.0e2, 9.0e2));
+        }
+        Ok(())
     }
 }

@@ -29,7 +29,7 @@ use crate::color::Color;
 use crate::hdr_image::HDR;
 use anyhow::anyhow;
 use std::fs::File;
-use std::io::{BufRead, BufReader, Read, stdin};
+use std::io::{BufRead, BufReader, Read};
 use std::string::ToString;
 
 /// Byte order used in the PFM file.
@@ -180,7 +180,6 @@ fn _read_hdr<R: Read>(
     Ok(hdr_img)
 }
 
-
 /// Reads a `.pfm` (Portable Float Map) file and returns an [`HDR`] image.
 ///
 /// This function parses the PFM header (magic number, dimensions, and scale)
@@ -328,7 +327,7 @@ impl Parameter {
 #[cfg(test)]
 mod test {
     use crate::color::Color;
-    use crate::pfm_func::{Endianness, _parse_endianness, _parse_img_size, _read_magic};
+    use crate::pfm_func::{_parse_endianness, _parse_img_size, _read_magic, Endianness};
 
     const BE_ARRAY: &[u8] = &[
         0x50, 0x46, 0x0a, 0x33, 0x20, 0x32, 0x0a, 0x31, 0x2e, 0x30, 0x0a, 0x42, 0xc8, 0x00, 0x00,
@@ -405,7 +404,7 @@ mod test {
         reader.read_line(&mut line).unwrap();
         line.clear();
 
-        let  _hdr = _read_hdr(&mut reader, 2, 4, Endianness::BigEndian);
+        let _hdr = _read_hdr(&mut reader, 2, 4, Endianness::BigEndian);
     }
 
     #[test]
@@ -422,7 +421,7 @@ mod test {
         reader.read_line(&mut line).unwrap();
         line.clear();
 
-        let  _hdr = _read_hdr(&mut reader, 2, 2, Endianness::BigEndian).unwrap();
+        let _hdr = _read_hdr(&mut reader, 2, 2, Endianness::BigEndian).unwrap();
     }
 
     // test for new created for Parameter
@@ -430,43 +429,56 @@ mod test {
     #[should_panic]
     //should panic if factor_a is not a number
     fn test_1_new_parameter() {
-        let strings: Vec<String> = ["exe", "filename_in", "a", "2.2", "filename_out"].map(String::from).to_vec();
+        let strings: Vec<String> = ["exe", "filename_in", "a", "2.2", "filename_out"]
+            .map(String::from)
+            .to_vec();
         let _par = Parameter::new(strings);
-
     }
 
     #[test]
     #[should_panic]
     //should panic if gamma is not a number
     fn test_2_new_parameter() {
-        let strings: Vec<String> = ["exe", "filename_in", "0.18", "a", "filename_out"].map(String::from).to_vec();
+        let strings: Vec<String> = ["exe", "filename_in", "0.18", "a", "filename_out"]
+            .map(String::from)
+            .to_vec();
         let _par = Parameter::new(strings);
-
     }
 
     #[test]
     //sets factor_a to 0.18 when a < 0
     fn test_3_new_parameter() {
-        let strings: Vec<String> = ["exe", "filename_in", "-1", "2.2", "filename_out"].map(String::from).to_vec();
+        let strings: Vec<String> = ["exe", "filename_in", "-1", "2.2", "filename_out"]
+            .map(String::from)
+            .to_vec();
         let par = Parameter::new(strings).unwrap();
         assert_eq!(0.18, par.factor_a);
-
     }
 
     #[test]
     //sets gamma to 2.2 when gamma < 0
     fn test_4_new_parameter() {
-        let strings: Vec<String> = ["exe", "filename_in", "0.18", "-1", "filename_out"].map(String::from).to_vec();
+        let strings: Vec<String> = ["exe", "filename_in", "0.18", "-1", "filename_out"]
+            .map(String::from)
+            .to_vec();
         let par = Parameter::new(strings).unwrap();
         assert_eq!(2.2, par.gamma);
-
     }
 
     #[test]
     #[should_panic]
-    //should panic if incorrect number of input parmeters
+    //should panic if incorrect number of input parameters
     fn test_5_new_parameter() {
-        let strings: Vec<String> = ["added string", "exe", "filename_in", "0.18", "a", "filename_out"].map(String::from).to_vec();
+        let strings: Vec<String> = [
+            "added string",
+            "exe",
+            "filename_in",
+            "0.18",
+            "a",
+            "filename_out",
+        ]
+        .map(String::from)
+        .to_vec();
         let _par = Parameter::new(strings).unwrap();
     }
 

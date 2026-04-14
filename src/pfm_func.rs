@@ -29,7 +29,7 @@ use crate::color::Color;
 use crate::hdr_image::HDR;
 use anyhow::anyhow;
 use std::fs::File;
-use std::io::{BufRead, BufReader, Read};
+use std::io::{BufRead, BufReader, Read, stdin};
 use std::string::ToString;
 
 /// Byte order used in the PFM file.
@@ -221,7 +221,6 @@ pub fn read_pfm<R: BufRead>(mut reader: R) -> anyhow::Result<HDR> {
     //let file = File::open(filename);
     //let mut reader = BufReader::new(file?);
     let mut line: String = String::new();
-
     reader.read_line(&mut line)?;
     _read_magic(&mut line)?;
 
@@ -326,14 +325,6 @@ impl Parameter {
     }
 }
 
-// parse_command_line takes input parameters,
-// checks their number and format
-// and returns a Parameter type containing all the information
-
-// images are indexed with (0,0) in the top left corner.
-
-// test parse endianness: verify endianness result is correct
-// e che si arrabbi quando il numero è 0
 #[cfg(test)]
 mod test {
     use crate::color::Color;

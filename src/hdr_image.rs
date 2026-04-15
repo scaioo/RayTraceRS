@@ -18,7 +18,7 @@
 //! ## Example
 //!
 //! ```rust, no_run
-//!use crate::color::Color;
+//! use crate::color::Color;
 //! use crate::hdr_image::HDR;
 //!
 //! let mut img = HDR::new(512, 512);
@@ -88,13 +88,43 @@ impl HDR {
     /// Writes the image to a `.pfm` (Portable Float Map) file.
     ///
     /// # Arguments
-    /// * `filename` - Output file path
+    /// * `writer` - The output destination (e.g., a file, a memory buffer, or a network socket).
+    ///   It accepts any type that implements the [`std::io::Write`] trait.
     /// * `endianness` - Byte order used for writing floats
     ///
     /// # Errors
     /// Returns an error if:
-    /// - The file cannot be created
-    /// - Writing to the file fails
+    /// - The underlying stream (`writer`) cannot be written to.
+    /// - An I/O error occurs while formatting the header or encoding the pixels.
+    ///
+    /// # Examples
+    ///
+    /// ```rust,no_run
+    /// use std::fs::File;
+    /// use std::io::BufWriter;
+    /// use std::net::TcpStream;
+    /// // Assuming your types are imported, e.g.:
+    /// // use my_raytracer::{HDR, ByteOrder};
+    ///
+    /// # fn main() -> anyhow::Result<()> {
+    /// let img = HDR::new(1920, 1080);
+    /// let endianness = ByteOrder::LittleEndian;
+    ///
+    /// // Example 1: Writing to a physical file on disk (using BufWriter for optimal performance)
+    /// let file = File::create("render.pfm")?;
+    /// let mut disk_writer = BufWriter::new(file);
+    /// img.write_pfm(&mut disk_writer, &endianness)?;
+    ///
+    /// // Example 2: Writing directly to RAM (useful for automated tests or passing data to other APIs)
+    /// let mut memory_buffer: Vec<u8> = Vec::new();
+    /// img.write_pfm(&mut memory_buffer, &endianness)?;
+    ///
+    /// // Example 3: Streaming the image over a network connection (e.g., to a render node)
+    /// let mut network_stream = TcpStream::connect("127.0.0.1:8080")?;
+    /// img.write_pfm(&mut network_stream, &endianness)?;
+    /// # Ok(())
+    /// # }
+    /// ```
     ///
     /// # Notes
     /// - The image is written in **binary format**

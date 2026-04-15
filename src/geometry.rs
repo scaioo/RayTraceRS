@@ -1,7 +1,7 @@
 //! Geometry modules founding spacial description of the image
 
 use std::fmt::Display;
-use std::ops::{Add, Div, Mul, Sub};
+use std::ops::{Add, Div, Mul, Neg, Sub};
 
 /// Vector module stored as three floating-point components.
 #[derive(Copy, Clone, Debug, PartialEq)]
@@ -18,10 +18,10 @@ pub struct Vector{
 - [X][X] Sum between vectors
 - [X][X] difference between vectors
 - [X][X] Product by a scalar
-- [ ][ ] Negation
-- [ ][ ] Dot product between two vectors and cross product
-- [ ][ ] Calculation of squared_norm and norm
-- [ ][ ] Function that normalizes the vector
+- [X][X] Negation
+- [X][x] Dot product between two vectors and cross product
+- [X][X] Calculation of squared_norm and norm
+- [X][X] Function that normalizes the vector
 - [ ][ ] Function that converts a Vec into a Normal
 - [ ][ ] ...
 */
@@ -106,7 +106,7 @@ impl Mul<Vector> for f32 {
 impl Div<f32> for Vector {
     type Output = Self;
     fn div(self, other: f32) -> Self {
-        Vector{
+        Vector {
             x: self.x / other,
             y: self.y / other,
             z: self.z / other
@@ -114,19 +114,71 @@ impl Div<f32> for Vector {
     }
 }
 
-/// Scalar multiplication of vectors
-///
-/// # Example
-/// ```rust, no_run
-/// use rstrace::geometry::Vector;
-/// let vector_1 = Vector::new(1.0, 2.0, 3.0);
-/// let vector_2 = Vector::new(-1.0, -2.0, 3.0);
-/// assert_eq!(vector_1 * vector_2, 4.0);
-///```
-impl Mul<Vector> for Vector {
-    type Output= f32;
-    fn mul(self, other: Vector) -> f32 {
-        self.x * other.x + self.y * other.y + self.z * other.z
+
+impl Neg for Vector {
+    type Output = Self;
+    fn neg(self) -> Self {
+        Vector{
+            x : - self.x,
+            y : - self.y,
+            z : - self.z
+        }
+    }
+}
+
+
+impl Vector {
+    /// Dot product of vectors
+    ///
+    /// # Example
+    /// ```rust, no_run
+    /// use rstrace::geometry::Vector;
+    /// let vector_1 = Vector::new(1.0, 2.0, 3.0);
+    /// let vector_2 = Vector::new(-1.0, -2.0, 3.0);
+    /// assert_eq!(vector_1.dot(vector_2), 4.0);
+    ///```
+    // Consider adding the habits for NaN and INFINITY.
+    pub fn dot(self, other: Self) -> f32 {
+        (self.x * other.x) + (self.y * other.y) + (self.z * other.z)
+    }
+
+    /// Cross product of vectors
+    ///
+    /// # Example
+    /// ```rust, no_run
+    /// use rstrace::geometry::Vector;
+    /// let vector_1 = Vector::new(1.0, 2.0, 3.0);
+    /// let vector_2 = Vector::new(-1.0, -2.0, 3.0);
+    /// let expected_v = Vector::new(12.0, -6.0, 0.0);
+    /// assert_eq!(vector_1.cross(vector_2), expected_v);
+    ///```
+    // Consider adding the habits for NaN and INFINITY.
+    pub fn cross(self, other: Self) -> Self {
+        Vector{
+            x: self.y * other.z - self.z * other.y,
+            y: self.z * other.x - self.x * other.z,
+            z: self.x * other.y - self.y * other.x
+        }
+    }
+
+    /// Return the norm (Euclidean length) of a vector
+    pub fn norm(self) -> f32 {
+        self.dot(self).sqrt()
+    }
+
+    /// Return the squared norm (Euclidean length) of a vector
+    pub fn squared_norm(self) -> f32 {
+        self.dot(self)
+    }
+
+    /// Normalization of a Vector
+    ///
+    /// Return a vector with its norm equal to 1
+    pub fn normalize(self) -> Self {
+        if self.squared_norm() == 0.0 { // Is this control too computationally heavy?
+            panic!("ERROR: normalize() is impossibile for Vec(0,0,0)!");
+        }
+        self / self.norm()
     }
 }
 
@@ -232,5 +284,59 @@ mod test {
     fn test_vector_division(){
         let v1 = Vector::new(1.0, 2.0, 3.0);
         assert_eq!(v1/2.0, Vector::new(0.5, 1.0, 1.5));
+    }
+
+    #[test]
+    fn test_vector_dot_product(){
+        let vector_1 = Vector::new(1.0, 2.0, 3.0);
+        let vector_2 = Vector::new(-1.0, -2.0, 3.0);
+        assert_eq!(vector_1.dot(vector_2), 4.0);
+    }
+
+    #[test]
+    fn test_vector_cross_product(){
+        let vector_1 = Vector::new(1.0, 0.0, 0.0);
+        let vector_2 = Vector::new(0.0, 1.0, 0.0);
+        assert_eq!(vector_1.cross(vector_2), Vector::new(0.0, 0.0, 1.0));
+        let vector_1 = Vector::new(1.0, 1.0, 0.0);
+        let vector_2 = Vector::new(10.0, 10.0, 0.0);
+        assert_eq!(vector_1.cross(vector_2), Vector::new(0.0,0.0,0.0));
+        let vector_1 = Vector::new(1.0, 2.0, 3.0);
+        let vector_2 = Vector::new(-1.0, -2.0, 3.0);
+        let vector_expected = Vector::new(12.0, -6.0, 0.0);
+        assert_eq!(vector_1.cross(vector_2), vector_expected);
+        assert_eq!(vector_2.cross(vector_1), -1.0 * vector_expected);
+    }
+
+    #[test]
+    fn test_negation(){
+        let v = Vector::new(1.0, 2.0, 3.0);
+        assert_eq!(-v, Vector::new(-1.0, -2.0, -3.0));
+    }
+
+    #[test]
+    fn test_norm(){
+        let v = Vector::new(4.0, 0.0, -3.0);
+        assert_eq!(v.norm(), 5.0);
+    }
+
+    #[test]
+    fn test_squared_norm(){
+        let v = Vector::new(4.0, 0.0, -3.0);
+        assert_eq!(v.squared_norm(), 25.0);
+    }
+
+    #[test]
+    #[should_panic(expected = "ERROR: normalize() is impossibile for Vec(0,0,0)!")]
+    fn test_normalize(){
+        let v = Vector::new(3.0, -4.0, 0.0);
+        assert_eq!(v.normalize(), Vector::new(
+            3.0/5.0, 
+            -4.0/5.0, 
+            0.0/5.0)
+        );
+        
+        let v = Vector::new(0.0, 0.0, 0.0);
+        let _ = v.normalize();
     }
 }

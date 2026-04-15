@@ -23,6 +23,9 @@
 //! - [`pfm_func`] — PFM file reading utilities
 //! - [`geometry`] - Vector, Point and Normal modules structure and manipulation
 //! - [`transformations`] - Spacial transformation operations
+//! - [`ray`] -
+//! - [`camera`] -
+//! - [`ìmage_tracer`] - 
 
 pub mod color;
 pub mod functions;
@@ -30,3 +33,6 @@ pub mod hdr_image;
 pub mod pfm_func;
 mod geometry;
 mod transformations;
+pub mod ray;
+pub mod camera;
+pub mod image_tracer;

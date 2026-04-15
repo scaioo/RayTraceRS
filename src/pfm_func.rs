@@ -149,7 +149,6 @@ fn _read_hdr<R: Read>(
 
     //bytes to f32 is a closure that avoids code repetition, it takes an array of four bytes and,
     //matching the endianness, it turns it into f32
-    //matching the endianness, it turns it into a f32
     let bytes_to_f32 = |buf: [u8; 4]| match endianness {
         Endianness::LittleEndian => f32::from_le_bytes(buf),
         Endianness::BigEndian => f32::from_be_bytes(buf),
@@ -179,33 +178,34 @@ fn _read_hdr<R: Read>(
     Ok(hdr_img)
 }
 
-/// Reads a `.pfm` (Portable Float Map) file and returns an [`HDR`] image.
+/// A convenience function to read a `.pfm` (Portable FloatMap) directly from a file.
 ///
-/// This function parses the PFM header (magic number, dimensions, and scale)
-/// and reads the binary pixel data into an [`HDR`] structure **TOP TO BOTTOM**.
+/// This function opens the file at the given path, wraps it in a [`std::io::BufReader`]
+/// for performance, and delegates the parsing to the generic [`read_pfm`] engine.
 ///
-/// Both RGB (`PF`) and grayscale (`Pf`) formats are supported. Pixel data
-/// is interpreted according to the endianness specified by the scale factor.
+/// # Arguments
+///
+/// * `filename` - The path to the `.pfm` file.
 ///
 /// # Errors
+///
 /// Returns an error if:
-/// - the file cannot be opened
-/// - the magic number is invalid
-/// - the image dimensions cannot be parsed
-/// - the scale factor is invalid or zero
-/// - the binary data is incomplete or malformed
-/// - extra bytes are found after the pixel data
+/// - The file cannot be opened (e.g., file not found, permission denied).
+/// - The file content is not a valid PFM format (delegated to [`read_pfm`]).
 ///
 /// # Examples
-/// ```rust, no_run
+///
+/// ```rust,no_run
 /// use rstrace::pfm_func::read_pfm_file;
 /// use rstrace::hdr_image::HDR;
 ///
-/// let image : HDR = read_pfm_file("image.pfm").unwrap();
+/// # fn main() -> anyhow::Result<()> {
+/// let image: HDR = read_pfm_file("image.pfm")?;
 /// assert!(image.width > 0);
 /// assert!(image.height > 0);
+/// # Ok(())
+/// # }
 /// ```
-///
 /// # Notes
 /// The function expects a well-formed PFM file. Validation is performed
 /// during parsing, and any inconsistency results in an error.
@@ -214,10 +214,54 @@ pub fn read_pfm_file(filename: &str) -> anyhow::Result<HDR> {
     let reader = BufReader::new(file);
     read_pfm(reader)
 }
+
+/// Reads a `.pfm` (Portable FloatMap) image from a generic buffered stream.
+///
+/// This function parses the PFM header (magic number, dimensions, and scale)
+/// and reads the binary pixel data into an [`HDR`] structure **TOP TO BOTTOM**.
+///
+/// Both RGB (`PF`) and grayscale (`Pf`) formats are supported. Pixel data
+/// is interpreted according to the endianness specified by the scale factor.
+///
+/// # Arguments
+///
+/// * `reader` - The input stream (e.g., a file, a memory buffer, or network socket).
+///   It accepts any type that implements the [`std::io::BufRead`] trait.
+///
+/// # Errors
+///
+/// Returns an error if:
+/// - An I/O error occurs while reading the stream.
+/// - The magic number is invalid or missing.
+/// - The image dimensions cannot be parsed.
+/// - The scale factor is invalid or zero.
+/// - The binary data is incomplete or malformed.
+/// - Extra bytes are found after the pixel data.
+///
+/// # Examples
+///
+/// ```rust
+/// use std::io::Cursor;
+/// use rstrace::pfm_func::read_pfm;
+/// use rstrace::hdr_image::HDR;
+///
+/// # fn main() -> anyhow::Result<()> {
+/// // A tiny, fake PFM file in memory (RAM)
+/// let pfm_data = b"PF\n1 1\n-1.0\n\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00";
+/// let mut stream = Cursor::new(pfm_data);
+///
+/// let image = read_pfm(&mut stream)?;
+/// assert_eq!(image.width, 1);
+/// assert_eq!(image.height, 1);
+/// # Ok(())
+/// # }
+/// ```
+///
+/// # Notes
+///
+/// The function expects a well-formed PFM stream. Validation is performed
+/// during parsing, and any inconsistency results in an error.
 pub fn read_pfm<R: BufRead>(mut reader: R) -> anyhow::Result<HDR> {
-    // Before it was read_pfm_file(filename: &str) and so were necessary the two following lines
-    //let file = File::open(filename);
-    //let mut reader = BufReader::new(file?);
     let mut line: String = String::new();
     reader.read_line(&mut line)?;
     _read_magic(&mut line)?;

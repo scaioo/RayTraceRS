@@ -100,11 +100,12 @@ impl HDR {
     /// # Examples
     ///
     /// ```rust,no_run
+    /// use crate::rstrace::hdr_image::HDR;
     /// use std::fs::File;
     /// use std::io::BufWriter;
     /// use std::net::TcpStream;
-    /// // Assuming your types are imported, e.g.:
-    /// // use my_raytracer::{HDR, ByteOrder};
+    /// use endianness::ByteOrder;
+    ///
     ///
     /// # fn main() -> anyhow::Result<()> {
     /// let img = HDR::new(1920, 1080);

@@ -49,7 +49,7 @@ pub fn endianness_number(endianness: &ByteOrder) -> f32 {
 //                    ⚠  EXPERIMENTAL ⚠
 // =========================================================
 
-///
+#[macro_export]
 macro_rules! three_float_struct {
     // Default to x,y,z
     ($name : ident) => {

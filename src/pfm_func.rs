@@ -485,7 +485,7 @@ mod test {
     #[test]
     fn test_read_pfm() -> anyhow::Result<()> {
         for _reference_bytes in [BE_ARRAY, LE_ARRAY] {
-            let mut stream = BufReader::new(_reference_bytes);
+            let mut stream = Cursor::new(_reference_bytes);
             let img = read_pfm(&mut stream)?;
             assert_eq!(img.width, 3);
             assert_eq!(img.height, 2);

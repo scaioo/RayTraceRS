@@ -1,5 +1,6 @@
 //! Geometry modules founding spacial description of the image
 
+use std::fmt;
 use std::fmt::Display;
 use std::ops::{Add, Div, Mul, Neg, Sub};
 use crate::functions::are_close;
@@ -34,7 +35,7 @@ impl Vector{
 
 /// Formats the vector as `Vec(x = ..., y = ..., z = ...)`.
 impl Display for Vector {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         write!(f, "Vec(x = {}, y = {}, z = {})", self.x, self.y, self.z)
     }
 }
@@ -313,7 +314,6 @@ pub struct Normal {
     pub y: f32,
     pub z: f32,
 }
-
 impl Normal {
     /// Creates a new `Normal` with the given components.
     ///
@@ -335,12 +335,11 @@ impl Normal {
     }
 }
 
-impl Display for Normal {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        write!(f, "Normal(x = {}, y = {}, z = {})", self.x, self.y, self.z)
+impl Display for Normal{
+    fn fmt(&self,f: &mut fmt::Formatter) -> fmt::Result {
+        write!(f,"Normal(x={},y={},z={}",self.x,self.y,self.z)
     }
 }
-
 impl Normal{
     /// Returns `true` when on each ax the difference
     /// of the coordinate is less than 0.00001.
@@ -397,15 +396,51 @@ impl Div<f32> for Normal {
         self * (1.0 / other)
     }
 }
-
+// Dot and Cross Trait
+pub trait Dot<Rhs> {
+    fn dot(&self, rhs: &Rhs) -> f32;
+}
+pub trait Cross<Rhs> {
+    type Output;
+    fn cross(&self, rhs: &Rhs) -> Self::Output;
+}
+// Macros for dot and cross products
+macro_rules! impl_dot {
+    ($type_self: ident, $type_other: ident) => {
+        //dot product return a float (f32)
+        impl Dot<$type_other> for $type_self{
+            fn dot(&self, second_term: &$type_other) -> f32 {
+                self.x*second_term.x + self.y*second_term.y +self.z*second_term.z
+            }
+        }
+    };
+}
+macro_rules! impl_cross {
+    ($type_self: ident, $type_other: ident,$type_out: ident) =>{
+        impl Cross<$type_other> for $type_self{
+            type Output = $type_out;
+            // Cross product returns a custom type ($type_other)
+            fn cross(&self,other: &$type_other) -> $type_out {
+                $type_out{
+                    x: self.y * other.z - self.z * other.y,
+                    y: self.z * other.x - self.x * other.z,
+                    z: self.x * other.y - self.y * other.x,
+                }
+            }
+        }
+    };
+}
+impl_dot!(Vector,Vector);
+impl_cross!(Vector,Vector,Vector);
+impl_dot!(Normal,Vector);
 
 /* TODO
 - [X][X] Constructor
 - [X][X] Conversion to String
 - [X][X] Comparison between normals (for tests)
-- [X][X] Operatore -normale
+- [X][X] Operator -normale
 - [X][X] Multiplication by a scalar
-- [ ][ ] Dot product Vec·Normal and cross product Vec×Normal and Normal×Normal
+- [X][X] Dot product Vec·Normal and cross product Vec×Normal and Normal×Normal
 - [ ][ ] Calculation of squared_norm and norm
 - [ ][ ] Function that normalizes the normal
 - [ ][ ] Altro

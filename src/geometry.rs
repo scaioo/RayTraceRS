@@ -337,7 +337,7 @@ impl Normal {
 
 impl Display for Normal{
     fn fmt(&self,f: &mut fmt::Formatter) -> fmt::Result {
-        write!(f,"Normal(x={},y={},z={}",self.x,self.y,self.z)
+        write!(f,"Normal(x = {}, y = {}, z = {})",self.x,self.y,self.z)
     }
 }
 impl Normal{
@@ -388,7 +388,7 @@ impl Mul<Normal> for f32 {
 /// let n = Normal::new(10.0, 1.0, 4.0);
 /// assert_eq!(n / 2.0, Normal::new(5.0, 0.5, 2.0));
 /// let n = n / 0.0;
-/// assert!(n.x.is_infinity());
+/// assert!(n.x.is_infinite());
 /// ```
 impl Div<f32> for Normal {
     type Output = Self;

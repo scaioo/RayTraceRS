@@ -2,6 +2,7 @@
 
 use std::fmt::Display;
 use std::ops::{Add, Div, Mul, Neg, Sub};
+use crate::functions::are_close;
 
 /// Vector module stored as three floating-point components.
 #[derive(Copy, Clone, Debug, PartialEq)]
@@ -10,21 +11,6 @@ pub struct Vector{
     pub y : f32,
     pub z : f32,
 }
-
-/* TODO: [function][test]
-- [X][X] Constructor
-- [X][X] Conversion to String
-- [ ][ ] Comparison between vectors
-- [X][X] Sum between vectors
-- [X][X] difference between vectors
-- [X][X] Product by a scalar
-- [X][X] Negation
-- [X][x] Dot product between two vectors and cross product
-- [X][X] Calculation of squared_norm and norm
-- [X][X] Function that normalizes the vector
-- [ ][ ] Function that converts a Vec into a Normal
-- [ ][ ] ...
-*/
 
 impl Vector{
     /// Creates a new `Vector` with the given components.
@@ -180,8 +166,30 @@ impl Vector {
         }
         self / self.norm()
     }
+
+    /// Returns `true` when on each ax the difference
+    /// of the coordinate is less than 0.00001.
+    pub fn is_closed(&self, other: &Vector) -> bool{
+        are_close(self.x, other.x)
+            && are_close(self.y, other.y)
+            && are_close(self.z, other.z)
+    }
 }
 
+/* TODO: [function][test]
+- [X][X] Constructor
+- [X][X] Conversion to String
+- [ ][ ] Comparison between vectors
+- [X][X] Sum between vectors
+- [X][X] difference between vectors
+- [X][X] Product by a scalar
+- [X][X] Negation
+- [X][x] Dot product between two vectors and cross product
+- [X][X] Calculation of squared_norm and norm
+- [X][X] Function that normalizes the vector
+- [ ][ ] Function that converts a Vec into a Normal
+- [ ][ ] ...
+*/
 
 // ===========================================================================
 // ===========================================================================
@@ -338,5 +346,16 @@ mod test {
         
         let v = Vector::new(0.0, 0.0, 0.0);
         let _ = v.normalize();
+    }
+
+    #[test]
+    fn test_is_closed(){
+        let v = Vector::new(1.0, 2.0, 3.0);
+        let v2 = Vector::new(1.0000001, 2.000000003, 3.0000000005);
+        assert_eq!(v.is_closed(&v2), true);
+        let v2 = Vector::new(10.0, 10.0, 0.0);
+        assert_eq!(v.is_closed(&v2), false);
+        let v2 = Vector::new(1.00001, 2.000000003, 3.0000000005);
+        assert_eq!(v.is_closed(&v2), false); // x1 - x2 > 0.00001!!!
     }
 }

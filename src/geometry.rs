@@ -174,12 +174,20 @@ impl Vector {
             && are_close(self.y, other.y)
             && are_close(self.z, other.z)
     }
+
+    pub fn to_normal(&self) -> Normal {
+        Normal{
+            x : self.x,
+            y : self.y,
+            z : self.z,
+        }
+    }
 }
 
 /* TODO: [function][test]
 - [X][X] Constructor
 - [X][X] Conversion to String
-- [ ][ ] Comparison between vectors
+- [X][X] Comparison between vectors
 - [X][X] Sum between vectors
 - [X][X] difference between vectors
 - [X][X] Product by a scalar
@@ -187,7 +195,7 @@ impl Vector {
 - [X][x] Dot product between two vectors and cross product
 - [X][X] Calculation of squared_norm and norm
 - [X][X] Function that normalizes the vector
-- [ ][ ] Function that converts a Vec into a Normal
+- [X][ ] Function that converts a Vec into a Normal
 - [ ][ ] ...
 */
 
@@ -222,8 +230,30 @@ pub struct Normal {
     pub z: f32,
 }
 
+
+impl Normal {
+    /// Creates a new `Normal` with the given components.
+    ///
+    /// This function performs no validation. Values such as `NaN`,
+    /// `INFINITY`, and `NEG_INFINITY` are allowed.
+    ///
+    /// # Example
+    ///
+    /// ```rust
+    /// use rstrace::geometry::Normal;
+    ///
+    /// let normal = Normal::new(1.0, 2.0, 3.0);
+    /// assert_eq!(normal.x, 1.0);
+    /// assert_eq!(normal.y, 2.0);
+    /// assert_eq!(normal.z, 3.0);
+    /// ```
+    pub fn new(x : f32, y : f32, z : f32) -> Normal {
+        Normal{x, y, z}
+    }
+}
+
 /* TODO
-- [ ][ ] Constructor
+- [X][X] Constructor
 - [ ][ ] Comparison between normals (for tests)
 - [ ][ ] Operatore -normale
 - [ ][ ] Multiplication by a scalar
@@ -357,5 +387,30 @@ mod test {
         assert_eq!(v.is_closed(&v2), false);
         let v2 = Vector::new(1.00001, 2.000000003, 3.0000000005);
         assert_eq!(v.is_closed(&v2), false); // x1 - x2 > 0.00001!!!
+    }
+
+    #[test]
+    fn test_to_normal(){
+        let v = Vector::new(1.0, 2.0, f32::INFINITY);
+        assert_eq!(v.to_normal(), Normal::new(1.0, 2.0, f32::INFINITY));
+    }
+
+
+    //======================= Point ==========================
+
+
+    //======================= Normal ==========================
+
+    #[test]
+    #[should_panic(expected = "assertion `left == right` failed")]
+    fn test_constructor(){
+        let n = Normal::new(1.0, 2.0, 3.0);
+        assert_eq!(n, Normal::new(1.0, 2.0, 3.0));
+        let n = Normal::new(f32::NAN, f32::INFINITY, f32::NEG_INFINITY);
+        assert_eq!(n.y, f32::INFINITY);
+        assert_eq!(n.z, f32::NEG_INFINITY);
+        assert_eq!(n.x, f32::NAN);
+        // This last line panics because NaN != NaN.
+        // Note that the constructor doesn't panic.
     }
 }

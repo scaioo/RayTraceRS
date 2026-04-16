@@ -170,7 +170,7 @@ impl Vector {
 
     /// Returns `true` when on each ax the difference
     /// of the coordinate is less than 0.00001.
-    pub fn is_closed(&self, other: &Vector) -> bool{
+    pub fn is_close(&self, other: &Vector) -> bool{
         are_close(self.x, other.x)
             && are_close(self.y, other.y)
             && are_close(self.z, other.z)
@@ -341,12 +341,76 @@ impl Normal {
     }
 }
 
+impl Display for Normal {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "Normal(x = {}, y = {}, z = {})", self.x, self.y, self.z)
+    }
+}
+
+impl Normal{
+    /// Returns `true` when on each ax the difference
+    /// of the coordinate is less than 0.00001.
+    pub fn is_close(&self, other: &Normal) -> bool {
+        are_close(self.x, other.x)
+            && are_close(self.y, other.y)
+            && are_close(self.z, other.z)
+    }
+}
+
+impl Neg for Normal {
+    type Output = Self;
+    fn neg(self) -> Self {
+        Normal::new(-self.x, -self.y, -self.z)
+    }
+}
+
+impl Mul<f32> for Normal {
+    type Output = Self;
+    fn mul(self, other: f32) -> Self {
+        Normal{
+            x : self.x * other,
+            y : self.y * other,
+            z : self.z * other
+        }
+    }
+}
+
+impl Mul<Normal> for f32 {
+    type Output = Normal;
+    fn mul(self, other: Normal) -> Normal {
+        other * self
+    }
+}
+
+/// Divides a `Normal` by a scalar.
+///
+/// No checks are performed for division by zero. If `other == 0.0`,
+/// the result will contain `INFINITY` or `NaN` values according to
+/// IEEE-754 floating-point rules.
+///
+/// # Example
+/// ```rust
+/// use rstrace::geometry::Normal;
+///
+/// let n = Normal::new(10.0, 1.0, 4.0);
+/// assert_eq!(n / 2.0, Normal::new(5.0, 0.5, 2.0));
+/// let n = n / 0.0;
+/// assert!(n.x.is_infinity());
+/// ```
+impl Div<f32> for Normal {
+    type Output = Self;
+    fn div(self, other: f32) -> Self {
+        self * (1.0 / other)
+    }
+}
+
+
 /* TODO
 - [X][X] Constructor
-- [ ][ ] Conversion to String
-- [ ][ ] Comparison between normals (for tests)
-- [ ][ ] Operatore -normale
-- [ ][ ] Multiplication by a scalar
+- [X][X] Conversion to String
+- [X][X] Comparison between normals (for tests)
+- [X][X] Operatore -normale
+- [X][X] Multiplication by a scalar
 - [ ][ ] Dot product Vec·Normal and cross product Vec×Normal and Normal×Normal
 - [ ][ ] Calculation of squared_norm and norm
 - [ ][ ] Function that normalizes the normal
@@ -360,7 +424,6 @@ impl Normal {
 
 #[cfg(test)]
 mod test {
-    use std::vec;
     use super::*;
 
     //======================= Vector ==========================
@@ -475,14 +538,14 @@ mod test {
     }
 
     #[test]
-    fn test_vector_is_closed(){
+    fn test_vector_is_close(){
         let v = Vector::new(1.0, 2.0, 3.0);
         let v2 = Vector::new(1.0000001, 2.000000003, 3.0000000005);
-        assert_eq!(v.is_closed(&v2), true);
+        assert_eq!(v.is_close(&v2), true);
         let v2 = Vector::new(10.0, 10.0, 0.0);
-        assert_eq!(v.is_closed(&v2), false);
+        assert_eq!(v.is_close(&v2), false);
         let v2 = Vector::new(1.00001, 2.000000003, 3.0000000005);
-        assert_eq!(v.is_closed(&v2), false); // x1 - x2 > 0.00001!!!
+        assert_eq!(v.is_close(&v2), false); // x1 - x2 > 0.00001!!!
     }
 
     #[test]
@@ -553,6 +616,41 @@ mod test {
         let n = Normal::new(f32::NAN, f32::INFINITY, f32::NEG_INFINITY);
         assert_eq!(n.y, f32::INFINITY);
         assert_eq!(n.z, f32::NEG_INFINITY);
+        assert!(n.x.is_nan());
+    }
+
+    #[test]
+    fn test_normal_display(){
+        let n = Normal::new(1.0, 2.0, 3.0);
+        assert_eq!(format!("{}", n), "Normal(x = 1, y = 2, z = 3)");
+    }
+
+    #[test]
+    fn test_normal_is_close(){
+        let n = Normal::new(1.0, 2.0, 3.0);
+        let n2 = Normal::new(1.0000001, 2.000000003, 3.0000000005);
+        assert_eq!(n.is_close(&n2), true);
+        let n2 = Normal::new(10.0, 10.0, 0.0);
+        assert_eq!(n.is_close(&n2), false);
+        let n2 = Normal::new(1.00001, 2.000000003, 3.0000000005);
+        assert_eq!(n.is_close(&n2), false); // x1 - x2 > 0.00001!!!
+    }
+
+    #[test]
+    fn test_normal_neg(){
+        let n = Normal::new(1.0, 2.0, 3.0);
+        assert_eq!(-n, Normal::new(-1.0, -2.0, -3.0));
+    }
+
+    #[test]
+    fn test_normal_scalar_multiplcation() {
+        let n = Normal::new(1.0, 2.0, 3.0);
+        assert_eq!(n * 2.0, Normal::new(2.0, 4.0, 6.0));
+        assert_eq!(0.5 * n, Normal::new(0.5, 1.0, 1.5));
+        assert_eq!(n / 3.0, Normal::new(1.0 / 3.0, 2.0 / 3.0, 3.0 / 3.0));
+        let n = n/-0.0;
+        assert!(n.x.is_infinite());
+        let n = n/f32::NAN;
         assert!(n.x.is_nan());
     }
 }

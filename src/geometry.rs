@@ -389,7 +389,7 @@ impl Mul<Normal> for f32 {
 /// let n = Normal::new(10.0, 1.0, 4.0);
 /// assert_eq!(n / 2.0, Normal::new(5.0, 0.5, 2.0));
 /// let n = n / 0.0;
-/// assert!(n.x.is_infinity());
+/// assert!(n.x.is_infinite());
 /// ```
 impl Div<f32> for Normal {
     type Output = Self;
@@ -637,7 +637,7 @@ mod test {
     }
 
     #[test]
-    fn test_normal_scalar_multiplcation() {
+    fn test_normal_scalar_multiplication() {
         let n = Normal::new(1.0, 2.0, 3.0);
         assert_eq!(n * 2.0, Normal::new(2.0, 4.0, 6.0));
         assert_eq!(0.5 * n, Normal::new(0.5, 1.0, 1.5));

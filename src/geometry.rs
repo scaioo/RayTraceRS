@@ -1,5 +1,6 @@
 //! Geometry modules founding spacial description of the image
 
+use std::fmt;
 use std::fmt::Display;
 use std::ops::{Add, Div, Mul, Neg, Sub};
 use crate::functions::are_close;
@@ -34,7 +35,7 @@ impl Vector{
 
 /// Formats the vector as `Vec(x = ..., y = ..., z = ...)`.
 impl Display for Vector {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         write!(f, "Vec(x = {}, y = {}, z = {})", self.x, self.y, self.z)
     }
 }
@@ -312,6 +313,11 @@ pub struct Normal {
     pub x: f32,
     pub y: f32,
     pub z: f32,
+}
+impl Display for Normal{
+    fn fmt(&self,f: &mut fmt::Formatter) -> fmt::Result {
+        write!(f,"Normal(x={},y={},z={}",self.x,self.y,self.z)
+    }
 }
 
 impl Normal {

@@ -337,7 +337,7 @@ impl Normal {
 
 impl Display for Normal{
     fn fmt(&self,f: &mut fmt::Formatter) -> fmt::Result {
-        write!(f,"Normal(x={},y={},z={}",self.x,self.y,self.z)
+        write!(f,"Normal(x = {}, y = {}, z = {})",self.x,self.y,self.z)
     }
 }
 impl Normal{

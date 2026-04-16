@@ -125,9 +125,9 @@ impl Vector {
     /// assert_eq!(vector_1.dot(vector_2), 4.0);
     ///```
     // Consider adding the habits for NaN and INFINITY.
-    pub fn dot(self, other: Self) -> f32 {
-        (self.x * other.x) + (self.y * other.y) + (self.z * other.z)
-    }
+    //pub fn dot(self, other: Self) -> f32 {
+    //    (self.x * other.x) + (self.y * other.y) + (self.z * other.z)
+    //}
 
     /// Cross product of vectors
     ///
@@ -396,7 +396,11 @@ impl Div<f32> for Normal {
         self * (1.0 / other)
     }
 }
+// -------------------
 // Dot and Cross Trait
+// -------------------
+
+
 pub trait Dot<Rhs> {
     fn dot(&self, rhs: &Rhs) -> f32;
 }
@@ -404,7 +408,10 @@ pub trait Cross<Rhs> {
     type Output;
     fn cross(&self, rhs: &Rhs) -> Self::Output;
 }
+
+// ---------------------------------
 // Macros for dot and cross products
+// ---------------------------------
 macro_rules! impl_dot {
     ($type_self: ident, $type_other: ident) => {
         //dot product return a float (f32)
@@ -430,9 +437,14 @@ macro_rules! impl_cross {
         }
     };
 }
+
+// Implementation of dot and cross for Vector and Norm
 impl_dot!(Vector,Vector);
 impl_cross!(Vector,Vector,Vector);
 impl_dot!(Normal,Vector);
+impl_dot!(Vector,Normal);
+
+// Calculation of squared norm and norm
 
 /* TODO
 - [X][X] Constructor
@@ -454,7 +466,6 @@ impl_dot!(Normal,Vector);
 #[cfg(test)]
 mod test {
     use super::*;
-
     //======================= Vector ==========================
     #[test]
     fn test_vector_constructor(){
@@ -467,7 +478,6 @@ mod test {
         assert_eq!(v.z, f32::NEG_INFINITY);
         assert!(v.x.is_nan());
     }
-
     #[test]
     fn test_vector_display(){
         let v = Vector::new(1.0, 2.0, 3.0);
@@ -475,7 +485,6 @@ mod test {
         let v = Vector::new(1.0, 2.201, -3.0);
         assert_eq!(format!("{}", v), "Vec(x = 1, y = 2.201, z = -3)");
     }
-
     #[test]
     fn test_vector_addition(){
         let v1 =
@@ -484,7 +493,6 @@ mod test {
         let v2 = Vector::new(21.0, 302.0, -1.0);
         assert_eq!(v1, v2);
     }
-
     #[test]
     fn test_vector_subtraction(){
         let v1 =
@@ -493,7 +501,6 @@ mod test {
         let v2 = Vector::new(-19.0, -298.0, 7.0);
         assert_eq!(v1, v2);
     }
-
     #[test]
     fn test_vector_multiplication(){
         let v = Vector::new(1.0, 2.0, 3.0);
@@ -505,20 +512,17 @@ mod test {
         let v1 = v * 5.0;
         assert_eq!(v1, Vector::new(5.0, 10.0, 15.0));
     }
-
     #[test]
     fn test_vector_division(){
         let v1 = Vector::new(1.0, 2.0, 3.0);
         assert_eq!(v1/2.0, Vector::new(0.5, 1.0, 1.5));
     }
-
     #[test]
     fn test_vector_dot_product(){
         let vector_1 = Vector::new(1.0, 2.0, 3.0);
         let vector_2 = Vector::new(-1.0, -2.0, 3.0);
         assert_eq!(vector_1.dot(vector_2), 4.0);
     }
-
     #[test]
     fn test_vector_cross_product(){
         let vector_1 = Vector::new(1.0, 0.0, 0.0);
@@ -533,39 +537,34 @@ mod test {
         assert_eq!(vector_1.cross(vector_2), vector_expected);
         assert_eq!(vector_2.cross(vector_1), -1.0 * vector_expected);
     }
-
     #[test]
     fn test_vector_negation(){
         let v = Vector::new(1.0, 2.0, 3.0);
         assert_eq!(-v, Vector::new(-1.0, -2.0, -3.0));
     }
-
     #[test]
     fn test_vector_norm(){
         let v = Vector::new(4.0, 0.0, -3.0);
         assert_eq!(v.norm(), 5.0);
     }
-
     #[test]
     fn test_vector_squared_norm(){
         let v = Vector::new(4.0, 0.0, -3.0);
         assert_eq!(v.squared_norm(), 25.0);
     }
-
     #[test]
     #[should_panic(expected = "ERROR: normalize() is impossibile for Vec(0,0,0)!")]
     fn test_vector_normalize(){
         let v = Vector::new(3.0, -4.0, 0.0);
         assert_eq!(v.normalize(), Vector::new(
-            3.0/5.0, 
-            -4.0/5.0, 
+            3.0/5.0,
+            -4.0/5.0,
             0.0/5.0)
         );
-        
+
         let v = Vector::new(0.0, 0.0, 0.000001);
         let _ = v.normalize();
     }
-
     #[test]
     fn test_vector_is_close(){
         let v = Vector::new(1.0, 2.0, 3.0);
@@ -576,13 +575,11 @@ mod test {
         let v2 = Vector::new(1.00001, 2.000000003, 3.0000000005);
         assert_eq!(v.is_close(&v2), false); // x1 - x2 > 0.00001!!!
     }
-
     #[test]
     fn test_to_normal(){
         let v = Vector::new(1.0, 2.0, f32::INFINITY);
         assert_eq!(v.to_normal(), Normal::new(1.0, 2.0, f32::INFINITY));
     }
-
 
     //======================= Point ==========================
 
@@ -595,7 +592,6 @@ mod test {
         assert_eq!(p.z, f32::NEG_INFINITY);
         assert!(p.x.is_nan());
     }
-
     #[test]
     fn test_point_display(){
         let p = Point::new(1.0, 2.0, 3.0);
@@ -603,7 +599,6 @@ mod test {
         let p = Point::new(1.0, 2.201, -3.0);
         assert_eq!(format!("{}", p), "Point(x = 1, y = 2.201, z = -3)");
     }
-
     #[test]
     fn test_point_vector_sum(){
         let v = Vector::new(1.0, 2.0, 3.0);
@@ -612,7 +607,6 @@ mod test {
         assert_eq!(p + v, result);
         assert_eq!(v + p, result);
     }
-
     #[test]
     fn test_point_subtraction(){
         let p_final = Point::new(1.0, 2.0, 3.0);
@@ -621,23 +615,19 @@ mod test {
         assert_eq!(p_final - p_initial, v);
         assert_eq!(p_initial - p_final, -v);
     }
-
     #[test]
     fn test_point_minus_vector(){
         let p = Point::new(-1.0, -2.0, -3.0);
         let v = Vector::new(2.0,4.0,0.0);
         assert_eq!(p - v, Point::new(-3.0,-6.0,-3.0));
     }
-
     #[test]
     fn test_point_to_vec(){
         let p = Point::new(1.0, 2.0, 3.0);
         assert_eq!(p.to_vec(), Vector::new(1.0, 2.0, 3.0));
     }
 
-
     //======================= Normal ==========================
-
     #[test]
     fn test_normal_constructor(){
         let n = Normal::new(1.0, 2.0, 3.0);
@@ -647,13 +637,11 @@ mod test {
         assert_eq!(n.z, f32::NEG_INFINITY);
         assert!(n.x.is_nan());
     }
-
     #[test]
     fn test_normal_display(){
         let n = Normal::new(1.0, 2.0, 3.0);
         assert_eq!(format!("{}", n), "Normal(x = 1, y = 2, z = 3)");
     }
-
     #[test]
     fn test_normal_is_close(){
         let n = Normal::new(1.0, 2.0, 3.0);
@@ -664,15 +652,13 @@ mod test {
         let n2 = Normal::new(1.00001, 2.000000003, 3.0000000005);
         assert_eq!(n.is_close(&n2), false); // x1 - x2 > 0.00001!!!
     }
-
     #[test]
     fn test_normal_neg(){
         let n = Normal::new(1.0, 2.0, 3.0);
         assert_eq!(-n, Normal::new(-1.0, -2.0, -3.0));
     }
-
     #[test]
-    fn test_normal_scalar_multiplcation() {
+    fn test_normal_scalar_multiplication() {
         let n = Normal::new(1.0, 2.0, 3.0);
         assert_eq!(n * 2.0, Normal::new(2.0, 4.0, 6.0));
         assert_eq!(0.5 * n, Normal::new(0.5, 1.0, 1.5));
@@ -681,5 +667,31 @@ mod test {
         assert!(n.x.is_infinite());
         let n = n/f32::NAN;
         assert!(n.x.is_nan());
+    }
+    #[test]
+    fn test_dot_vec_vec(){
+        let v = Vector::new(1.0,2.0,3.0);
+        let u = Vector::new(2.0,3.0,4.0);
+        assert_eq!(v.dot(u),20.0)
+    }
+    #[test]
+    fn test_cross_vec_vec(){
+        let v = Vector::new(1.0,2.0,3.0);
+        let u = Vector::new(2.0,3.0,4.0);
+        let ax = 2.0 * 4.0 - 3.0 * 3.0;
+        let ay = 3.0 * 2.0 - 1.0 * 4.0;
+        let az = 1.0 * 3.0 - 2.0 * 2.0;
+        assert_eq!(v.cross(u).x,ax);
+        assert_eq!(v.cross(u).y,ay);
+        assert_eq!(v.cross(u).z,az);
+    }
+
+    #[test]
+    fn test_dot_normal_vec(){
+        let v = Vector::new(1.0,2.0,3.0);
+        let u = Normal::new(2.0,3.0,4.0);
+        assert_eq!(v.dot(u),20.0);
+        assert_eq!(u.dot(v),20.0);
+
     }
 }

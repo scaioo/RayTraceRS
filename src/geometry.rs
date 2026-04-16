@@ -161,7 +161,7 @@ impl Vector {
     ///
     /// Return a vector with its norm equal to 1
     pub fn normalize(self) -> Self {
-        if self.squared_norm() == 0.0 { // Is this control too computationally heavy?
+        if self.squared_norm() < 1.0e-06 { // Is this control too computationally heavy?
             panic!("ERROR: normalize() is impossibile for Vec(0,0,0)!");
         }
         self / self.norm()
@@ -209,14 +209,98 @@ pub struct Point{
     pub z : f32,
 }
 
+impl Point {
+    /// Creates a new `Point` with the given components.
+    ///
+    /// This function performs no validation. Values such as `NaN`,
+    /// `INFINITY`, and `NEG_INFINITY` are allowed.
+    ///
+    /// # Example
+    ///
+    /// ```rust
+    /// use rstrace::geometry::Point;
+    ///
+    /// let p = Point::new(1.0, 2.0, 3.0);
+    /// assert_eq!(p.x, 1.0);
+    /// assert_eq!(p.y, 2.0);
+    /// assert_eq!(p.z, 3.0);
+    /// ```
+    pub fn new(x : f32, y : f32, z : f32) -> Point {
+        Point{x, y, z}
+    }
+}
+
+impl Display for Point {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "Point(x = {}, y = {}, z = {})", self.x, self.y, self.z)
+    }
+}
+
+// What should we write in the doc? TODO
+// NOTE: maybe explicit the NAN, INFINITY and NEG_INFINITY handling
+impl Add<Vector> for Point {
+    type Output = Point;
+    fn add(self, other: Vector) -> Self {
+        Point{
+            x : self.x + other.x,
+            y : self.y + other.y,
+            z : self.z + other.z
+        }
+    }
+}
+impl Add<Point> for Vector {
+    type Output = Point;
+    fn add(self, other: Point) -> Point {
+        Point{
+            x : self.x + other.x,
+            y : self.y + other.y,
+            z : self.z + other.z
+        }
+    }
+}
+
+/// Subtraction of two points, returning a vector.
+///
+/// From an intuitive physics view, the first point to appear in the subtraction si
+/// the point reached, the first the starting point.
+///
+/// i.e.: in `b - a` the Vector has origin in `a` and cap in `b`.
+impl Sub for Point {
+    type Output = Vector;
+    fn sub(self, other: Self) -> Vector {
+        Vector{
+            x: self.x - other.x,
+            y: self.y - other.y,
+            z: self.z - other.z
+        }
+    }
+}
+
+impl Sub<Vector> for Point {
+    type Output = Point;
+    fn sub(self, other: Vector) -> Point {
+        self + (-other)
+    }
+}
+
+impl Point {
+    pub fn to_vec(self) -> Vector {
+        Vector{
+            x : self.x,
+            y : self.y,
+            z : self.z
+        }
+    }
+}
+
 /* TODO: [function][test]
-- [ ][ ] Constructor
-- [ ][ ] Conversion to String
-- [ ][ ] Sum Point + Vector -> Vector
-- [ ][ ] Difference between two Points, returning a Vec;
-- [ ][ ] Difference between Point and Vec, returning a Point
-- [ ][ ] Conversion from Point to Vec (Point.to_vec())
-- [ ][ ] Altro
+- [X][X] Constructor
+- [X][X] Conversion to String
+- [X][X] Sum Point + Vector -> Point
+- [X][X] Difference between two Points, returning a Vec;
+- [X][X] Difference between Point and Vec, returning a Point
+- [X][X] Conversion from Point to Vec (Point.to_vec())
+- [ ][ ] ...
  */
 
 // ===========================================================================
@@ -229,7 +313,6 @@ pub struct Normal {
     pub y: f32,
     pub z: f32,
 }
-
 
 impl Normal {
     /// Creates a new `Normal` with the given components.
@@ -254,6 +337,7 @@ impl Normal {
 
 /* TODO
 - [X][X] Constructor
+- [ ][ ] Conversion to String
 - [ ][ ] Comparison between normals (for tests)
 - [ ][ ] Operatore -normale
 - [ ][ ] Multiplication by a scalar
@@ -262,6 +346,7 @@ impl Normal {
 - [ ][ ] Function that normalizes the normal
 - [ ][ ] Altro
  */
+
 // -------------------------------------------------------------
 //                            Tests
 // -------------------------------------------------------------
@@ -269,6 +354,7 @@ impl Normal {
 
 #[cfg(test)]
 mod test {
+    use std::vec;
     use super::*;
 
     //======================= Vector ==========================
@@ -278,6 +364,10 @@ mod test {
         assert_eq!(v.x, 1.0);
         assert_eq!(v.y, 2.0);
         assert_eq!(v.z, 3.0);
+        let v = Vector::new(f32::NAN, f32::INFINITY, f32::NEG_INFINITY);
+        assert_eq!(v.y, f32::INFINITY);
+        assert_eq!(v.z, f32::NEG_INFINITY);
+        assert!(v.x.is_nan());
     }
 
     #[test]
@@ -347,26 +437,26 @@ mod test {
     }
 
     #[test]
-    fn test_negation(){
+    fn test_vector_negation(){
         let v = Vector::new(1.0, 2.0, 3.0);
         assert_eq!(-v, Vector::new(-1.0, -2.0, -3.0));
     }
 
     #[test]
-    fn test_norm(){
+    fn test_vector_norm(){
         let v = Vector::new(4.0, 0.0, -3.0);
         assert_eq!(v.norm(), 5.0);
     }
 
     #[test]
-    fn test_squared_norm(){
+    fn test_vector_squared_norm(){
         let v = Vector::new(4.0, 0.0, -3.0);
         assert_eq!(v.squared_norm(), 25.0);
     }
 
     #[test]
     #[should_panic(expected = "ERROR: normalize() is impossibile for Vec(0,0,0)!")]
-    fn test_normalize(){
+    fn test_vector_normalize(){
         let v = Vector::new(3.0, -4.0, 0.0);
         assert_eq!(v.normalize(), Vector::new(
             3.0/5.0, 
@@ -374,12 +464,12 @@ mod test {
             0.0/5.0)
         );
         
-        let v = Vector::new(0.0, 0.0, 0.0);
+        let v = Vector::new(0.0, 0.0, 0.000001);
         let _ = v.normalize();
     }
 
     #[test]
-    fn test_is_closed(){
+    fn test_vector_is_closed(){
         let v = Vector::new(1.0, 2.0, 3.0);
         let v2 = Vector::new(1.0000001, 2.000000003, 3.0000000005);
         assert_eq!(v.is_closed(&v2), true);
@@ -398,19 +488,65 @@ mod test {
 
     //======================= Point ==========================
 
+    #[test]
+    fn test_point_constructor(){
+        let p = Point::new(1.0, 2.0, 3.0);
+        assert_eq!(p, Point::new(1.0, 2.0, 3.0));
+        let p = Point::new(f32::NAN, f32::INFINITY, f32::NEG_INFINITY);
+        assert_eq!(p.y, f32::INFINITY);
+        assert_eq!(p.z, f32::NEG_INFINITY);
+        assert!(p.x.is_nan());
+    }
+
+    #[test]
+    fn test_point_display(){
+        let p = Point::new(1.0, 2.0, 3.0);
+        assert_eq!(format!("{}", p), "Point(x = 1, y = 2, z = 3)");
+        let p = Point::new(1.0, 2.201, -3.0);
+        assert_eq!(format!("{}", p), "Point(x = 1, y = 2.201, z = -3)");
+    }
+
+    #[test]
+    fn test_point_vector_sum(){
+        let v = Vector::new(1.0, 2.0, 3.0);
+        let p = Point::new(0.0, 1.0, 5.0);
+        let result = Point::new(1.0, 3.0, 8.0);
+        assert_eq!(p + v, result);
+        assert_eq!(v + p, result);
+    }
+
+    #[test]
+    fn test_point_subtraction(){
+        let p_final = Point::new(1.0, 2.0, 3.0);
+        let p_initial = Point::new(-1.0, -2.0, 3.0);
+        let v = Vector::new(2.0,4.0,0.0);
+        assert_eq!(p_final - p_initial, v);
+        assert_eq!(p_initial - p_final, -v);
+    }
+
+    #[test]
+    fn test_point_minus_vector(){
+        let p = Point::new(-1.0, -2.0, -3.0);
+        let v = Vector::new(2.0,4.0,0.0);
+        assert_eq!(p - v, Point::new(-3.0,-6.0,-3.0));
+    }
+
+    #[test]
+    fn test_point_to_vec(){
+        let p = Point::new(1.0, 2.0, 3.0);
+        assert_eq!(p.to_vec(), Vector::new(1.0, 2.0, 3.0));
+    }
+
 
     //======================= Normal ==========================
 
     #[test]
-    #[should_panic(expected = "assertion `left == right` failed")]
-    fn test_constructor(){
+    fn test_normal_constructor(){
         let n = Normal::new(1.0, 2.0, 3.0);
         assert_eq!(n, Normal::new(1.0, 2.0, 3.0));
         let n = Normal::new(f32::NAN, f32::INFINITY, f32::NEG_INFINITY);
         assert_eq!(n.y, f32::INFINITY);
         assert_eq!(n.z, f32::NEG_INFINITY);
-        assert_eq!(n.x, f32::NAN);
-        // This last line panics because NaN != NaN.
-        // Note that the constructor doesn't panic.
+        assert!(n.x.is_nan());
     }
 }

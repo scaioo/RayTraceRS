@@ -18,8 +18,8 @@
 //! ## Example
 //!
 //! ```rust, no_run
-//!use crate::color::Color;
-//! use crate::hdr_image::HDR;
+//! use rstrace::color::Color;
+//! use rstrace::hdr_image::HDR;
 //!
 //! let mut img = HDR::new(512, 512);
 //!

@@ -125,9 +125,9 @@ impl Vector {
     /// assert_eq!(vector_1.dot(vector_2), 4.0);
     ///```
     // Consider adding the habits for NaN and INFINITY.
-    //pub fn dot(self, other: Self) -> f32 {
-    //    (self.x * other.x) + (self.y * other.y) + (self.z * other.z)
-    //}
+    pub fn dot(self, other: Self) -> f32 {
+        (self.x * other.x) + (self.y * other.y) + (self.z * other.z)
+    }
 
     /// Cross product of vectors
     ///

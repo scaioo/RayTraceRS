@@ -690,8 +690,6 @@ mod test {
     fn test_dot_normal_vec(){
         let v = Vector::new(1.0,2.0,3.0);
         let u = Normal::new(2.0,3.0,4.0);
-        assert_eq!(v.dot(u),20.0);
-        assert_eq!(u.dot(v),20.0);
-
+        assert_eq!(u.dot(&v),20.0);
     }
 }

@@ -24,7 +24,12 @@ use crate::three_float_struct;
 ///
 /// Arithmetic operations do not enforce validity, so intermediate values
 /// may be outside the physically meaningful range.
-three_float_struct!(Color, (r,g,b));
+#[derive(Copy, Clone, Debug, PartialEq)]
+pub struct Color{
+    pub r: f32,
+    pub g: f32,
+    pub b: f32,
+}
 
 // ====================
 //     Constructor

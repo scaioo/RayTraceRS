@@ -44,7 +44,31 @@ pub fn endianness_number(endianness: &ByteOrder) -> f32 {
     }
 }
 
-// tests
+
+// =========================================================
+//                    ⚠  EXPERIMENTAL ⚠
+// =========================================================
+
+#[macro_export]
+macro_rules! three_float_struct {
+    // Default to x,y,z
+    ($name : ident) => {
+        three_float_struct!($name, (x,y,z));
+    };
+
+    // Explicit names
+    ($name : ident, ($($field:ident), *)) => {
+        #[derive(Copy, Clone, Debug, PartialEq)]
+        pub struct $name {
+            $( pub $field: f32 ), *
+        }
+    };
+}
+
+
+// =========================================================
+//                         Tests
+// =========================================================
 #[cfg(test)]
 mod tests {
     use super::*;

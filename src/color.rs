@@ -12,7 +12,6 @@
 
 use anyhow::{Result, anyhow};
 use std::ops::{Add, Div, Mul};
-use crate::three_float_struct;
 
 /// RGB color stored as three linear floating-point components.
 ///
@@ -25,7 +24,7 @@ use crate::three_float_struct;
 /// Arithmetic operations do not enforce validity, so intermediate values
 /// may be outside the physically meaningful range.
 #[derive(Copy, Clone, Debug, PartialEq)]
-pub struct Color{
+pub struct Color {
     pub r: f32,
     pub g: f32,
     pub b: f32,

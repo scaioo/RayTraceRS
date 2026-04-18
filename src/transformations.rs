@@ -1,3 +1,5 @@
+use std::process::Output;
+use std::ops::{Add, Div, Mul, Neg, Sub};
 use crate::geometry::{Vector, Point, Normal};
 // =======================================================================
 // TRAIT DEFINITIONS
@@ -9,9 +11,51 @@ use crate::geometry::{Vector, Point, Normal};
 
 #[macro_export]
 macro_rules! impl_matrix_operations {
-    ($name: ident) => {
+    ($t: ident) => {
         // Note that there might be a w as last coordinate of the homogeneous vector!
         // If none the standard is given by the type!
+
+        // -----------------------   Matrix times scalar   -------------------------
+        impl Mul<f32> for $t {
+            type Output = $t;
+
+            fn mul(self, rhs: f32) -> $t {
+                let mut new_mat = self.mat;
+                let mut new_inv = self.inverse;
+
+                for i in 0..16 {
+                    new_mat[i] *= rhs;
+                    new_inv[i] *= rhs;
+                }
+
+                $t {
+                    mat: new_mat,
+                    inverse: new_inv,
+                }
+            }
+        }
+
+        impl Mul<$t> for f32 {
+            type Output = $t;
+
+            fn mul(self, rhs: $t) -> $t {
+                rhs * self
+            }
+        }
+
+        impl Div<f32> for $t {
+            type Output = $t;
+            fn div(self, rhs: f32) -> $t {
+                if rhs == 0.0 || rhs.is_nan(){
+                    panic!("Invalid quotient!");
+                }
+                self * (1.0 / rhs)
+            }
+        }
+        
+        // -----------------------   Matrix * Matrix    -------------------------
+        
+        // Do we want to use the * symbol for the matrix-rhs product?
     };
 }
 
@@ -32,6 +76,8 @@ pub struct Scaling {
     pub mat: [f32; 16],
     pub inverse: [f32; 16]
 }
+
+impl_matrix_operations!(Scaling);
 
 impl Scaling {
     pub fn new(diagonal : [f32;3]) -> Scaling {
@@ -94,6 +140,30 @@ mod test {
         assert_eq!(inverse_mat, scale.inverse);
         let _ = Scaling::new([0.0,2.0,3.0]);
     }
+
+    #[test]
+    #[should_panic(expected = "Invalid quotient!")]
+    fn test_scaling_scalar_operations(){
+        let scale = Scaling::new([1.0, 2.0, 3.0]);
+        let scale2 = scale * 5.0;
+        let scale3 = -2.0  * scale;
+        let scale4 = scale /2.0;
+        for i in 0..16 {
+            assert_eq!(scale2.mat[i], scale.mat[i] * 5.0);
+            assert_eq!(scale3.mat[i], -scale.mat[i] * 2.0);
+            assert_eq!(scale4.mat[i], scale.mat[i]/ 2.0);
+        }
+        let _ = scale / 0.0;
+    }
+
+    #[test]
+    #[should_panic(expected = "Invalid quotient!")]
+    fn test_scaling_division_nan(){
+        let scale = Scaling::new([1.0, 2.0, 3.0]);
+        let _ = scale / f32::NAN;
+    }
+    
+    
 }
 
 

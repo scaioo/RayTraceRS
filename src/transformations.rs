@@ -1,7 +1,21 @@
 use crate::geometry::{Vector, Point, Normal};
+// =======================================================================
+// TRAIT DEFINITIONS
+// =======================================================================
+
+
+
+// =======================================================================
+// MACRO DEFINITIONS
+// =======================================================================
+
+
+// =======================================================================
+// STRUCT DEFINITIONS
+// =======================================================================
 
 #[derive(Copy, Clone, Debug, PartialEq)]
-pub struct Transformation {
+pub struct GenericTranfsormation {
     // 0..3 are the first row,
     // 4..7 the second row...
     pub mat: [f32; 16],
@@ -38,7 +52,8 @@ impl Scaling {
 
 /*
 TODO [function][test]
-- [][] Scaling constructor
+- [X][X] Scaling constructor
+- [][] Matrix product
 - [][] Rotation constructor
 - [][] Translation constructor
 - [][] Property tests (i.e. for translations T^-1(k) = T(-k))
@@ -49,9 +64,9 @@ TODO [function][test]
     Transformation * Normal → Normal.
  */
 
-// -------------------------------------------------------------
-//                            TESTS
-// -------------------------------------------------------------
+// =======================================================================
+// TESTS
+// =======================================================================
 #[cfg(test)]
 mod test {
     use crate::transformations::Scaling;
@@ -60,7 +75,18 @@ mod test {
     #[should_panic(expected = "Wrong inputs in Scaling Matrix definition")]
     fn test_scaling_constructor(){
         let scale = Scaling::new([1.0, 2.0, 3.0]);
-        assert_eq!(Scaling::new([1.0, 2.0, 3.0]), scale);
+        let mat = [
+                1.0, 0.0, 0.0, 0.0,
+                0.0, 2.0, 0.0, 0.0,
+                0.0, 0.0, 3.0, 0.0,
+                0.0, 0.0, 0.0, 1.0
+            ];
+        let mut inverse_mat = [0.0; 16];
+        for i in 0..4{
+            inverse_mat[i*5] = 1.0 / mat[i*5] ;
+        }
+        assert_eq!(mat, scale.mat);
+        assert_eq!(inverse_mat, scale.inverse);
         let _ = Scaling::new([0.0,2.0,3.0]);
     }
 }

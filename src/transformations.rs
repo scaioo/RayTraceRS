@@ -1,5 +1,7 @@
 use std::process::Output;
 use std::ops::{Add, Div, Mul, Neg, Sub};
+use crate::functions::{fast_matrix_mul, inverse_4x4};
+use anyhow::Result;
 use crate::geometry::{Vector, Point, Normal};
 // =======================================================================
 // TRAIT DEFINITIONS
@@ -52,10 +54,22 @@ macro_rules! impl_matrix_operations {
                 self * (1.0 / rhs)
             }
         }
-        
+
         // -----------------------   Matrix * Matrix    -------------------------
-        
+
         // Do we want to use the * symbol for the matrix-rhs product?
+        // option 1: yes
+        impl Mul<$t> for $t {
+            type Output = GenericTransformation;
+            fn mul(self, rhs: $t) -> GenericTransformation {
+                let array = fast_matrix_mul(self.mat, rhs.mat);
+                GenericTransformation{
+                    mat: array,
+                    inverse: inverse_4x4(array),
+                }
+            }
+
+        }
     };
 }
 
@@ -163,7 +177,11 @@ mod test {
         let _ = scale / f32::NAN;
     }
     
-    
+    #[test]
+    fn test_matrix_matrix(){
+        panic!("WRITE THE TEST!");
+    }
+
 }
 
 

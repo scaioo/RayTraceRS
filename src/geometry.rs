@@ -5,6 +5,31 @@ use std::fmt::Display;
 use std::ops::{Add, Div, Mul, Neg, Sub};
 use crate::functions::are_close;
 
+// =======================================================================
+// TRAIT DEFINITIONS
+// =======================================================================
+
+pub trait ToHomogeneous{
+    fn homogeneous(&self) -> [f32;4];
+}
+
+// =======================================================================
+// MACRO DEFINITIONS
+// =======================================================================
+
+#[macro_export]
+macro_rules! impl_homogeneous{
+($t:ty, $w:expr) => {
+        // Note: this trait implementation works only
+        // on structs that have 'x', 'y', 'z' arguments!
+        impl ToHomogeneous for $t {
+            fn homogeneous(&self) -> [f32; 4] {
+                [self.x, self.y, self.z, $w] // Use the passed-in w value
+            }
+        }
+    };
+}
+
 /// Vector module stored as three floating-point components.
 #[derive(Copy, Clone, Debug, PartialEq)]
 pub struct Vector{
@@ -12,6 +37,9 @@ pub struct Vector{
     pub y : f32,
     pub z : f32,
 }
+
+// Implement the Marker Trait
+impl_homogeneous!(Vector,0.0);
 
 impl Vector{
     /// Creates a new `Vector` with the given components.
@@ -210,6 +238,9 @@ pub struct Point{
     pub z : f32,
 }
 
+// Implement the Marker Trait
+impl_homogeneous!(Point,1.0);
+
 impl Point {
     /// Creates a new `Point` with the given components.
     ///
@@ -314,6 +345,10 @@ pub struct Normal {
     pub y: f32,
     pub z: f32,
 }
+
+// Implement the Marker Trait
+impl_homogeneous!(Normal, 0.0);
+
 impl Normal {
     /// Creates a new `Normal` with the given components.
     ///

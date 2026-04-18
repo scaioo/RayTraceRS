@@ -3,19 +3,24 @@ use crate::geometry::{Vector, Point, Normal};
 // TRAIT DEFINITIONS
 // =======================================================================
 
-
-
 // =======================================================================
 // MACRO DEFINITIONS
 // =======================================================================
 
+#[macro_export]
+macro_rules! impl_matrix_operations {
+    ($name: ident) => {
+        // Note that there might be a w as last coordinate of the homogeneous vector!
+        // If none the standard is given by the type!
+    };
+}
 
 // =======================================================================
 // STRUCT DEFINITIONS
 // =======================================================================
 
 #[derive(Copy, Clone, Debug, PartialEq)]
-pub struct GenericTranfsormation {
+pub struct GenericTransformation {
     // 0..3 are the first row,
     // 4..7 the second row...
     pub mat: [f32; 16],

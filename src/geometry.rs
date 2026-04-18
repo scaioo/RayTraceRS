@@ -9,8 +9,9 @@ use crate::functions::are_close;
 // TRAIT DEFINITIONS
 // =======================================================================
 
-pub trait ToHomogeneous{
-    fn homogeneous(&self) -> [f32;4];
+/// Marker trait that signals the struct to be either Vector, Point or Normal
+pub trait TDV {
+    fn to_homogeneous(&self) -> [f32;4];
 }
 
 // =======================================================================
@@ -22,9 +23,9 @@ macro_rules! impl_homogeneous{
 ($t:ty, $w:expr) => {
         // Note: this trait implementation works only
         // on structs that have 'x', 'y', 'z' arguments!
-        impl ToHomogeneous for $t {
-            fn homogeneous(&self) -> [f32; 4] {
-                [self.x, self.y, self.z, $w] // Use the passed-in w value
+        impl TDV for $t{
+            fn to_homogeneous(&self) -> [f32; 4] {
+                [self.x, self.y, self.z, $w]
             }
         }
     };

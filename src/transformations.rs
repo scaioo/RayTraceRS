@@ -1,11 +1,17 @@
 use std::process::Output;
 use std::ops::{Add, Div, Mul, Neg, Sub};
-use crate::functions::{fast_matrix_mul, inverse_4x4};
+use crate::functions::{fast_matrix_mul, inverse_4x4, transpose_matrix};
 use anyhow::Result;
 use crate::geometry::{Vector, Point, Normal};
 // =======================================================================
 // TRAIT DEFINITIONS
 // =======================================================================
+/// This trait is the Marker Trait for Transformations
+pub trait IsHomogeneousMatrix {
+    fn mat(&self) -> &[f32; 16];
+
+    fn it_mat(&self) -> &[f32; 16];
+}
 
 // =======================================================================
 // MACRO DEFINITIONS
@@ -16,42 +22,14 @@ macro_rules! impl_matrix_operations {
     ($t: ident) => {
         // Note that there might be a w as last coordinate of the homogeneous vector!
         // If none the standard is given by the type!
-
-        // -----------------------   Matrix times scalar   -------------------------
-        impl Mul<f32> for $t {
-            type Output = $t;
-
-            fn mul(self, rhs: f32) -> $t {
-                let mut new_mat = self.mat;
-                let mut new_inv = self.inverse;
-
-                for i in 0..16 {
-                    new_mat[i] *= rhs;
-                    new_inv[i] *= rhs;
-                }
-
-                $t {
-                    mat: new_mat,
-                    inverse: new_inv,
-                }
+        // -----------------------       Marker trait      -------------------------
+        impl IsHomogeneousMatrix for $t {
+            fn mat(&self) -> &[f32; 16] {
+                &self.mat
             }
-        }
 
-        impl Mul<$t> for f32 {
-            type Output = $t;
-
-            fn mul(self, rhs: $t) -> $t {
-                rhs * self
-            }
-        }
-
-        impl Div<f32> for $t {
-            type Output = $t;
-            fn div(self, rhs: f32) -> $t {
-                if rhs == 0.0 || rhs.is_nan(){
-                    panic!("Invalid quotient!");
-                }
-                self * (1.0 / rhs)
+            fn it_mat(&self) -> &[f32; 16] {
+                &self.it_mat
             }
         }
 
@@ -59,16 +37,94 @@ macro_rules! impl_matrix_operations {
 
         // Do we want to use the * symbol for the matrix-rhs product?
         // option 1: yes
-        impl Mul<$t> for $t {
+        impl<RHS: IsHomogeneousMatrix> Mul<RHS> for $t {
             type Output = GenericTransformation;
-            fn mul(self, rhs: $t) -> GenericTransformation {
-                let array = fast_matrix_mul(self.mat, rhs.mat);
-                GenericTransformation{
+
+            fn mul(self, rhs: RHS) -> GenericTransformation {
+                let array = fast_matrix_mul(&self.mat, rhs.mat());
+                let inverse  = inverse_4x4(&array);
+                GenericTransformation {
                     mat: array,
-                    inverse: inverse_4x4(array),
+                    it_mat: transpose_matrix(&inverse),
                 }
             }
+        }
 
+        // option 2: no
+        impl $t {
+            pub fn times_transformation<H: IsHomogeneousMatrix>(&self, matrix : H) -> GenericTransformation {
+                let mat : [f32; 16] = fast_matrix_mul(&self.mat, matrix.mat());
+                let inverse  = inverse_4x4(&mat);
+                GenericTransformation{
+                    mat: mat,
+                    it_mat: transpose_matrix(&inverse),
+                }
+            }
+        }
+
+        // -----------------------   Matrix * Vector    -------------------------
+
+        impl Mul<Vector> for $t {
+            type Output = Vector;
+            fn mul(self, rhs: Vector) -> Vector {
+                // Note that a homogeneous vector is [vx, vy, vz, 0]
+                let mut vec = Vector::new(0.0, 0.0, 0.0);
+
+                // Ugly but fasts - we use properties of the homogeneous space
+                vec.x = self.mat[0] * rhs.x + self.mat[1] * rhs.y + self.mat[2] * rhs.z;
+                vec.y = self.mat[4] * rhs.x + self.mat[5] * rhs.y + self.mat[6] * rhs.z;
+                vec.z = self.mat[8] * rhs.x + self.mat[9] * rhs.y + self.mat[10] * rhs.z;
+
+                let w = self.mat[12] * rhs.x + self.mat[13] * rhs.y + self.mat[14] * rhs.z;
+                // For debugging - to be canceled later
+                if w.abs() > 1.0e-8 {
+                    panic!("Invalid transformation!");
+                }
+
+                vec
+            }
+        }
+
+        impl Mul<Point> for $t {
+            type Output = Point;
+            fn mul(self, rhs: Point) -> Point {
+                // Note that a homogeneous vector is [vx, vy, vz, 1]
+                let mut point = Point::new(0.0, 0.0, 0.0);
+
+                // Ugly but fasts - we use properties of the homogeneous space
+                point.x = self.mat[0] * rhs.x + self.mat[1] * rhs.y + self.mat[2] * rhs.z;
+                point.y = self.mat[4] * rhs.x + self.mat[5] * rhs.y + self.mat[6] * rhs.z;
+                point.z = self.mat[8] * rhs.x + self.mat[9] * rhs.y + self.mat[10] * rhs.z;
+
+                let w = self.mat[12] * rhs.x + self.mat[13] * rhs.y + self.mat[14] * rhs.z;
+                // For debugging - to be canceled later
+                if (w - 1.0).abs() > 1.0e-8 {
+                    panic!("Invalid transformation!");
+                }
+
+                point
+            }
+        }
+
+        impl Mul<Normal> for $t {
+            type Output = Normal;
+            fn mul(self, rhs: Normal) -> Normal {
+                // Note that a homogeneous vector is [vx, vy, vz, 0]
+                let mut nor = Normal::new(0.0, 0.0, 0.0);
+
+                // Ugly but fasts - we use properties of the homogeneous space
+                nor.x = self.it_mat[0] * rhs.x + self.it_mat[1] * rhs.y + self.it_mat[2] * rhs.z;
+                nor.y = self.it_mat[4] * rhs.x + self.it_mat[5] * rhs.y + self.it_mat[6] * rhs.z;
+                nor.z = self.it_mat[8] * rhs.x + self.it_mat[9] * rhs.y + self.it_mat[10] * rhs.z;
+
+                let w = self.it_mat[12] * rhs.x + self.it_mat[13] * rhs.y + self.it_mat[14] * rhs.z;                // For debugging - to be canceled later
+                // For debugging
+                if w.abs() > 1.0e-8 {
+                    panic!("Invalid transformation!");
+                }
+
+                nor
+            }
         }
     };
 }
@@ -82,13 +138,13 @@ pub struct GenericTransformation {
     // 0..3 are the first row,
     // 4..7 the second row...
     pub mat: [f32; 16],
-    pub inverse: [f32; 16]
+    pub it_mat: [f32; 16]
 }
 
 #[derive(Copy, Clone, Debug, PartialEq)]
 pub struct Scaling {
     pub mat: [f32; 16],
-    pub inverse: [f32; 16]
+    pub it_mat: [f32; 16]
 }
 
 impl_matrix_operations!(Scaling);
@@ -100,17 +156,17 @@ impl Scaling {
             {:?}", diagonal);
         }
         let mut array = [0f32; 16];
-        let mut inverse = [0f32; 16];
+        let mut it_mat = [0f32; 16];
         for i in 0..3 {
             array[i*5] = diagonal[i];
-            inverse[i*5] = 1.0/ array[i*5];
+            it_mat[i*5] = 1.0/ array[i*5];
         }
         array[15] = 1.0;
-        inverse[15] = 1.0;
+        it_mat[15] = 1.0;
 
         Scaling{
             mat : array,
-            inverse
+            it_mat: it_mat
         }
     }
 }
@@ -146,41 +202,16 @@ mod test {
                 0.0, 0.0, 3.0, 0.0,
                 0.0, 0.0, 0.0, 1.0
             ];
-        let mut inverse_mat = [0.0; 16];
+        let mut it_mat = [0.0; 16];
         for i in 0..4{
-            inverse_mat[i*5] = 1.0 / mat[i*5] ;
+            it_mat[i*5] = 1.0 / mat[i*5] ;
         }
         assert_eq!(mat, scale.mat);
-        assert_eq!(inverse_mat, scale.inverse);
+        assert_eq!(it_mat, scale.it_mat);
         let _ = Scaling::new([0.0,2.0,3.0]);
     }
 
-    #[test]
-    #[should_panic(expected = "Invalid quotient!")]
-    fn test_scaling_scalar_operations(){
-        let scale = Scaling::new([1.0, 2.0, 3.0]);
-        let scale2 = scale * 5.0;
-        let scale3 = -2.0  * scale;
-        let scale4 = scale /2.0;
-        for i in 0..16 {
-            assert_eq!(scale2.mat[i], scale.mat[i] * 5.0);
-            assert_eq!(scale3.mat[i], -scale.mat[i] * 2.0);
-            assert_eq!(scale4.mat[i], scale.mat[i]/ 2.0);
-        }
-        let _ = scale / 0.0;
-    }
-
-    #[test]
-    #[should_panic(expected = "Invalid quotient!")]
-    fn test_scaling_division_nan(){
-        let scale = Scaling::new([1.0, 2.0, 3.0]);
-        let _ = scale / f32::NAN;
-    }
-    
-    #[test]
-    fn test_matrix_matrix(){
-        panic!("WRITE THE TEST!");
-    }
+    //Many tests to be writte....
 
 }
 

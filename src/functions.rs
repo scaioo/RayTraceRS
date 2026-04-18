@@ -6,7 +6,7 @@
 use endianness::ByteOrder;
 use crate::geometry::TDV;
 
-static IDENTITY_4X4: [f32; 16] = [
+pub static IDENTITY_4X4: [f32; 16] = [
     1.0, 0.0, 0.0, 0.0,
     0.0, 1.0, 0.0, 0.0,
     0.0, 0.0, 1.0, 0.0,

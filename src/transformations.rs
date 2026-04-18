@@ -1,6 +1,6 @@
 use std::process::Output;
 use std::ops::{Add, Div, Mul, Neg, Sub};
-use crate::functions::{fast_matrix_mul, inverse_4x4, transpose_matrix};
+use crate::functions::{fast_matrix_mul, inverse_4x4, transpose_matrix, IDENTITY_4X4};
 use anyhow::Result;
 use crate::geometry::{Vector, Point, Normal};
 // =======================================================================
@@ -10,7 +10,7 @@ use crate::geometry::{Vector, Point, Normal};
 pub trait IsHomogeneousMatrix {
     fn mat(&self) -> &[f32; 16];
 
-    fn it_mat(&self) -> &[f32; 16];
+    fn is_homogeneous(&self) -> bool;
 }
 
 // =======================================================================
@@ -28,13 +28,17 @@ macro_rules! impl_matrix_operations {
                 &self.mat
             }
 
-            fn it_mat(&self) -> &[f32; 16] {
-                &self.it_mat
+            fn is_homogeneous(&self) -> bool {
+                true
             }
+
         }
 
         // -----------------------   Matrix * Matrix    -------------------------
 
+
+        // Note:TOBE CHANGED!!!! UsE the fact that the inverse of the product
+        // is the product of the inverse
         // Do we want to use the * symbol for the matrix-rhs product?
         // option 1: yes
         impl<RHS: IsHomogeneousMatrix> Mul<RHS> for $t {
@@ -63,6 +67,51 @@ macro_rules! impl_matrix_operations {
         }
 
 
+    };
+}
+
+macro_rules! impl_mul_xrot {
+    ($name:ident) => {
+        impl Mul<$name> for XRotation {
+            type Output = $name;
+            fn mul(self, rhs: $name) -> $name {
+                $name{
+                    x : rhs.x,
+                    y : self.mat[5] * rhs.y + self.mat[6] * rhs.z,
+                    z : self.mat[9] * rhs.y + self.mat[10] * rhs.z
+                }
+            }
+        }
+    };
+}
+
+macro_rules! impl_mul_yrot {
+    ($name:ident) => {
+        impl Mul<$name> for YRotation {
+            type Output = $name;
+            fn mul(self, rhs: $name) -> $name {
+                $name{
+                    x : rhs.x * self.mat[0] + rhs.y * self.mat[2],
+                    y : rhs.y,
+                    z : self.mat[9] * rhs.x + self.mat[10] * rhs.z
+                }
+            }
+        }
+    };
+}
+
+macro_rules! impl_mul_zrot {
+    ($name:ident) => {
+        impl Mul<$name> for ZRotation {
+            type Output = $name;
+            fn mul(self, rhs: $name) -> $name {
+                $name{
+                    x : rhs.x * self.mat[0] + rhs.y * self.mat[1],
+                    y : rhs.x * self.mat[4] + rhs.y * self.mat[5],
+                    z : rhs.z
+                }
+            }
+        }
     };
 }
 
@@ -95,18 +144,18 @@ impl Mul<Vector> for Transformation  {
     fn mul(self, rhs: Vector) -> Vector {
         // Note that a homogeneous vector is [vx, vy, vz, 0]
         let mut vec = Vector::new(0.0, 0.0, 0.0);
-    
+
         // Ugly but fasts - we use properties of the homogeneous space
         vec.x = self.mat[0] * rhs.x + self.mat[1] * rhs.y + self.mat[2] * rhs.z;
         vec.y = self.mat[4] * rhs.x + self.mat[5] * rhs.y + self.mat[6] * rhs.z;
         vec.z = self.mat[8] * rhs.x + self.mat[9] * rhs.y + self.mat[10] * rhs.z;
-    
+
         let w = self.mat[12] * rhs.x + self.mat[13] * rhs.y + self.mat[14] * rhs.z;
         // For debugging - to be canceled later
         if w.abs() > 1.0e-8 {
             panic!("Invalid transformation!");
         }
-    
+
         vec
     }
 }
@@ -116,18 +165,18 @@ impl Mul<Point> for Transformation {
     fn mul(self, rhs: Point) -> Point {
         // Note that a homogeneous vector is [vx, vy, vz, 1]
         let mut point = Point::new(0.0, 0.0, 0.0);
-    
+
         // Ugly but fasts - we use properties of the homogeneous space
         point.x = self.mat[0] * rhs.x + self.mat[1] * rhs.y + self.mat[2] * rhs.z;
         point.y = self.mat[4] * rhs.x + self.mat[5] * rhs.y + self.mat[6] * rhs.z;
         point.z = self.mat[8] * rhs.x + self.mat[9] * rhs.y + self.mat[10] * rhs.z;
-    
+
         let w = self.mat[12] * rhs.x + self.mat[13] * rhs.y + self.mat[14] * rhs.z;
         // For debugging - to be canceled later
         if (w - 1.0).abs() > 1.0e-8 {
             panic!("Invalid transformation!");
         }
-    
+
         point
     }
 }
@@ -137,18 +186,18 @@ impl Mul<Normal> for Transformation {
     fn mul(self, rhs: Normal) -> Normal {
         // Note that a homogeneous vector is [vx, vy, vz, 0]
         let mut nor = Normal::new(0.0, 0.0, 0.0);
-    
+
         // Ugly but fasts - we use properties of the homogeneous space
         nor.x = self.it_mat[0] * rhs.x + self.it_mat[1] * rhs.y + self.it_mat[2] * rhs.z;
         nor.y = self.it_mat[4] * rhs.x + self.it_mat[5] * rhs.y + self.it_mat[6] * rhs.z;
         nor.z = self.it_mat[8] * rhs.x + self.it_mat[9] * rhs.y + self.it_mat[10] * rhs.z;
-    
+
         let w = self.it_mat[12] * rhs.x + self.it_mat[13] * rhs.y + self.it_mat[14] * rhs.z;                // For debugging - to be canceled later
         // For debugging
         if w.abs() > 1.0e-8 {
             panic!("Invalid transformation!");
         }
-    
+
         nor
     }
 }
@@ -216,6 +265,150 @@ impl Mul<Normal> for Scaling {
     }
 }
 
+
+#[derive(Copy, Clone, Debug, PartialEq)]
+pub struct Translation {
+    pub mat: [f32; 16],
+    pub it_mat: [f32; 16]
+}
+
+impl Translation {
+    pub fn new(k: Vector) -> Self {
+        let mat = [
+            1.0, 0.0, 0.0, k.x,
+            0.0, 1.0, 0.0, k.y,
+            0.0, 0.0, 1.0, k.z,
+            0.0, 0.0, 0.0, 1.0,
+        ];
+
+        let inverse_transposed = [
+            1.0,  0.0,  0.0,  0.0,
+            0.0,  1.0,  0.0,  0.0,
+            0.0,  0.0,  1.0,  0.0,
+            -k.x, -k.y, -k.z, 1.0,
+        ];
+
+        Self {
+            mat,
+            it_mat: inverse_transposed
+        }
+    }
+}
+
+impl_matrix_operations!(Translation);
+
+impl Mul<Vector> for Translation {
+    type Output = Vector;
+    fn mul(self, rhs: Vector) -> Vector {
+        rhs
+    }
+}
+
+impl Mul<Normal> for Translation {
+    type Output = Normal;
+    fn mul(self, rhs: Normal) -> Normal {
+        rhs
+    }
+
+}
+
+impl Mul<Point> for Translation {
+    type Output = Point;
+    fn mul(self, rhs: Point) -> Point {
+        Point{
+            x : self.mat[3] + rhs.x,
+            y : self.mat[7] + rhs.y,
+            z : self.mat[11] + rhs.z
+        }
+    }
+}
+
+
+#[derive(Copy, Clone, Debug, PartialEq)]
+pub struct XRotation {
+    pub mat: [f32; 16],
+    pub it_mat: [f32; 16]
+}
+
+impl XRotation {
+    pub fn new(theta : f32) -> Self {
+        let cos = theta.cos();
+        let sin = theta.sin();
+        let mat = [
+            1.0, 0.0, 0.0, 0.0,
+            0.0, cos, -sin, 0.0,
+            0.0, sin, cos, 0.0,
+            0.0, 0.0, 0.0, 1.0
+        ];
+        Self{
+            mat,
+            it_mat: mat
+        }
+    }
+}
+
+impl_matrix_operations!(XRotation);
+impl_mul_xrot!(Vector);
+impl_mul_xrot!(Normal);
+impl_mul_xrot!(Point);
+
+#[derive(Copy, Clone, Debug, PartialEq)]
+pub struct YRotation {
+    pub mat: [f32; 16],
+    pub it_mat: [f32; 16]
+}
+
+impl YRotation {
+    pub fn new(theta : f32) -> Self {
+        let cos = theta.cos();
+        let sin = theta.sin();
+        let mat = [
+            cos, 0.0, sin, 0.0,
+            0.0, 1.0, 0.0, 0.0,
+            -sin, 0.0, cos, 0.0,
+            0.0, 0.0, 0.0, 1.0
+        ];
+        Self{
+            mat,
+            it_mat: mat
+        }
+    }
+}
+
+impl_matrix_operations!(YRotation);
+impl_mul_yrot!(Vector);
+impl_mul_yrot!(Normal);
+impl_mul_yrot!(Point);
+
+
+#[derive(Copy, Clone, Debug, PartialEq)]
+pub struct ZRotation {
+    pub mat: [f32; 16],
+    pub it_mat: [f32; 16]
+}
+
+impl ZRotation {
+    pub fn new(theta : f32) -> Self {
+        let cos = theta.cos();
+        let sin = theta.sin();
+        let mat = [
+            cos, -sin, 0.0, 0.0,
+            sin, cos, 0.0, 0.0,
+            0.0, 0.0, 1.0, 0.0,
+            0.0, 0.0, 0.0, 1.0
+        ];
+        Self{
+            mat,
+            it_mat: mat
+        }
+    }
+}
+
+impl_matrix_operations!(ZRotation);
+impl_mul_zrot!(Vector);
+impl_mul_zrot!(Normal);
+impl_mul_zrot!(Point);
+
 /*
 TODO [function][test]
 - [X][X] Scaling constructor
@@ -243,8 +436,8 @@ mod test {
     fn test_transformation_constructor(){
         panic!("WRITE TEST!");
     }
-    
-    
+
+
     #[test]
     #[should_panic(expected = "Wrong inputs in Scaling Matrix definition")]
     fn test_scaling_constructor(){
@@ -377,4 +570,37 @@ mod test {
             }
         }
 
+
+impl Mul<Vector> for XRotation {
+    type Output = Vector;
+    fn mul(self, rhs: Vector) -> Vector {
+        Vector{
+            x : rhs.x,
+            y : self.mat[5] * rhs.y + self.mat[6] * rhs.z,
+            z : self.mat[9] * rhs.y + self.mat[10] * rhs.z
+        }
+    }
+}
+
+impl Mul<Point> for XRotation {
+    type Output = Point;
+    fn mul(self, rhs: Point) -> Point {
+        Point{
+            x : rhs.x,
+            y : self.mat[5] * rhs.y + self.mat[6] * rhs.z,
+            z : self.mat[9] * rhs.y + self.mat[10] * rhs.z
+        }
+    }
+}
+
+impl Mul<Normal> for XRotation {
+    type Output = Normal;
+    fn mul(self, rhs: Normal) -> Normal {
+        Normal{
+            x : rhs.x,
+            y : self.mat[5] * rhs.y + self.mat[6] * rhs.z,
+            z : self.mat[9] * rhs.y + self.mat[10] * rhs.z
+        }
+    }
+}
  */

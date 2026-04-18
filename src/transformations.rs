@@ -38,12 +38,12 @@ macro_rules! impl_matrix_operations {
         // Do we want to use the * symbol for the matrix-rhs product?
         // option 1: yes
         impl<RHS: IsHomogeneousMatrix> Mul<RHS> for $t {
-            type Output = GenericTransformation;
+            type Output = Transformation;
 
-            fn mul(self, rhs: RHS) -> GenericTransformation {
+            fn mul(self, rhs: RHS) -> Transformation {
                 let array = fast_matrix_mul(&self.mat, rhs.mat());
                 let inverse  = inverse_4x4(&array);
-                GenericTransformation {
+                Transformation {
                     mat: array,
                     it_mat: transpose_matrix(&inverse),
                 }
@@ -52,17 +52,267 @@ macro_rules! impl_matrix_operations {
 
         // option 2: no
         impl $t {
-            pub fn times_transformation<H: IsHomogeneousMatrix>(&self, matrix : H) -> GenericTransformation {
+            pub fn times_transformation<H: IsHomogeneousMatrix>(&self, matrix : H) -> Transformation {
                 let mat : [f32; 16] = fast_matrix_mul(&self.mat, matrix.mat());
                 let inverse  = inverse_4x4(&mat);
-                GenericTransformation{
+                Transformation{
                     mat: mat,
                     it_mat: transpose_matrix(&inverse),
                 }
             }
         }
 
-        // -----------------------   Matrix * Vector    -------------------------
+
+    };
+}
+
+// =======================================================================
+// STRUCT DEFINITIONS
+// =======================================================================
+
+#[derive(Copy, Clone, Debug, PartialEq)]
+pub struct Transformation {
+    // 0..3 are the first row,
+    // 4..7 the second row...
+    pub mat: [f32; 16],
+    pub it_mat: [f32; 16]
+}
+
+impl Transformation {
+    pub fn new(mat : [f32;16]) -> Transformation {
+        let matrix = inverse_4x4(&mat);
+        Transformation{
+            mat,
+            it_mat: transpose_matrix(&matrix)
+        }
+    }
+}
+
+impl_matrix_operations!(Transformation);
+
+impl Mul<Vector> for Transformation  {
+    type Output = Vector;
+    fn mul(self, rhs: Vector) -> Vector {
+        // Note that a homogeneous vector is [vx, vy, vz, 0]
+        let mut vec = Vector::new(0.0, 0.0, 0.0);
+    
+        // Ugly but fasts - we use properties of the homogeneous space
+        vec.x = self.mat[0] * rhs.x + self.mat[1] * rhs.y + self.mat[2] * rhs.z;
+        vec.y = self.mat[4] * rhs.x + self.mat[5] * rhs.y + self.mat[6] * rhs.z;
+        vec.z = self.mat[8] * rhs.x + self.mat[9] * rhs.y + self.mat[10] * rhs.z;
+    
+        let w = self.mat[12] * rhs.x + self.mat[13] * rhs.y + self.mat[14] * rhs.z;
+        // For debugging - to be canceled later
+        if w.abs() > 1.0e-8 {
+            panic!("Invalid transformation!");
+        }
+    
+        vec
+    }
+}
+
+impl Mul<Point> for Transformation {
+    type Output = Point;
+    fn mul(self, rhs: Point) -> Point {
+        // Note that a homogeneous vector is [vx, vy, vz, 1]
+        let mut point = Point::new(0.0, 0.0, 0.0);
+    
+        // Ugly but fasts - we use properties of the homogeneous space
+        point.x = self.mat[0] * rhs.x + self.mat[1] * rhs.y + self.mat[2] * rhs.z;
+        point.y = self.mat[4] * rhs.x + self.mat[5] * rhs.y + self.mat[6] * rhs.z;
+        point.z = self.mat[8] * rhs.x + self.mat[9] * rhs.y + self.mat[10] * rhs.z;
+    
+        let w = self.mat[12] * rhs.x + self.mat[13] * rhs.y + self.mat[14] * rhs.z;
+        // For debugging - to be canceled later
+        if (w - 1.0).abs() > 1.0e-8 {
+            panic!("Invalid transformation!");
+        }
+    
+        point
+    }
+}
+
+impl Mul<Normal> for Transformation {
+    type Output = Normal;
+    fn mul(self, rhs: Normal) -> Normal {
+        // Note that a homogeneous vector is [vx, vy, vz, 0]
+        let mut nor = Normal::new(0.0, 0.0, 0.0);
+    
+        // Ugly but fasts - we use properties of the homogeneous space
+        nor.x = self.it_mat[0] * rhs.x + self.it_mat[1] * rhs.y + self.it_mat[2] * rhs.z;
+        nor.y = self.it_mat[4] * rhs.x + self.it_mat[5] * rhs.y + self.it_mat[6] * rhs.z;
+        nor.z = self.it_mat[8] * rhs.x + self.it_mat[9] * rhs.y + self.it_mat[10] * rhs.z;
+    
+        let w = self.it_mat[12] * rhs.x + self.it_mat[13] * rhs.y + self.it_mat[14] * rhs.z;                // For debugging - to be canceled later
+        // For debugging
+        if w.abs() > 1.0e-8 {
+            panic!("Invalid transformation!");
+        }
+    
+        nor
+    }
+}
+
+#[derive(Copy, Clone, Debug, PartialEq)]
+pub struct Scaling {
+    pub mat: [f32; 16],
+    pub it_mat: [f32; 16]
+}
+
+impl Scaling {
+    pub fn new(diagonal : [f32;3]) -> Scaling {
+        if diagonal.iter().any(|a| *a == 0.0) {
+            panic!("Wrong inputs in Scaling Matrix definition\
+            {:?}", diagonal);
+        }
+        let mut array = [0f32; 16];
+        let mut it_mat = [0f32; 16];
+        for i in 0..3 {
+            array[i*5] = diagonal[i];
+            it_mat[i*5] = 1.0/ array[i*5];
+        }
+        array[15] = 1.0;
+        it_mat[15] = 1.0;
+
+        Scaling{
+            mat : array,
+            it_mat: it_mat
+        }
+    }
+}
+
+impl_matrix_operations!(Scaling);
+
+impl Mul<Vector> for Scaling {
+    type Output = Vector;
+    fn mul(self, rhs: Vector) -> Vector {
+        Vector {
+            x : self.mat[0] * rhs.x,
+            y: self.mat[5] * rhs.y,
+            z: self.mat[10] * rhs.z
+        }
+    }
+}
+
+impl Mul<Point> for Scaling {
+    type Output = Point;
+    fn mul(self, rhs: Point) -> Point {
+        Point{
+            x : self.mat[0] * rhs.x,
+            y: self.mat[5] * rhs.y,
+            z: self.mat[10] * rhs.z
+        }
+    }
+}
+
+impl Mul<Normal> for Scaling {
+    type Output = Normal;
+    fn mul(self, rhs: Normal) -> Normal {
+        Normal{
+            x : self.it_mat[0] * rhs.x,
+            y : self.it_mat[5] * rhs.y,
+            z : self.it_mat[10] * rhs.z
+        }
+    }
+}
+
+/*
+TODO [function][test]
+- [X][X] Scaling constructor
+- [][] Matrix product
+- [][] Rotation constructor
+- [][] Translation constructor
+- [][] Property tests (i.e. for translations T^-1(k) = T(-k))
+- [][] Macro that:
+    Transformation * Transformation → Transformation
+    Transformation * Point → Point
+    Transformation * Vec → Vec.
+    Transformation * Normal → Normal.
+ */
+
+// =======================================================================
+// TESTS
+// =======================================================================
+#[cfg(test)]
+mod test {
+    use crate::functions::are_close;
+    use crate::geometry::{Vector, Point, Normal};
+    use crate::transformations::{Transformation, Scaling};
+
+    #[test]
+    fn test_transformation_constructor(){
+        panic!("WRITE TEST!");
+    }
+    
+    
+    #[test]
+    #[should_panic(expected = "Wrong inputs in Scaling Matrix definition")]
+    fn test_scaling_constructor(){
+        let scale = Scaling::new([1.0, 2.0, 3.0]);
+        let mat = [
+                1.0, 0.0, 0.0, 0.0,
+                0.0, 2.0, 0.0, 0.0,
+                0.0, 0.0, 3.0, 0.0,
+                0.0, 0.0, 0.0, 1.0
+            ];
+        let mut it_mat = [0.0; 16];
+        for i in 0..4{
+            it_mat[i*5] = 1.0 / mat[i*5] ;
+        }
+        assert_eq!(mat, scale.mat);
+        assert_eq!(it_mat, scale.it_mat);
+        let _ = Scaling::new([0.0,2.0,3.0]);
+    }
+
+    #[test]
+    fn test_scaling_vector(){
+        let v = Vector::new(1.0, 2.0, 3.0);
+        let scale = Scaling::new([5.0, 6.0, -10.0]);
+        let expected = Vector::new(5.0, 12.0, -30.0);
+        assert_eq!(scale * v, expected);
+    }
+
+    #[test]
+    fn test_scaling_point(){
+        let p = Point::new(1.0, 2.0, 3.0);
+        let scale = Scaling::new([5.0, 6.0, -10.0]);
+        let expected = Point::new(5.0, 12.0, -30.0);
+        assert_eq!(scale * p, expected);
+    }
+
+    #[test]
+    fn test_scaling_normal() {
+        let n = Normal::new(1.0, 2.0, 3.0);
+        let scale = Scaling::new([2.0, 4.0, 10.0]);
+
+        // The it_mat is 1/value
+        let expected = Normal::new(
+            1.0 / 2.0,
+            2.0 / 4.0,
+            3.0 / 10.0,
+        );
+
+        let result = scale * n;
+
+        assert!(are_close(result.x, expected.x));
+        assert!(are_close(result.y, expected.y));
+        assert!(are_close(result.z, expected.z));
+    }
+
+    //Many tests to be writte....
+
+}
+
+
+
+
+// -------------------------------------------------------------
+//                            NOTES
+// -------------------------------------------------------------
+
+
+/*
+// -----------------------   Old code in macro: Matrix * Vector    -------------------------
 
         impl Mul<Vector> for $t {
             type Output = Vector;
@@ -126,115 +376,5 @@ macro_rules! impl_matrix_operations {
                 nor
             }
         }
-    };
-}
-
-// =======================================================================
-// STRUCT DEFINITIONS
-// =======================================================================
-
-#[derive(Copy, Clone, Debug, PartialEq)]
-pub struct GenericTransformation {
-    // 0..3 are the first row,
-    // 4..7 the second row...
-    pub mat: [f32; 16],
-    pub it_mat: [f32; 16]
-}
-
-#[derive(Copy, Clone, Debug, PartialEq)]
-pub struct Scaling {
-    pub mat: [f32; 16],
-    pub it_mat: [f32; 16]
-}
-
-impl_matrix_operations!(Scaling);
-
-impl Scaling {
-    pub fn new(diagonal : [f32;3]) -> Scaling {
-        if diagonal.iter().any(|a| *a == 0.0) {
-            panic!("Wrong inputs in Scaling Matrix definition\
-            {:?}", diagonal);
-        }
-        let mut array = [0f32; 16];
-        let mut it_mat = [0f32; 16];
-        for i in 0..3 {
-            array[i*5] = diagonal[i];
-            it_mat[i*5] = 1.0/ array[i*5];
-        }
-        array[15] = 1.0;
-        it_mat[15] = 1.0;
-
-        Scaling{
-            mat : array,
-            it_mat: it_mat
-        }
-    }
-}
-
-/*
-TODO [function][test]
-- [X][X] Scaling constructor
-- [][] Matrix product
-- [][] Rotation constructor
-- [][] Translation constructor
-- [][] Property tests (i.e. for translations T^-1(k) = T(-k))
-- [][] Macro that:
-    Transformation * Transformation → Transformation
-    Transformation * Point → Point
-    Transformation * Vec → Vec.
-    Transformation * Normal → Normal.
- */
-
-// =======================================================================
-// TESTS
-// =======================================================================
-#[cfg(test)]
-mod test {
-    use crate::transformations::Scaling;
-
-    #[test]
-    #[should_panic(expected = "Wrong inputs in Scaling Matrix definition")]
-    fn test_scaling_constructor(){
-        let scale = Scaling::new([1.0, 2.0, 3.0]);
-        let mat = [
-                1.0, 0.0, 0.0, 0.0,
-                0.0, 2.0, 0.0, 0.0,
-                0.0, 0.0, 3.0, 0.0,
-                0.0, 0.0, 0.0, 1.0
-            ];
-        let mut it_mat = [0.0; 16];
-        for i in 0..4{
-            it_mat[i*5] = 1.0 / mat[i*5] ;
-        }
-        assert_eq!(mat, scale.mat);
-        assert_eq!(it_mat, scale.it_mat);
-        let _ = Scaling::new([0.0,2.0,3.0]);
-    }
-
-    //Many tests to be writte....
-
-}
-
-
-
-
-// -------------------------------------------------------------
-//                            NOTES
-// -------------------------------------------------------------
-
-
-/*
-Draft:
-- For each transformation there is a struct that generates
-    a 4x4 matrix with one array type and its inverse.
-- Create macros to implement the various operations with vectors, normals and points.
-
-
-Else:
-Gemini suggested me this:
-    "nalgebra.org: La documentazione è bellissima
-    e spiega come creare matrici specializzate (2x2, 3x3, 4x4)
-    che sono ottimizzate per la velocità.
-consider switching to this!
 
  */

@@ -10,6 +10,8 @@ use crate::geometry::{Vector, Point, Normal};
 pub trait IsHomogeneousMatrix {
     fn mat(&self) -> &[f32; 16];
 
+    fn it(&self) -> &[f32; 16];
+
     fn is_homogeneous(&self) -> bool;
 }
 
@@ -32,13 +34,16 @@ macro_rules! impl_matrix_operations {
                 true
             }
 
+            fn it(&self) -> &[f32; 16] {
+                &self.it_mat
+            }
+
+
         }
 
         // -----------------------   Matrix * Matrix    -------------------------
 
 
-        // Note:TOBE CHANGED!!!! UsE the fact that the inverse of the product
-        // is the product of the inverse
         // Do we want to use the * symbol for the matrix-rhs product?
         // option 1: yes
         impl<RHS: IsHomogeneousMatrix> Mul<RHS> for $t {
@@ -46,22 +51,25 @@ macro_rules! impl_matrix_operations {
 
             fn mul(self, rhs: RHS) -> Transformation {
                 let array = fast_matrix_mul(&self.mat, rhs.mat());
-                let inverse  = inverse_4x4(&array);
+                let total_it = fast_matrix_mul(&self.it(), &rhs.it());
+
                 Transformation {
                     mat: array,
-                    it_mat: transpose_matrix(&inverse),
+                    it_mat: total_it,
                 }
             }
         }
 
+
         // option 2: no
         impl $t {
-            pub fn times_transformation<H: IsHomogeneousMatrix>(&self, matrix : H) -> Transformation {
-                let mat : [f32; 16] = fast_matrix_mul(&self.mat, matrix.mat());
-                let inverse  = inverse_4x4(&mat);
-                Transformation{
-                    mat: mat,
-                    it_mat: transpose_matrix(&inverse),
+            pub fn times_transformation<H: IsHomogeneousMatrix>(&self, rhs : H) -> Transformation {
+                let array = fast_matrix_mul(&self.mat, rhs.mat());
+                let total_it = fast_matrix_mul(&self.it(), &rhs.it());
+
+                Transformation {
+                    mat: array,
+                    it_mat: total_it,
                 }
             }
         }
@@ -71,14 +79,14 @@ macro_rules! impl_matrix_operations {
 }
 
 macro_rules! impl_mul_xrot {
-    ($name:ident) => {
+    ($name:ident, $matrix: ident) => {
         impl Mul<$name> for XRotation {
             type Output = $name;
             fn mul(self, rhs: $name) -> $name {
                 $name{
                     x : rhs.x,
-                    y : self.mat[5] * rhs.y + self.mat[6] * rhs.z,
-                    z : self.mat[9] * rhs.y + self.mat[10] * rhs.z
+                    y : self.$matrix[5] * rhs.y + self.$matrix[6] * rhs.z,
+                    z : self.$matrix[9] * rhs.y + self.$matrix[10] * rhs.z
                 }
             }
         }
@@ -86,14 +94,14 @@ macro_rules! impl_mul_xrot {
 }
 
 macro_rules! impl_mul_yrot {
-    ($name:ident) => {
+    ($name:ident, $matrix: ident) => {
         impl Mul<$name> for YRotation {
             type Output = $name;
             fn mul(self, rhs: $name) -> $name {
                 $name{
-                    x : rhs.x * self.mat[0] + rhs.y * self.mat[2],
+                    x : rhs.x * self.$matrix[0] + rhs.y * self.$matrix[2],
                     y : rhs.y,
-                    z : self.mat[9] * rhs.x + self.mat[10] * rhs.z
+                    z : self.$matrix[8] * rhs.x + self.$matrix[10] * rhs.z
                 }
             }
         }
@@ -101,13 +109,13 @@ macro_rules! impl_mul_yrot {
 }
 
 macro_rules! impl_mul_zrot {
-    ($name:ident) => {
+    ($name:ident, $matrix: ident) => {
         impl Mul<$name> for ZRotation {
             type Output = $name;
             fn mul(self, rhs: $name) -> $name {
                 $name{
-                    x : rhs.x * self.mat[0] + rhs.y * self.mat[1],
-                    y : rhs.x * self.mat[4] + rhs.y * self.mat[5],
+                    x : rhs.x * self.$matrix[0] + rhs.y * self.$matrix[1],
+                    y : rhs.x * self.$matrix[4] + rhs.y * self.$matrix[5],
                     z : rhs.z
                 }
             }
@@ -167,11 +175,11 @@ impl Mul<Point> for Transformation {
         let mut point = Point::new(0.0, 0.0, 0.0);
 
         // Ugly but fasts - we use properties of the homogeneous space
-        point.x = self.mat[0] * rhs.x + self.mat[1] * rhs.y + self.mat[2] * rhs.z;
-        point.y = self.mat[4] * rhs.x + self.mat[5] * rhs.y + self.mat[6] * rhs.z;
-        point.z = self.mat[8] * rhs.x + self.mat[9] * rhs.y + self.mat[10] * rhs.z;
+        point.x = self.mat[0] * rhs.x + self.mat[1] * rhs.y + self.mat[2] * rhs.z + self.mat[3];
+        point.y = self.mat[4] * rhs.x + self.mat[5] * rhs.y + self.mat[6] * rhs.z + self.mat[7];
+        point.z = self.mat[8] * rhs.x + self.mat[9] * rhs.y + self.mat[10] * rhs.z + self.mat[11];
 
-        let w = self.mat[12] * rhs.x + self.mat[13] * rhs.y + self.mat[14] * rhs.z;
+        let w = self.mat[12] * rhs.x + self.mat[13] * rhs.y + self.mat[14] * rhs.z + self.mat[15];
         // For debugging - to be canceled later
         if (w - 1.0).abs() > 1.0e-8 {
             panic!("Invalid transformation!");
@@ -348,9 +356,9 @@ impl XRotation {
 }
 
 impl_matrix_operations!(XRotation);
-impl_mul_xrot!(Vector);
-impl_mul_xrot!(Normal);
-impl_mul_xrot!(Point);
+impl_mul_xrot!(Vector, mat);
+impl_mul_xrot!(Normal, it_mat);
+impl_mul_xrot!(Point, mat);
 
 #[derive(Copy, Clone, Debug, PartialEq)]
 pub struct YRotation {
@@ -376,9 +384,9 @@ impl YRotation {
 }
 
 impl_matrix_operations!(YRotation);
-impl_mul_yrot!(Vector);
-impl_mul_yrot!(Normal);
-impl_mul_yrot!(Point);
+impl_mul_yrot!(Vector, mat);
+impl_mul_yrot!(Normal, it_mat);
+impl_mul_yrot!(Point, mat);
 
 
 #[derive(Copy, Clone, Debug, PartialEq)]
@@ -405,9 +413,9 @@ impl ZRotation {
 }
 
 impl_matrix_operations!(ZRotation);
-impl_mul_zrot!(Vector);
-impl_mul_zrot!(Normal);
-impl_mul_zrot!(Point);
+impl_mul_zrot!(Vector, mat);
+impl_mul_zrot!(Normal, it_mat);
+impl_mul_zrot!(Point, mat);
 
 /*
 TODO [function][test]

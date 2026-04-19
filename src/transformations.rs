@@ -1,7 +1,6 @@
 use std::process::Output;
 use std::ops::{Add, Div, Mul, Neg, Sub};
 use crate::functions::{fast_matrix_mul, inverse_4x4, transpose_matrix, IDENTITY_4X4};
-use anyhow::Result;
 use crate::geometry::{Vector, Point, Normal};
 // =======================================================================
 // TRAIT DEFINITIONS
@@ -416,6 +415,20 @@ impl_matrix_operations!(ZRotation);
 impl_mul_zrot!(Vector, mat);
 impl_mul_zrot!(Normal, it_mat);
 impl_mul_zrot!(Point, mat);
+
+
+// =======================================================================
+// FUNCTIONS DEFINITIONS
+// =======================================================================
+
+pub fn is_consistent<T : IsHomogeneousMatrix>(matrix : &T) -> bool {
+    let mat = fast_matrix_mul(&matrix.mat(), &matrix.it());
+    let mut result = true;
+    for i in 0..16{
+        result = result && mat[i] == IDENTITY_4X4[i];
+    }
+    result
+}
 
 /*
 TODO [function][test]

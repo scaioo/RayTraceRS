@@ -203,7 +203,7 @@ pub fn inverse_4x4(m : &[f32;16]) -> [f32;16]{
 
     let det = m[0]*inv[0] + m[1]*inv[4] + m[2]*inv[8] + m[3]*inv[12];
 
-    if det.abs() < 1e-8 {
+    if det.abs() < 1e-6 {
         panic!("det is 0.0!");
     }
 
@@ -239,6 +239,16 @@ pub fn transpose_matrix(m: &[f32;16])-> [f32;16] {
     }
     result
 }
+
+
+pub fn equal_matrices(mat1: &[f32;16], mat2: &[f32;16])-> bool {
+    let mut result = true;
+    for i in 0..16{
+        result = result && are_close(mat1[i], mat2[i]);
+    }
+    result
+}
+
 
 // tests
 #[cfg(test)]
@@ -357,5 +367,28 @@ mod tests {
         for i in 0..16{
             assert!(are_close(result[i], expected[i]));
         }
+    }
+
+    #[test]
+    fn test_transpose_matrices(){
+        panic!("WRITE TEST!");
+    }
+
+    #[test]
+    fn test_equal_matrices(){
+        let mat1: [f32; 16] = [
+            1.0, 0.0, 0.0, 10.0,
+            0.0, 1.0, 0.0, 0.0,
+            0.0, 0.0, 1.0, 0.0,
+            0.0, 0.0, 0.0, 1.0,
+        ];
+        let mat1_inverse: [f32; 16] = [
+            1.0, 0.0, 0.0, -10.0,
+            0.0, 1.0, 0.0, 0.0,
+            0.0, 0.0, 1.0, 0.0,
+            0.0, 0.0, 0.0, 1.0,
+        ];
+        let result = fast_matrix_mul(&mat1, &mat1_inverse);
+        assert!(equal_matrices(&result, &IDENTITY_4X4));
     }
 }

@@ -6,12 +6,27 @@ use std::ops::{Add, Div, Mul, Neg, Sub};
 use crate::functions::are_close;
 
 // =======================================================================
+// FUNCTIONS DEFINITIONS
+// =======================================================================
+
+// We could make it a trait through all the project!
+pub fn is_close<T : TDV>(a : T, b : T)-> bool {
+    are_close(a.x(), b.x())
+        && are_close(a.y(), b.y())
+        && are_close(a.z(), b.z())
+}
+
+// =======================================================================
 // TRAIT DEFINITIONS
 // =======================================================================
 
 /// Marker trait that signals the struct to be either Vector, Point or Normal
 pub trait TDV {
     fn to_homogeneous(&self) -> [f32;4];
+
+    fn x(&self) -> f32;
+    fn y(&self) -> f32;
+    fn z(&self) -> f32;
 }
 
 // =======================================================================
@@ -26,6 +41,16 @@ macro_rules! impl_homogeneous{
         impl TDV for $t{
             fn to_homogeneous(&self) -> [f32; 4] {
                 [self.x, self.y, self.z, $w]
+            }
+
+            fn x(&self) -> f32 {
+                self.x
+            }
+            fn y(&self) -> f32 {
+                self.y
+            }
+            fn z(&self) -> f32 {
+                self.z
             }
         }
     };
@@ -502,6 +527,15 @@ impl_dot!(Vector,Normal);
 #[cfg(test)]
 mod test {
     use super::*;
+
+    #[test]
+    fn test_is_close() {
+        let vec = Vector::new(1.0, 2.0, 3.0);
+        let vec2 = Vector::new(1.0,2.0, 3.000001);
+        assert!(vec.is_close(&vec2), "\
+        {}\n{}\n", vec, vec2);
+    }
+
     //======================= Vector ==========================
     #[test]
     fn test_vector_constructor(){

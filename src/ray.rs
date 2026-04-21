@@ -151,4 +151,27 @@ mod tests {
         assert_eq!(ray.depth, 4);
     }
 
+    #[test]
+    fn test_ray_set_borders(){
+        let mut ray = Ray::new(
+            Point::new(1.0, 2.0, 3.0),
+            Vector::new(4.0, 5.0, 6.0)
+        );
+        assert_eq!(ray.t_max, f32::INFINITY);
+        assert_eq!(ray.t_min, 1e-5);
+        ray.set_borders(10000.0, 2.0);
+        assert_eq!(ray.t_max, 10000.0);
+        assert_eq!(ray.t_min, 2.0);
+    }
+    
+    #[test]
+    fn test_ray_at(){
+        let ray = Ray::new(
+            Point::new(1.0, 2.0, 3.0),
+            Vector::new(4.0, 5.0, 6.0)
+        );
+        let expected_point = Point::new(3.0, 4.5, 6.0);
+        assert_eq!(ray.at(0.5), expected_point);
+    }
+
 }

@@ -6,10 +6,13 @@
 //! - `t_min : f32` ... TODO DOCKING
 
 use std::f32;
-use crate::functions::are_close;
+use std::ops::{Mul};
 use crate::geometry::{Vector, Point, is_close};
 use anyhow::{Result, anyhow};
 use std::fmt::{Display, Formatter};
+use crate::transformations::{
+    Transformation, Translation, XRotation, YRotation, ZRotation, Scaling
+};
 
 
 //================================================================
@@ -94,6 +97,33 @@ impl Ray {
     }
 }
 
+//================================================================
+//                   Transformation operator
+//================================================================
+
+macro_rules! impl_mul_ray {
+    ($name :ident) => {
+        impl Mul<Ray> for $name {
+            type Output = Ray;
+            fn mul(self, rhs: Ray) -> Self::Output {
+                Ray{
+                    origin: self * rhs.origin,
+                    dir: self * rhs.dir,
+                    t_max : rhs.t_max,
+                    t_min : rhs.t_min,
+                    depth: rhs.depth
+                }
+            }
+        }
+    };
+}
+
+impl_mul_ray!(Translation);
+impl_mul_ray!(Transformation);
+impl_mul_ray!(Scaling);
+impl_mul_ray!(XRotation);
+impl_mul_ray!(YRotation);
+impl_mul_ray!(ZRotation);
 
 //================================================================
 //                         Unit Tests
@@ -163,15 +193,110 @@ mod tests {
         assert_eq!(ray.t_max, 10000.0);
         assert_eq!(ray.t_min, 2.0);
     }
-    
+
     #[test]
     fn test_ray_at(){
         let ray = Ray::new(
             Point::new(1.0, 2.0, 3.0),
             Vector::new(4.0, 5.0, 6.0)
         );
+        assert_eq!(is_close(ray.at(0.0), ray.origin), true);
         let expected_point = Point::new(3.0, 4.5, 6.0);
         assert_eq!(ray.at(0.5), expected_point);
+        let expected_point = Point::new(13.0, 17.0, 21.0);
+        assert_eq!(ray.at(3.0), expected_point);
     }
 
+    #[test]
+    fn test_translation_mul(){
+        let ray = Ray::new(
+            Point::new(1.0, 2.0, 3.0),
+            Vector::new(4.0, 5.0, 6.0)
+        );
+        let translation = Translation::new(
+            Vector::new(10.0, 20.0, 100.0),
+        );
+        let result = translation * ray;
+        println!("{}", result);
+        assert!(is_close(result.origin, Point::new(11.0, 22.0, 103.0)));
+        assert_eq!(result.dir, ray.dir);
+        assert!(ray.t_max.is_infinite());
+        assert!(are_close(ray.t_min, 1e-5));
+    }
+
+    #[test]
+    fn test_scaling_mul(){
+        let ray = Ray::new(
+            Point::new(1.0, 2.0, 3.0),
+            Vector::new(4.0, 5.0, 6.0)
+        );
+        let scaling = Scaling::new([6.0, 7.0, 8.0]);
+        let result = scaling * ray;
+        assert_eq!(result.origin, Point::new(
+            1.0 * 6.0,
+            2.0 * 7.0,
+            3.0 * 8.0
+        ));
+        assert_eq!(result.dir, Vector::new(
+            4.0 * 6.0,
+            5.0 * 7.0,
+            6.0 * 8.0
+        ));
+        assert!(ray.t_max.is_infinite());
+        assert!(are_close(ray.t_min, 1e-5));
+    }
+
+    #[test]
+    fn test_rotations(){
+        let point = Point::new(1.0, 2.0, 3.0);
+        let vector = Vector::new(4.0, 5.0, 6.0);
+
+        let ray = Ray::new(
+            point,
+            vector
+        );
+
+        let rotation_x = XRotation::new(f32::consts::PI);
+        let rotation_y = YRotation::new(f32::consts::PI/2.0);
+        let rotation_z = ZRotation::new(f32::consts::PI/3.0);
+
+        let result = rotation_x * ray;
+        let expected_point = rotation_x * point;
+        let expected_vector = rotation_x * vector;
+        assert_eq!(result.origin, expected_point);
+        assert_eq!(result.dir, expected_vector);
+        assert!(ray.t_max.is_infinite());
+        assert!(are_close(ray.t_min, 1e-5));
+
+        let result = rotation_y * ray;
+        let expected_point = rotation_y * point;
+        let expected_vector = rotation_y * vector;
+        assert_eq!(result.origin, expected_point);
+        assert_eq!(result.dir, expected_vector);
+        assert!(ray.t_max.is_infinite());
+        assert!(are_close(ray.t_min, 1e-5));
+
+        let result = rotation_z * ray;
+        let expected_point = rotation_z * point;
+        let expected_vector = rotation_z * vector;
+        assert_eq!(result.origin, expected_point);
+        assert_eq!(result.dir, expected_vector);
+        assert!(ray.t_max.is_infinite());
+        assert!(are_close(ray.t_min, 1e-5));
+    }
+
+    #[test]
+    fn test_transformations_mul(){
+        let point = Point::new(1.0, 2.0, 3.0);
+        let vector = Vector::new(4.0, 5.0, 6.0);
+        let ray = Ray::new(point, vector);
+        let transformation =
+            Scaling::new([1.0, 2.0, 3.0]) * ZRotation::new(f32::consts::PI);
+
+        let result = transformation * ray;
+        let expected_point = transformation * point;
+        let expected_vector = transformation * vector;
+        assert_eq!(result.origin, expected_point);
+        assert_eq!(result.dir, expected_vector);
+    }
 }

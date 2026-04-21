@@ -21,3 +21,4 @@ pub mod geometry;
 pub mod transformations;
 pub mod ray;
 pub mod camera;
+pub mod image_tracer;

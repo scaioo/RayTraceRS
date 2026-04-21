@@ -147,6 +147,16 @@ mod tests{
         let _ = OrthogonalCamera::new(ZRotation::new(std::f32::consts::FRAC_PI_4));
         let _ = OrthogonalCamera::new(Translation::new(Vector::new(1.0, 2.0, 1.0)));
     }
+    #[test]
+    fn test_orthogonal_camera_transform() {
+        let transformation = Translation::new(Vector::new(0.0, -2.0, 0.0))
+            * ZRotation::new(std::f32::consts::FRAC_PI_2);
+
+        let camera = OrthogonalCamera::new(transformation);
+        let ray = camera.fire_ray(0.5, 0.5);
+
+        assert!(is_close(ray.at(1.0), Point::new(0.0, -2.0, 0.0)));
+    }
 
     #[test]
     #[should_panic(expected = "invalid aspect ratio")]
@@ -185,7 +195,7 @@ mod tests{
     }
 
     #[test]
-    fn test_perspective_camera(){
+    fn test_perspective_camera_constructor(){
         let theta = std::f32::consts::PI / 4.0;
         let cos = theta.cos();
         let sin = theta.sin();

@@ -85,7 +85,7 @@ pub fn fast_matrix_mul(a: &[f32;16], b: &[f32;16]) -> [f32;16] {
 }
 
 
-/// Fast computing of the inverse of a 4x4 matrix or returns Err
+/// Hopefully fast computing of the inverse of a 4x4 matrix or returns Err
 pub fn inverse_4x4(m : &[f32;16]) -> [f32;16]{
     let mut inv = [0.0; 16];
 
@@ -215,21 +215,6 @@ pub fn inverse_4x4(m : &[f32;16]) -> [f32;16]{
     inv
 }
 
-/// Fast matrix times vector calculator
-pub fn matrix_times_vector<Vec : TDV>(m: &[f32;16], v: &Vec)-> [f32;16] {
-    let h = v.to_homogeneous();
-    let mut result:[f32;16] = [0.0; 16];
-
-
-    // Ugly but performing
-    result[0] = m[0] * h[0]  + m[1] * h[1] + m[2] * h[2] + m[3] * h[3];
-    result[1] = m[4] * h[0] + m[5] * h[1] + m[6] * h[2] + m[7] * h[3];
-    result[2] = m[8] * h[0] + m[9] * h[1] + m[10] * h[2] + m[11] * h[3];
-    result[3] = m[12] * h[0] + m[13] * h[1] + m[14] * h[2] + m[15] * h[3];
-
-    result
-}
-
 pub fn transpose_matrix(m: &[f32;16])-> [f32;16] {
     let mut result:[f32;16] = [0.0; 16];
     for i in 0..4{
@@ -253,7 +238,15 @@ pub fn equal_matrices(mat1: &[f32;16], mat2: &[f32;16])-> bool {
 // tests
 #[cfg(test)]
 mod tests {
+    use crate::geometry::{is_close, Vector};
     use super::*;
+
+    static MAT : [f32;16] = [
+         1.0,   2.0,   3.0,   4.0,
+         5.0,   6.0,   7.0,   8.0,
+        -9.0, -10.0, -11.0, -12.0,
+        -13.0, -14.0, 15.0, -16.0
+    ];
     #[test]
     fn are_close_test() {
         let x = 0.11111;
@@ -345,11 +338,6 @@ mod tests {
     }
 
     #[test]
-    fn test_matrix_times_vector(){
-        panic!("WRITE TEST!");
-    }
-
-    #[test]
     fn test_transpose_matrix(){
         let mat = [
             1.0, 0.0, 0.0, 0.0,
@@ -371,7 +359,15 @@ mod tests {
 
     #[test]
     fn test_transpose_matrices(){
-        panic!("WRITE TEST!");
+        let mat = transpose_matrix(&MAT);
+        let expected = [
+            1.0, 5.0, -9.0, -13.0,
+            2.0, 6.0, -10.0, -14.0,
+            3.0, 7.0, -11.0, 15.0,
+            4.0, 8.0, -12.0, -16.0
+        ];
+        assert!(equal_matrices(&mat, &expected),
+        "{:?}\n{:?}", mat, expected);
     }
 
     #[test]

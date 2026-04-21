@@ -1,8 +1,67 @@
 //! Geometry modules founding spacial description of the image
 
 use std::fmt;
-use crate::functions::are_close;
+use std::fmt::Display;
 use std::ops::{Add, Div, Mul, Neg, Sub};
+use crate::functions::are_close;
+
+// =======================================================================
+// CONSTANTS DEFINITIONS
+// =======================================================================
+pub static X_AXIS : Vector = Vector{x: 1.0, y: 0.0, z: 0.0};
+pub static Y_AXIS : Vector = Vector{x: 0.0, y: 1.0, z: 0.0};
+pub static Z_AXIS : Vector = Vector{x: 0.0, y: 0.0, z: 1.0};
+
+// =======================================================================
+// FUNCTIONS DEFINITIONS
+// =======================================================================
+
+// We could make it a trait through all the project!
+pub fn is_close<T : TDV>(a : T, b : T)-> bool {
+    are_close(a.x(), b.x())
+        && are_close(a.y(), b.y())
+        && are_close(a.z(), b.z())
+}
+
+// =======================================================================
+// TRAIT DEFINITIONS
+// =======================================================================
+
+/// Marker trait that signals the struct to be either Vector, Point or Normal
+pub trait TDV {
+    fn to_homogeneous(&self) -> [f32;4];
+
+    fn x(&self) -> f32;
+    fn y(&self) -> f32;
+    fn z(&self) -> f32;
+}
+
+// =======================================================================
+// MACRO DEFINITIONS
+// =======================================================================
+
+#[macro_export]
+macro_rules! impl_homogeneous{
+($t:ty, $w:expr) => {
+        // Note: this trait implementation works only
+        // on structs that have 'x', 'y', 'z' arguments!
+        impl TDV for $t{
+            fn to_homogeneous(&self) -> [f32; 4] {
+                [self.x, self.y, self.z, $w]
+            }
+
+            fn x(&self) -> f32 {
+                self.x
+            }
+            fn y(&self) -> f32 {
+                self.y
+            }
+            fn z(&self) -> f32 {
+                self.z
+            }
+        }
+    };
+}
 
 /// Vector module stored as three floating-point components.
 #[derive(Copy, Clone, Debug, PartialEq)]
@@ -279,6 +338,13 @@ macro_rules! impl_from {
 // ==========================================
 
 // ----------------------------------------------------------------
+// Automatically implement `TDV` for Vector, Point, and Normal
+// ----------------------------------------------------------------
+impl_homogeneous!(Vector, 0.0);
+impl_homogeneous!(Point, 1.0);
+impl_homogeneous!(Normal, 0.0);
+
+// ----------------------------------------------------------------
 // Automatically implement `is_close` for Vector, Point, and Normal
 // ----------------------------------------------------------------
 impl_is_close!(Vector);
@@ -512,10 +578,9 @@ mod tests {
     fn test_dot_normal_vec(){
         let v = Vector::new(1.0,2.0,3.0);
         let u = Normal::new(2.0,3.0,4.0);
-
+        
         assert_eq!(v.dot(&u),20.0);
         assert_eq!(u.dot(&v),20.0);
-
     }
 
     #[test]

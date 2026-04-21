@@ -12,7 +12,6 @@
 
 use anyhow::{Result, anyhow};
 use std::ops::{Add, Div, Mul};
-use crate::three_float_struct;
 
 /// RGB color stored as three linear floating-point components.
 ///

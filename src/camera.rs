@@ -47,8 +47,8 @@ where
         // "Ugly but I hope fast" ~ Isacco.
         let point = Point {
             x: 0.0,
-            y: (u + 1.0)/ (2.0 * self.aspect_ratio),
-            z: (v +1.0)/ 2.0
+            y: self.aspect_ratio * (2.0 * u - 1.0),
+            z: 2.0 * v -1.0
         };
         let ray = Ray {
             origin: point, 

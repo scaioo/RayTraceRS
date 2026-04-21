@@ -21,8 +21,8 @@
 //! - [`color`] — RGB color representation and operations
 //! - [`hdr_image`] — High Dynamic Range image structure and manipulation
 //! - [`pfm_func`] — PFM file reading utilities
-//! - [`geometry`] - Vector, Point and Normal modules structure and manipulation
-//! - [`transformations`] - Spacial transformation operations
+//! - [`geometry`] - Vector, Point and Normal representation and operations
+//! - [`transformations`] - Affine transformations representation and operations
 
 pub mod color;
 pub mod functions;

@@ -137,7 +137,6 @@ pub fn _parse_endianness(line: &str) -> anyhow::Result<Endianness> {
 /// The function assumes that the cursor is positioned at the start
 /// of the binary pixel data.
 fn _read_hdr<R: Read>(
-    //reader: &mut BufReader<File>,
     reader: &mut R,
     width: usize,
     height: usize,
@@ -353,7 +352,6 @@ impl Parameter {
             factor_a = 0.18;
         }
 
-        /////// gamma <0 or <1 ???????????
         if gamma <= 0.0 {
             println!("gamma was automatically set to 2.2");
             gamma = 2.2;

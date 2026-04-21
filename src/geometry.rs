@@ -6,6 +6,13 @@ use std::ops::{Add, Div, Mul, Neg, Sub};
 use crate::functions::are_close;
 
 // =======================================================================
+// CONSTANTS DEFINITIONS
+// =======================================================================
+pub static X_AXIS : Vector = Vector{x: 1.0, y: 0.0, z: 0.0};
+pub static Y_AXIS : Vector = Vector{x: 0.0, y: 1.0, z: 0.0};
+pub static Z_AXIS : Vector = Vector{x: 0.0, y: 0.0, z: 1.0};
+
+// =======================================================================
 // FUNCTIONS DEFINITIONS
 // =======================================================================
 

@@ -1,6 +1,11 @@
 //! This module contains utilities to manage the observer.
 //!
 //! This doc has to be written!!
+
+use std::ops::Mul;
+use crate::geometry::{Point, Vector};
+use crate::geometry::{X_AXIS};
+use crate::ray::Ray;
 use crate::transformations;
 use crate::transformations::IsHomogeneousMatrix;
 
@@ -12,8 +17,7 @@ use crate::transformations::IsHomogeneousMatrix;
 pub trait Camera{
     fn set_aspect_ratio(&mut self, aspect_ratio: f32);
 
-    // todo
-    //fn fire_ray();
+    fn fire_ray(&mut self, u : f32, v : f32) -> Ray;
 }
 
 // =======================================================================
@@ -31,9 +35,29 @@ impl<T : IsHomogeneousMatrix> OrthogonalCamera<T>{
     }
 }
 
-impl<T : IsHomogeneousMatrix> Camera for OrthogonalCamera<T>{
+impl<T> Camera for OrthogonalCamera<T>
+where
+    T: IsHomogeneousMatrix + Mul<Ray, Output = Ray> + Copy
+{
     fn set_aspect_ratio(&mut self, aspect_ratio: f32){
         self.aspect_ratio = aspect_ratio;
+    }
+
+    fn fire_ray(&mut self, u: f32, v : f32)-> Ray{
+        // "Ugly but I hope fast" ~ Isacco.
+        let point = Point {
+            x: 0.0,
+            y: (u + 1.0)/ (2.0 * self.aspect_ratio),
+            z: (v +1.0)/ 2.0
+        };
+        let ray = Ray {
+            origin: point, 
+            dir : X_AXIS,
+            t_max : f32::INFINITY,
+            t_min : 1e-5,
+            depth: 0
+        };
+        self.transformation * ray
     }
 }
 
@@ -53,9 +77,17 @@ impl<T : IsHomogeneousMatrix> PerspectiveCamera<T>{
     }
 }
 
-impl<T : IsHomogeneousMatrix> Camera for PerspectiveCamera<T>{
+impl<T> Camera for PerspectiveCamera<T>
+where
+    T: IsHomogeneousMatrix + Mul<Ray, Output = Ray> + Copy
+{
     fn set_aspect_ratio(&mut self, aspect_ratio: f32){
         self.aspect_ratio = aspect_ratio
+    }
+
+    fn fire_ray(&mut self, u: f32, v : f32)-> Ray {
+        // TODO!!!!!
+        Ray::new(Point::new(0.0,0.0,0.0), Vector::new(0.0,0.0, 0.0))
     }
 }
 

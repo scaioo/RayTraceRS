@@ -57,7 +57,7 @@ mod tests {
 
         let ray_1 = tracer.fire_ray(0, 0, 2.5, 1.5);
         let ray_2 = tracer.fire_ray(2, 1, 0.5, 0.5);
-        assert!(ray_1.is_close(ray_2).unwrap());
+        assert!(ray_1.is_close(ray_2)?);
 
         tracer.fire_all_rays(|_ray| Ok(Color::new(1.0, 2.0, 3.0)))?;
 

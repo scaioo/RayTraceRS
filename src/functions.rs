@@ -4,7 +4,7 @@
 //! specific subsystem but are used throughout the codebase.
 
 use endianness::ByteOrder;
-use crate::geometry::TDV;
+//use crate::geometry::TDV;
 
 pub static IDENTITY_4X4: [f32; 16] = [
     1.0, 0.0, 0.0, 0.0,
@@ -238,7 +238,7 @@ pub fn equal_matrices(mat1: &[f32;16], mat2: &[f32;16])-> bool {
 // tests
 #[cfg(test)]
 mod tests {
-    use crate::geometry::{is_close, Vector};
+    //use crate::geometry::{is_close, Vector};
     use super::*;
 
     static MAT : [f32;16] = [

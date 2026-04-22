@@ -1,7 +1,7 @@
 //! PFM (Portable Float Map) image reading utilities.
 //!
 //! This module provides functions to parse and load `.pfm` files into the
-//! [`HDR`](crate::hdr_image::HDR) structure used by the raytracer.
+//! [`HDR`] structure used by the raytracer.
 //!
 //! ## Supported features
 //! - Grayscale (`Pf`) and RGB (`PF`) formats
@@ -180,7 +180,7 @@ fn _read_hdr<R: Read>(
 
 /// A convenience function to read a `.pfm` (Portable FloatMap) directly from a file.
 ///
-/// This function opens the file at the given path, wraps it in a [`std::io::BufReader`]
+/// This function opens the file at the given path, wraps it in a [`BufReader`]
 /// for performance, and delegates the parsing to the generic [`read_pfm`] engine.
 ///
 /// # Arguments
@@ -226,7 +226,7 @@ pub fn read_pfm_file(filename: &str) -> anyhow::Result<HDR> {
 /// # Arguments
 ///
 /// * `reader` - The input stream (e.g., a file, a memory buffer, or network socket).
-///   It accepts any type that implements the [`std::io::BufRead`] trait.
+///   It accepts any type that implements the [`BufRead`] trait.
 ///
 /// # Errors
 ///

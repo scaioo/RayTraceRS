@@ -6,10 +6,10 @@
 
 use std::ops::Mul;
 use crate::functions::are_close;
-use crate::geometry::{Point, Vector};
+use crate::geometry::{Point};
 use crate::geometry::{X_AXIS};
 use crate::ray::Ray;
-use crate::transformations;
+//use crate::transformations;
 use crate::transformations::IsHomogeneousMatrix;
 
 // =======================================================================

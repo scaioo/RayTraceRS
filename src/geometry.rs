@@ -1,7 +1,7 @@
 //! Geometry modules founding spacial description of the image
 
 use std::fmt;
-use std::fmt::Display;
+//use std::fmt::Display;
 use std::ops::{Add, Div, Mul, Neg, Sub};
 use crate::functions::are_close;
 

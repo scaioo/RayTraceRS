@@ -1,4 +1,3 @@
-use std::process::Output;
 use std::ops::{Mul};
 use crate::functions::{are_close, fast_matrix_mul, inverse_4x4, transpose_matrix, IDENTITY_4X4};
 use crate::geometry::{Vector, Point, Normal};
@@ -254,7 +253,7 @@ impl Scaling {
 
         Scaling{
             mat : array,
-            it_mat: it_mat
+            it_mat
         }
     }
 }
@@ -446,6 +445,7 @@ impl_mul_zrot!(Point, mat);
 #[cfg(test)]
 mod test {
     use std::f32::consts;
+    #[allow(unused_imports)]
     use crate::functions::{are_close, equal_matrices, fast_matrix_mul, inverse_4x4, transpose_matrix, IDENTITY_4X4};
     use crate::geometry::{Vector, Point, Normal, is_close};
     use crate::transformations::{Transformation, Scaling, IsHomogeneousMatrix, Translation, YRotation, XRotation, ZRotation, is_consistent};
@@ -554,13 +554,13 @@ mod test {
         let matrix = Transformation::new(MAT2);
         let result = trans * matrix;
         assert!(is_consistent(&result));
-        let matrix = XRotation::new(std::f32::consts::PI / 2.0);
+        let matrix = XRotation::new(consts::PI / 2.0);
         let result = trans * matrix;
         assert!(is_consistent(&result));
-        let matrix = YRotation::new(std::f32::consts::PI);
+        let matrix = YRotation::new(consts::PI);
         let result = trans * matrix;
         assert!(is_consistent(&result));
-        let matrix = ZRotation::new(std::f32::consts::PI / 2.0);
+        let matrix = ZRotation::new(consts::PI / 2.0);
         let result = trans * matrix;
         assert!(is_consistent(&result));
         let matrix = Translation::new(
@@ -636,13 +636,13 @@ mod test {
         );
         let result = scale * matrix;
         assert!(is_consistent(&result));
-        let matrix = XRotation::new(std::f32::consts::PI / 2.0);
+        let matrix = XRotation::new(consts::PI / 2.0);
         let result = scale * matrix;
         assert!(is_consistent(&result));
-        let matrix = YRotation::new(std::f32::consts::PI / 2.0);
+        let matrix = YRotation::new(consts::PI / 2.0);
         let result = scale * matrix;
         assert!(is_consistent(&result));
-        let matrix = ZRotation::new(std::f32::consts::PI / 2.0);
+        let matrix = ZRotation::new(consts::PI / 2.0);
         let result = scale * matrix;
         assert!(is_consistent(&result));
     }
@@ -725,13 +725,13 @@ mod test {
         );
         let result = translation * matrix;
         assert!(is_consistent(&result));
-        let matrix = XRotation::new(std::f32::consts::PI / 2.0);
+        let matrix = XRotation::new(consts::PI / 2.0);
         let result = translation * matrix;
         assert!(is_consistent(&result));
-        let matrix = YRotation::new(std::f32::consts::PI / 2.0);
+        let matrix = YRotation::new(consts::PI / 2.0);
         let result = translation * matrix;
         assert!(is_consistent(&result));
-        let matrix = ZRotation::new(std::f32::consts::PI / 2.0);
+        let matrix = ZRotation::new(consts::PI / 2.0);
         let result = translation * matrix;
         assert!(is_consistent(&result));
     }
@@ -762,7 +762,7 @@ mod test {
     // - - - - - - - - - - - - -   XRotation   - - - - - - - - - - - - - - -
     #[test]
     fn test_rotation_x_constructor(){
-        let angle = std::f32::consts::FRAC_PI_3;
+        let angle = consts::FRAC_PI_3;
         let rotation = XRotation::new(angle);
         let sin = angle.sin();
         let cos = angle.cos();
@@ -781,7 +781,7 @@ mod test {
 
     #[test]
     fn test_rotation_x_matrix_mul(){
-        let rotation = XRotation::new(std::f32::consts::FRAC_PI_3);
+        let rotation = XRotation::new(consts::FRAC_PI_3);
         let matrix = Transformation::new(MAT1);
         let result = rotation * matrix;
         assert!(is_consistent(&result));
@@ -793,13 +793,13 @@ mod test {
         let matrix = Scaling::new([1.0,2.0,3.0]);
         let result = rotation * matrix;
         assert!(is_consistent(&result));
-        let matrix = XRotation::new(std::f32::consts::PI);
+        let matrix = XRotation::new(consts::PI);
         let result = rotation * matrix;
         assert!(is_consistent(&result));
-        let matrix = YRotation::new(std::f32::consts::FRAC_PI_3);
+        let matrix = YRotation::new(consts::FRAC_PI_3);
         let result = rotation * matrix;
         assert!(is_consistent(&result));
-        let matrix = ZRotation::new(std::f32::consts::PI / 2.0);
+        let matrix = ZRotation::new(consts::PI / 2.0);
         let result = rotation * matrix;
         assert!(is_consistent(&result));
     }
@@ -835,7 +835,7 @@ mod test {
     // - - - - - - - - - - - - -   YRotation   - - - - - - - - - - - - - - -
     #[test]
     fn test_rotation_y_constructor(){
-        let theta = std::f32::consts::FRAC_PI_6;
+        let theta = consts::FRAC_PI_6;
         let rotation = YRotation::new(theta);
         let cos = theta.cos();
         let sin = theta.sin();
@@ -911,7 +911,7 @@ mod test {
     // - - - - - - - - - - - - -   ZRotation   - - - - - - - - - - - - - - -
     #[test]
     fn test_rotation_z_constructor(){
-        let theta = std::f32::consts::FRAC_PI_3;
+        let theta = consts::FRAC_PI_3;
         let rotation = ZRotation::new(theta);
         let cos = theta.cos();
         let sin = theta.sin();

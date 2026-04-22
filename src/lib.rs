@@ -23,10 +23,15 @@
 //! - [`pfm_func`] — PFM file reading utilities
 //! - [`geometry`] - Vector, Point and Normal representation and operations
 //! - [`transformations`] - Affine transformations representation and operations
+//! - [`ray`] - Light ray representation and manipulation
+//! - [`camera`] - Observer perspectives.
 
+pub mod camera;
 pub mod color;
 pub mod functions;
-pub mod hdr_image;
-pub mod pfm_func;
 pub mod geometry;
+pub mod hdr_image;
+pub mod image_tracer;
+pub mod pfm_func;
+pub mod ray;
 pub mod transformations;

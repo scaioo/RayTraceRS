@@ -4,12 +4,11 @@
 //! Note: the canvas is put perpendicular to the X-Axis with width 2a and hight 2.0.
 //! Note 2 : need to add all the validations!!!!!
 
-use std::ops::Mul;
 use crate::functions::are_close;
-use crate::geometry::{Point, Vector};
-use crate::geometry::{X_AXIS};
+use crate::geometry::Point;
+use crate::geometry::X_AXIS;
 use crate::ray::Ray;
-use crate::transformations;
+use std::ops::Mul;
 use crate::transformations::IsHomogeneousMatrix;
 
 // =======================================================================
@@ -17,53 +16,56 @@ use crate::transformations::IsHomogeneousMatrix;
 // =======================================================================
 
 /// Marker trait for Camera classes
-pub trait Camera{
+pub trait Camera {
     fn set_aspect_ratio(&mut self, aspect_ratio: f32);
 
-    fn fire_ray(& self, u : f32, v : f32) -> Ray;
+    fn fire_ray(&self, u: f32, v: f32) -> Ray;
 }
 
 // =======================================================================
 // ORTHOGONAL CAMERA
 // =======================================================================
 #[derive(Copy, Clone, Debug, PartialEq)]
-pub struct OrthogonalCamera<T : IsHomogeneousMatrix>{
-    pub transformation : T,
-    pub aspect_ratio : f32,
+pub struct OrthogonalCamera<T: IsHomogeneousMatrix> {
+    pub transformation: T,
+    pub aspect_ratio: f32,
 }
 
-impl<T : IsHomogeneousMatrix> OrthogonalCamera<T>{
+impl<T: IsHomogeneousMatrix> OrthogonalCamera<T> {
     // Is it ok to give a Return<> type so we can handle
     // wrong aspect_ratios?
-    pub fn new(transformation : T) -> OrthogonalCamera<T>{
-        OrthogonalCamera{transformation, aspect_ratio : 1.0}
+    pub fn new(transformation: T) -> OrthogonalCamera<T> {
+        OrthogonalCamera {
+            transformation,
+            aspect_ratio: 1.0,
+        }
     }
 }
 
 impl<T> Camera for OrthogonalCamera<T>
 where
-    T: IsHomogeneousMatrix + Mul<Ray, Output = Ray> + Copy
+    T: IsHomogeneousMatrix + Mul<Ray, Output = Ray> + Copy,
 {
-    fn set_aspect_ratio(&mut self, aspect_ratio: f32){
-        if aspect_ratio < 0.0 || are_close(aspect_ratio, 0.0){
+    fn set_aspect_ratio(&mut self, aspect_ratio: f32) {
+        if aspect_ratio < 0.0 || are_close(aspect_ratio, 0.0) {
             panic!("invalid aspect ratio {}", aspect_ratio);
         }
         self.aspect_ratio = aspect_ratio;
     }
 
-    fn fire_ray(& self, u: f32, v : f32)-> Ray{
+    fn fire_ray(&self, u: f32, v: f32) -> Ray {
         // "Ugly but I hope fast" ~ Isacco.
         let point = Point {
             x: -1.0,
             y: self.aspect_ratio * (2.0 * u - 1.0),
-            z: 2.0 * v -1.0
+            z: 2.0 * v - 1.0,
         };
         let ray = Ray {
-            origin: point, 
-            dir : X_AXIS,
-            t_max : f32::INFINITY,
-            t_min : 1e-5,
-            depth: 0
+            origin: point,
+            dir: X_AXIS,
+            t_max: f32::INFINITY,
+            t_min: 1e-5,
+            depth: 0,
         };
         self.transformation * ray
     }
@@ -74,61 +76,71 @@ where
 // =======================================================================
 
 #[derive(Copy, Clone, Debug, PartialEq)]
-pub struct PerspectiveCamera<T : IsHomogeneousMatrix>{
-    pub transformation : T,
-    pub aspect_ratio : f32,
-    pub distance : f32
+pub struct PerspectiveCamera<T: IsHomogeneousMatrix> {
+    pub transformation: T,
+    pub aspect_ratio: f32,
+    pub distance: f32,
 }
 
-impl<T : IsHomogeneousMatrix> PerspectiveCamera<T>{
-    pub fn new(transformation : T) -> PerspectiveCamera<T>{
+impl<T: IsHomogeneousMatrix> PerspectiveCamera<T> {
+    pub fn new(transformation: T) -> PerspectiveCamera<T> {
         // Is it ok to give a Return<> type so we can handle
         // too small distances and wrong aspect_ratios?
-        PerspectiveCamera{transformation, aspect_ratio : 1.0, distance : 1.0}
+        PerspectiveCamera {
+            transformation,
+            aspect_ratio: 1.0,
+            distance: 1.0,
+        }
     }
 
-    pub fn set_distance(&mut self, distance : f32){
+    pub fn set_distance(&mut self, distance: f32) {
         self.distance = distance;
     }
 }
 
 impl<T> Camera for PerspectiveCamera<T>
 where
-    T: IsHomogeneousMatrix + Mul<Ray, Output = Ray> + Copy
+    T: IsHomogeneousMatrix + Mul<Ray, Output = Ray> + Copy,
 {
-    fn set_aspect_ratio(&mut self, aspect_ratio: f32){
-        if aspect_ratio < 0.0 || are_close(aspect_ratio, 0.0){
+    fn set_aspect_ratio(&mut self, aspect_ratio: f32) {
+        if aspect_ratio < 0.0 || are_close(aspect_ratio, 0.0) {
             panic!("invalid aspect ratio {}", aspect_ratio);
         }
         self.aspect_ratio = aspect_ratio
     }
 
-    fn fire_ray(& self, u: f32, v : f32)-> Ray {
+    fn fire_ray(&self, u: f32, v: f32) -> Ray {
         let point = Point {
             x: 0.0,
             y: self.aspect_ratio * (2.0 * u - 1.0),
-            z: 2.0 * v -1.0
+            z: 2.0 * v - 1.0,
         };
 
         let ray = Ray {
-            origin: Point{ x: -self.distance, y: 0.0, z: 0.0 },
-            dir : point - Point::new(- self.distance, 0.0, 0.0),
-            t_max : f32::INFINITY,
-            t_min : 1e-5,
-            depth: 0
+            origin: Point {
+                x: -self.distance,
+                y: 0.0,
+                z: 0.0,
+            },
+            dir: point - Point::new(-self.distance, 0.0, 0.0),
+            t_max: f32::INFINITY,
+            t_min: 1e-5,
+            depth: 0,
         };
         self.transformation * ray
     }
 }
 
 #[cfg(test)]
-mod tests{
-    use crate::transformations::{Scaling, Transformation, Translation, XRotation, YRotation, ZRotation};
-    use crate::functions::{equal_matrices, IDENTITY_4X4};
-    use crate::geometry::{is_close, Cross, Vector};
+mod tests {
     use super::*;
+    use crate::functions::{IDENTITY_4X4, equal_matrices};
+    use crate::geometry::{Cross, Vector, is_close};
+    use crate::transformations::{
+        Scaling, Transformation, Translation, XRotation, YRotation, ZRotation,
+    };
     #[test]
-    fn test_orthogonal_camera(){
+    fn test_orthogonal_camera() {
         let transformation = Scaling::new([1.0, 2.0, 3.0]);
         let camera = OrthogonalCamera::new(transformation);
         let mat :[f32;16] = [
@@ -165,9 +177,9 @@ mod tests{
             Transformation::new(IDENTITY_4X4)
         );
         assert_eq!(orthogonal_camera.aspect_ratio, 1.0);
-        orthogonal_camera.set_aspect_ratio(16.0/9.0);
+        orthogonal_camera.set_aspect_ratio(16.0 / 9.0);
         println!("not exploded\n");
-        assert_eq!(orthogonal_camera.aspect_ratio, 16.0/9.0);
+        assert_eq!(orthogonal_camera.aspect_ratio, 16.0 / 9.0);
         orthogonal_camera.set_aspect_ratio(-9.0);
     }
 
@@ -184,9 +196,9 @@ mod tests{
         let ray4 = orthogonal_camera.fire_ray(1.0, 1.0);
         let vec = vec![ray1, ray2, ray3, ray4];
 
-        for i in 0..3{
-            let cross_product = vec[i].dir.cross(&vec[i+1].dir);
-            assert!(is_close(cross_product,Vector::new(0.0, 0.0, 0.0)));
+        for i in 0..3 {
+            let cross_product = vec[i].dir.cross(&vec[i + 1].dir);
+            assert!(is_close(cross_product, Vector::new(0.0, 0.0, 0.0)));
         }
         assert!(ray1.at(1.0).is_close(&Point::new(0.0,- aspect_ratio, -1.0 )));
         assert!(ray2.at(1.0).is_close(&Point::new(0.0, - aspect_ratio,1.0)));
@@ -195,7 +207,7 @@ mod tests{
     }
 
     #[test]
-    fn test_perspective_camera_constructor(){
+    fn test_perspective_camera_constructor() {
         let theta = std::f32::consts::PI / 4.0;
         let cos = theta.cos();
         let sin = theta.sin();
@@ -259,30 +271,38 @@ mod tests{
         perspective_camera.set_distance(1.0);
 
         let angles = vec![
-            [0.0, 0.0] , [0.0, 1.0], [1.0, 0.0], [1.0, 1.0]
+            [0.0, 0.0] , 
+            [0.0, 1.0], 
+            [1.0, 0.0], 
+            [1.0, 1.0]
         ];
 
         let mut rays: Vec<Ray> = Vec::with_capacity(4);
 
-        for i in 0..4{
+        for i in 0..4 {
             let matrix = angles[i];
             let ray = perspective_camera.fire_ray(matrix[0], matrix[1]);
             let screen = Point {
                 x: 0.0,
-                y : 2.0 * (2.0 * matrix[0] - 1.0),
-                z : 2.0 * matrix[1] - 1.0
+                y: 2.0 * (2.0 * matrix[0] - 1.0),
+                z: 2.0 * matrix[1] - 1.0,
             };
             let expected_vector = screen - Point::new(-1.0, 0.0, 0.0);
-            assert!(is_close(expected_vector,ray.dir));
+            assert!(is_close(expected_vector, ray.dir));
             rays.push(ray);
         }
 
-        for i in 0..3{
-            assert!(is_close(rays[i].origin, rays[i+1].origin),
-            "ray{}:\n{}\nray{}:\n{}", i+1, rays[i], i+2, rays[i+1]);
+        for i in 0..3 {
+            assert!(
+                is_close(rays[i].origin, rays[i + 1].origin),
+                "ray{}:\n{}\nray{}:\n{}",
+                i + 1,
+                rays[i],
+                i + 2,
+                rays[i + 1]
+            );
 
-            assert!(!is_close(rays[i].dir, rays[i+1].dir),);
+            assert!(!is_close(rays[i].dir, rays[i + 1].dir),);
         }
-
     }
 }

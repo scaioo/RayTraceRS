@@ -89,7 +89,7 @@ impl HDR {
     ///
     /// # Arguments
     /// * `writer` - The output destination (e.g., a file, a memory buffer, or a network socket).
-    ///   It accepts any type that implements the [`std::io::Write`] trait.
+    ///   It accepts any type that implements the [`Write`] trait.
     /// * `endianness` - Byte order used for writing floats
     ///
     /// # Errors

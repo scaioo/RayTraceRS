@@ -5,18 +5,14 @@ use crate::ray::Ray;
 use anyhow::Result;
 
 #[derive(Clone, Debug, PartialEq)]
-pub struct ImageTracer<C: Camera>{
+pub struct ImageTracer<C: Camera> {
     pub image: HDR,
-    pub camera: C
-
+    pub camera: C,
 }
 
 impl<C: Camera> ImageTracer<C> {
     pub fn new(image: HDR, camera: C) -> Self {
-        ImageTracer {
-            image,
-            camera,
-        }
+        ImageTracer { image, camera }
     }
     pub fn fire_ray(&self, col: usize, row: usize, u_pixel: f32, v_pixel: f32) -> Ray {
         let u = (col as f32 + u_pixel) / (self.image.width as f32 - 1.0);
@@ -25,8 +21,8 @@ impl<C: Camera> ImageTracer<C> {
     }
     pub fn fire_all_rays<F>(&mut self, func: F) -> Result<()>
     where
-    // `func` takes a Ray and returns a Color (adjust return type as needed)
-        F: Fn(Ray) -> Result<Color>
+        // `func` takes a Ray and returns a Color (adjust return type as needed)
+        F: Fn(Ray) -> Result<Color>,
     {
         for row in 0..self.image.height {
             for col in 0..self.image.width {
@@ -35,7 +31,9 @@ impl<C: Camera> ImageTracer<C> {
 
                 let color = func(ray)?;
 
-                self.image.set_pixel(col, row, color).expect("TODO: panic message");
+                self.image
+                    .set_pixel(col, row, color)
+                    .expect("TODO: panic message");
             }
         }
         Ok(())
@@ -57,7 +55,7 @@ mod tests {
 
         let ray_1 = tracer.fire_ray(0, 0, 2.5, 1.5);
         let ray_2 = tracer.fire_ray(2, 1, 0.5, 0.5);
-        assert!(ray_1.is_close(ray_2).unwrap());
+        assert!(ray_1.is_close(ray_2)?);
 
         tracer.fire_all_rays(|_ray| Ok(Color::new(1.0, 2.0, 3.0)))?;
 

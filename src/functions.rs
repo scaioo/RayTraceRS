@@ -172,8 +172,8 @@ pub fn inverse_4x4(m: &[f32; 16]) -> [f32; 16] {
     }
 
     let inv_det = 1.0 / det;
-    for i in 0..16 {
-        inv[i] *= inv_det;
+    for item in &mut inv {
+        *item *= inv_det;
     }
 
     inv

@@ -51,8 +51,12 @@ impl Color {
     pub fn new(red: f32, green: f32, blue: f32) -> Self {
         // These checks are intended for development
         // and may be removed later.
-        if !(red >= 0.0 && green >= 0.0 && blue >= 0.0)
-            || !(red.is_finite() && green.is_finite() && blue.is_finite())
+        if !(red >= 0.0
+            && green >= 0.0
+            && blue >= 0.0
+            && red.is_finite()
+            && green.is_finite()
+            && blue.is_finite())
         {
             panic!(
                 "Color constructor:\ninvalid color red({}), green({}), blue({})",

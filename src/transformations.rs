@@ -1,6 +1,6 @@
-use std::ops::{Mul};
-use crate::functions::{are_close, fast_matrix_mul, inverse_4x4, transpose_matrix, IDENTITY_4X4};
-use crate::geometry::{Vector, Point, Normal};
+use crate::functions::{IDENTITY_4X4, are_close, fast_matrix_mul, inverse_4x4, transpose_matrix};
+use crate::geometry::{Normal, Point, Vector};
+use std::ops::Mul;
 
 // =======================================================================
 // TRAIT DEFINITIONS
@@ -38,7 +38,6 @@ macro_rules! impl_matrix_operations {
         }
         // -----------------------   Matrix * Matrix    -------------------------
 
-
         // Do we want to use the * symbol for the matrix-rhs product?
         // option 1: yes
         /// Creates a Transformation that Operates the two input-Transformation in the given order:
@@ -60,10 +59,9 @@ macro_rules! impl_matrix_operations {
             }
         }
 
-
         // option 2: no
         impl $t {
-            pub fn times_transformation<H: IsHomogeneousMatrix>(&self, rhs : H) -> Transformation {
+            pub fn times_transformation<H: IsHomogeneousMatrix>(&self, rhs: H) -> Transformation {
                 let array = fast_matrix_mul(&self.mat, rhs.mat());
                 let total_it = fast_matrix_mul(&self.it_mat(), &rhs.it_mat());
 
@@ -73,8 +71,6 @@ macro_rules! impl_matrix_operations {
                 }
             }
         }
-
-
     };
 }
 
@@ -83,10 +79,10 @@ macro_rules! impl_mul_xrot {
         impl Mul<$name> for XRotation {
             type Output = $name;
             fn mul(self, rhs: $name) -> $name {
-                $name{
-                    x : rhs.x,
-                    y : self.$matrix[5] * rhs.y + self.$matrix[6] * rhs.z,
-                    z : self.$matrix[9] * rhs.y + self.$matrix[10] * rhs.z
+                $name {
+                    x: rhs.x,
+                    y: self.$matrix[5] * rhs.y + self.$matrix[6] * rhs.z,
+                    z: self.$matrix[9] * rhs.y + self.$matrix[10] * rhs.z,
                 }
             }
         }
@@ -98,10 +94,10 @@ macro_rules! impl_mul_yrot {
         impl Mul<$name> for YRotation {
             type Output = $name;
             fn mul(self, rhs: $name) -> $name {
-                $name{
-                    x : rhs.x * self.$matrix[0] + rhs.z * self.$matrix[2],
-                    y : rhs.y,
-                    z : self.$matrix[8] * rhs.x + self.$matrix[10] * rhs.z
+                $name {
+                    x: rhs.x * self.$matrix[0] + rhs.z * self.$matrix[2],
+                    y: rhs.y,
+                    z: self.$matrix[8] * rhs.x + self.$matrix[10] * rhs.z,
                 }
             }
         }
@@ -113,31 +109,29 @@ macro_rules! impl_mul_zrot {
         impl Mul<$name> for ZRotation {
             type Output = $name;
             fn mul(self, rhs: $name) -> $name {
-                $name{
-                    x : rhs.x * self.$matrix[0] + rhs.y * self.$matrix[1],
-                    y : rhs.x * self.$matrix[4] + rhs.y * self.$matrix[5],
-                    z : rhs.z
+                $name {
+                    x: rhs.x * self.$matrix[0] + rhs.y * self.$matrix[1],
+                    y: rhs.x * self.$matrix[4] + rhs.y * self.$matrix[5],
+                    z: rhs.z,
                 }
             }
         }
     };
 }
 
-
 // =======================================================================
 // FUNCTIONS DEFINITIONS
 // =======================================================================
 
-pub fn is_consistent<T : IsHomogeneousMatrix>(matrix : &T) -> bool {
-    let it_mat :[f32;16] = transpose_matrix(matrix.it_mat());
+pub fn is_consistent<T: IsHomogeneousMatrix>(matrix: &T) -> bool {
+    let it_mat: [f32; 16] = transpose_matrix(matrix.it_mat());
     let mat = fast_matrix_mul(&matrix.mat(), &it_mat);
     let mut result = true;
-    for i in 0..16{
+    for i in 0..16 {
         result = result && are_close(mat[i], IDENTITY_4X4[i]);
     }
     result
 }
-
 
 // =======================================================================
 // TRANSFORMATION
@@ -149,23 +143,23 @@ pub struct Transformation {
     // 0..3 are the first row,
     // 4..7 the second row...
     pub mat: [f32; 16],
-    pub it_mat: [f32; 16]
+    pub it_mat: [f32; 16],
 }
 
 impl Transformation {
     /// Transformation constructor gets an array and stores it in a Transformation class.
-    pub fn new(mat : [f32;16]) -> Transformation {
+    pub fn new(mat: [f32; 16]) -> Transformation {
         // Add a check if they have properties
         let matrix = inverse_4x4(&mat);
-        Transformation{
+        Transformation {
             mat,
-            it_mat: transpose_matrix(&matrix)
+            it_mat: transpose_matrix(&matrix),
         }
     }
 }
 
 impl_matrix_operations!(Transformation);
-impl Mul<Vector> for Transformation  {
+impl Mul<Vector> for Transformation {
     type Output = Vector;
     fn mul(self, rhs: Vector) -> Vector {
         // Note that a homogeneous vector is [vx, vy, vz, 0]
@@ -228,7 +222,7 @@ impl Mul<Normal> for Transformation {
 #[derive(Copy, Clone, Debug, PartialEq)]
 pub struct Scaling {
     pub mat: [f32; 16],
-    pub it_mat: [f32; 16]
+    pub it_mat: [f32; 16],
 }
 
 impl_matrix_operations!(Scaling);
@@ -237,53 +231,53 @@ impl Scaling {
     ///
     /// # Panics
     /// Constructor panics if any of the 3 inputs is 0.0
-    pub fn new(diagonal : [f32;3]) -> Scaling {
-        if diagonal.iter().any(|a| are_close(*a,0.0)) {
-            panic!("Wrong inputs in Scaling Matrix definition\
-            {:?}", diagonal);
+    pub fn new(diagonal: [f32; 3]) -> Scaling {
+        if diagonal.iter().any(|a| are_close(*a, 0.0)) {
+            panic!(
+                "Wrong inputs in Scaling Matrix definition\
+            {:?}",
+                diagonal
+            );
         }
         let mut array = [0f32; 16];
         let mut it_mat = [0f32; 16];
         for i in 0..3 {
-            array[i*5] = diagonal[i];
-            it_mat[i*5] = 1.0/ array[i*5];
+            array[i * 5] = diagonal[i];
+            it_mat[i * 5] = 1.0 / array[i * 5];
         }
         array[15] = 1.0;
         it_mat[15] = 1.0;
 
-        Scaling{
-            mat : array,
-            it_mat
-        }
+        Scaling { mat: array, it_mat }
     }
 }
 impl Mul<Vector> for Scaling {
     type Output = Vector;
     fn mul(self, rhs: Vector) -> Vector {
         Vector {
-            x : self.mat[0] * rhs.x,
+            x: self.mat[0] * rhs.x,
             y: self.mat[5] * rhs.y,
-            z: self.mat[10] * rhs.z
+            z: self.mat[10] * rhs.z,
         }
     }
 }
 impl Mul<Point> for Scaling {
     type Output = Point;
     fn mul(self, rhs: Point) -> Point {
-        Point{
-            x : self.mat[0] * rhs.x,
+        Point {
+            x: self.mat[0] * rhs.x,
             y: self.mat[5] * rhs.y,
-            z: self.mat[10] * rhs.z
+            z: self.mat[10] * rhs.z,
         }
     }
 }
 impl Mul<Normal> for Scaling {
     type Output = Normal;
     fn mul(self, rhs: Normal) -> Normal {
-        Normal{
-            x : self.it_mat[0] * rhs.x,
-            y : self.it_mat[5] * rhs.y,
-            z : self.it_mat[10] * rhs.z
+        Normal {
+            x: self.it_mat[0] * rhs.x,
+            y: self.it_mat[5] * rhs.y,
+            z: self.it_mat[10] * rhs.z,
         }
     }
 }
@@ -293,29 +287,23 @@ impl Mul<Normal> for Scaling {
 #[derive(Copy, Clone, Debug, PartialEq)]
 pub struct Translation {
     pub mat: [f32; 16],
-    pub it_mat: [f32; 16]
+    pub it_mat: [f32; 16],
 }
 impl_matrix_operations!(Translation);
 impl Translation {
     /// Translation transformation constructor
     pub fn new(k: Vector) -> Self {
         let mat = [
-            1.0, 0.0, 0.0, k.x,
-            0.0, 1.0, 0.0, k.y,
-            0.0, 0.0, 1.0, k.z,
-            0.0, 0.0, 0.0, 1.0,
+            1.0, 0.0, 0.0, k.x, 0.0, 1.0, 0.0, k.y, 0.0, 0.0, 1.0, k.z, 0.0, 0.0, 0.0, 1.0,
         ];
 
         let inverse_transposed = [
-            1.0,  0.0,  0.0,  0.0,
-            0.0,  1.0,  0.0,  0.0,
-            0.0,  0.0,  1.0,  0.0,
-            -k.x, -k.y, -k.z, 1.0,
+            1.0, 0.0, 0.0, 0.0, 0.0, 1.0, 0.0, 0.0, 0.0, 0.0, 1.0, 0.0, -k.x, -k.y, -k.z, 1.0,
         ];
 
         Self {
             mat,
-            it_mat: inverse_transposed
+            it_mat: inverse_transposed,
         }
     }
 }
@@ -330,15 +318,14 @@ impl Mul<Normal> for Translation {
     fn mul(self, rhs: Normal) -> Normal {
         rhs
     }
-
 }
 impl Mul<Point> for Translation {
     type Output = Point;
     fn mul(self, rhs: Point) -> Point {
-        Point{
-            x : self.mat[3] + rhs.x,
-            y : self.mat[7] + rhs.y,
-            z : self.mat[11] + rhs.z
+        Point {
+            x: self.mat[3] + rhs.x,
+            y: self.mat[7] + rhs.y,
+            z: self.mat[11] + rhs.z,
         }
     }
 }
@@ -349,26 +336,20 @@ impl Mul<Point> for Translation {
 #[derive(Copy, Clone, Debug, PartialEq)]
 pub struct XRotation {
     pub mat: [f32; 16],
-    pub it_mat: [f32; 16]
+    pub it_mat: [f32; 16],
 }
 
 impl XRotation {
     /// Returns a rotation around the x-axis.
     ///
     /// The input must be considered in ste-radiants
-    pub fn new(theta : f32) -> Self {
+    pub fn new(theta: f32) -> Self {
         let cos = theta.cos();
         let sin = theta.sin();
         let mat = [
-            1.0, 0.0, 0.0, 0.0,
-            0.0, cos, -sin, 0.0,
-            0.0, sin, cos, 0.0,
-            0.0, 0.0, 0.0, 1.0
+            1.0, 0.0, 0.0, 0.0, 0.0, cos, -sin, 0.0, 0.0, sin, cos, 0.0, 0.0, 0.0, 0.0, 1.0,
         ];
-        Self{
-            mat,
-            it_mat: mat
-        }
+        Self { mat, it_mat: mat }
     }
 }
 impl_matrix_operations!(XRotation);
@@ -376,30 +357,23 @@ impl_mul_xrot!(Vector, mat);
 impl_mul_xrot!(Normal, it_mat);
 impl_mul_xrot!(Point, mat);
 
-
 // =======================================================================
 // ROTATION AROUND Y-AXIS
 // =======================================================================
 #[derive(Copy, Clone, Debug, PartialEq)]
 pub struct YRotation {
     pub mat: [f32; 16],
-    pub it_mat: [f32; 16]
+    pub it_mat: [f32; 16],
 }
 
 impl YRotation {
-    pub fn new(theta : f32) -> Self {
+    pub fn new(theta: f32) -> Self {
         let cos = theta.cos();
         let sin = theta.sin();
         let mat = [
-            cos, 0.0, sin, 0.0,
-            0.0, 1.0, 0.0, 0.0,
-            -sin, 0.0, cos, 0.0,
-            0.0, 0.0, 0.0, 1.0
+            cos, 0.0, sin, 0.0, 0.0, 1.0, 0.0, 0.0, -sin, 0.0, cos, 0.0, 0.0, 0.0, 0.0, 1.0,
         ];
-        Self{
-            mat,
-            it_mat: mat
-        }
+        Self { mat, it_mat: mat }
     }
 }
 impl_matrix_operations!(YRotation);
@@ -407,30 +381,23 @@ impl_mul_yrot!(Vector, mat);
 impl_mul_yrot!(Normal, it_mat);
 impl_mul_yrot!(Point, mat);
 
-
 // =======================================================================
 // ROTATION AROUND Z-AXIS
 // =======================================================================
 #[derive(Copy, Clone, Debug, PartialEq)]
 pub struct ZRotation {
     pub mat: [f32; 16],
-    pub it_mat: [f32; 16]
+    pub it_mat: [f32; 16],
 }
 
 impl ZRotation {
-    pub fn new(theta : f32) -> Self {
+    pub fn new(theta: f32) -> Self {
         let cos = theta.cos();
         let sin = theta.sin();
         let mat = [
-            cos, -sin, 0.0, 0.0,
-            sin, cos, 0.0, 0.0,
-            0.0, 0.0, 1.0, 0.0,
-            0.0, 0.0, 0.0, 1.0
+            cos, -sin, 0.0, 0.0, sin, cos, 0.0, 0.0, 0.0, 0.0, 1.0, 0.0, 0.0, 0.0, 0.0, 1.0,
         ];
-        Self{
-            mat,
-            it_mat: mat
-        }
+        Self { mat, it_mat: mat }
     }
 }
 impl_matrix_operations!(ZRotation);
@@ -438,41 +405,39 @@ impl_mul_zrot!(Vector, mat);
 impl_mul_zrot!(Normal, it_mat);
 impl_mul_zrot!(Point, mat);
 
-
 // =======================================================================
 // TESTS
 // =======================================================================
 #[cfg(test)]
 mod test {
-    use std::f32::consts;
     #[allow(unused_imports)]
-    use crate::functions::{are_close, equal_matrices, fast_matrix_mul, inverse_4x4, transpose_matrix, IDENTITY_4X4};
-    use crate::geometry::{Vector, Point, Normal, is_close};
-    use crate::transformations::{Transformation, Scaling, IsHomogeneousMatrix, Translation, YRotation, XRotation, ZRotation, is_consistent};
+    use crate::functions::{
+        IDENTITY_4X4, are_close, equal_matrices, fast_matrix_mul, inverse_4x4, transpose_matrix,
+    };
+    use crate::geometry::{Normal, Point, Vector, is_close};
+    use crate::transformations::{
+        IsHomogeneousMatrix, Scaling, Transformation, Translation, XRotation, YRotation, ZRotation,
+        is_consistent,
+    };
+    use std::f32::consts;
 
     // Testing constants
     /* Scale matrix     *       Translation
-     [2.0                   [1.0            3.0
-          2.0                     1.0      -2.0
-             2.0                      1.0   5.0
-                1.0]                        1.0]
-     */
+    [2.0                   [1.0            3.0
+         2.0                     1.0      -2.0
+            2.0                      1.0   5.0
+               1.0]                        1.0]
+    */
     /// Transformation obtained from a Translation and a Scaling transformation
-    static MAT1:[f32;16] = [
-        2.0, 0.0, 0.0, 6.0,
-        0.0, 2.0, 0.0, -4.0,
-        0.0, 0.0, 2.0, 10.0,
-        0.0, 0.0, 0.0, 1.0,
+    static MAT1: [f32; 16] = [
+        2.0, 0.0, 0.0, 6.0, 0.0, 2.0, 0.0, -4.0, 0.0, 0.0, 2.0, 10.0, 0.0, 0.0, 0.0, 1.0,
     ];
 
-    static INVERSE_MAT1 : [f32;16] =[
-        0.5, 0.0, 0.0, -3.0,
-        0.0, 0.5, 0.0, 2.0,
-        0.0, 0.0, 0.5, -5.0,
-        0.0, 0.0, 0.0, 1.0,
+    static INVERSE_MAT1: [f32; 16] = [
+        0.5, 0.0, 0.0, -3.0, 0.0, 0.5, 0.0, 2.0, 0.0, 0.0, 0.5, -5.0, 0.0, 0.0, 0.0, 1.0,
     ];
 
-    static COS_45:f32 = consts::SQRT_2 /2.0;
+    static COS_45: f32 = consts::SQRT_2 / 2.0;
 
     /* Scale matrix     *       Rotation_z(90)      *    Rotation_x(45)
     [1.0                   [0.0 -1.0  0.0  0.0         [1.0
@@ -481,22 +446,16 @@ mod test {
                1.0]         0.0  0.0  0.0  1.0]                         1.0]
     */
     /// Transformation obtained from a Scaling and two Rotations transformation
-    static MAT2 :[f32;16]=[
-        0.0, - COS_45, COS_45, 0.0,
-        2.0,    0.0,    0.0,   0.0,
-        0.0,   COS_45, COS_45, 0.0,
-        0.0,    0.0,    0.0,   1.0,
+    static MAT2: [f32; 16] = [
+        0.0, -COS_45, COS_45, 0.0, 2.0, 0.0, 0.0, 0.0, 0.0, COS_45, COS_45, 0.0, 0.0, 0.0, 0.0, 1.0,
     ];
 
-    static INVERSE_MAT2 : [f32;16] =[
-        0.0, 0.5, 0.0, 0.0,
-        - COS_45, 0.0, COS_45, 0.0,
-        COS_45, 0.0, COS_45, 0.0,
-        0.0, 0.0, 0.0, 1.0
+    static INVERSE_MAT2: [f32; 16] = [
+        0.0, 0.5, 0.0, 0.0, -COS_45, 0.0, COS_45, 0.0, COS_45, 0.0, COS_45, 0.0, 0.0, 0.0, 0.0, 1.0,
     ];
 
     #[test]
-    fn test_constants(){
+    fn test_constants() {
         let result = fast_matrix_mul(&MAT1, &INVERSE_MAT1);
         assert!(equal_matrices(&result, &IDENTITY_4X4));
         let result = fast_matrix_mul(&MAT2, &INVERSE_MAT2);
@@ -504,25 +463,32 @@ mod test {
     }
 
     #[test]
-    fn test_consistency(){
-        let transformation = Transformation{ mat:MAT1, it_mat: transpose_matrix(&INVERSE_MAT1)};
+    fn test_consistency() {
+        let transformation = Transformation {
+            mat: MAT1,
+            it_mat: transpose_matrix(&INVERSE_MAT1),
+        };
         assert!(is_consistent(&transformation));
         // first element is 1.0 in the correct matrix
-        let wrong : [f32;16] = [
-            1.0, 0.5, 0.0, 0.0,
-            - COS_45, 0.0, COS_45, 0.0,
-            COS_45, 0.0, COS_45, 0.0,
-            0.0, 0.0, 0.0, 1.0
+        let wrong: [f32; 16] = [
+            1.0, 0.5, 0.0, 0.0, -COS_45, 0.0, COS_45, 0.0, COS_45, 0.0, COS_45, 0.0, 0.0, 0.0, 0.0,
+            1.0,
         ];
-        let transformation = Transformation{ mat: MAT2, it_mat: transpose_matrix(&wrong)};
+        let transformation = Transformation {
+            mat: MAT2,
+            it_mat: transpose_matrix(&wrong),
+        };
         assert!(!is_consistent(&transformation));
-        let transformation = Transformation{ mat: MAT1, it_mat: INVERSE_MAT1};
+        let transformation = Transformation {
+            mat: MAT1,
+            it_mat: INVERSE_MAT1,
+        };
         assert!(!is_consistent(&transformation));
     }
 
     // - - - - - - - - - - - - -   Transformation   - - - - - - - - - - - - - - -
     #[test]
-    fn test_transformation_constructor(){
+    fn test_transformation_constructor() {
         let trans = Transformation::new(MAT1);
         assert!(equal_matrices(trans.mat(), &MAT1));
         let it_mat = transpose_matrix(&INVERSE_MAT1);
@@ -533,19 +499,15 @@ mod test {
     }
 
     #[test]
-    fn test_transformation_times_matrix(){
+    fn test_transformation_times_matrix() {
         let trans = Transformation::new(MAT1);
-        let matrix = Scaling::new([1.0,2.0,3.0]);
+        let matrix = Scaling::new([1.0, 2.0, 3.0]);
         let result = trans * matrix;
         // check consistency
         assert!(is_consistent(&result));
 
-
-        let expected : [f32;16] = [
-            2.0, 0.0, 0.0, 6.0,
-            0.0, 4.0, 0.0, -4.0,
-            0.0, 0.0, 6.0, 10.0,
-            0.0, 0.0, 0.0, 1.0,
+        let expected: [f32; 16] = [
+            2.0, 0.0, 0.0, 6.0, 0.0, 4.0, 0.0, -4.0, 0.0, 0.0, 6.0, 10.0, 0.0, 0.0, 0.0, 1.0,
         ];
         // Check algorithm
         assert!(equal_matrices(&expected, &result.mat));
@@ -563,27 +525,25 @@ mod test {
         let matrix = ZRotation::new(consts::PI / 2.0);
         let result = trans * matrix;
         assert!(is_consistent(&result));
-        let matrix = Translation::new(
-            Vector::new(1.0, 2.0, 3.0),
-        );
+        let matrix = Translation::new(Vector::new(1.0, 2.0, 3.0));
         let result = trans * matrix;
         assert!(is_consistent(&result));
     }
 
     #[test]
-    fn test_transformation_times_vector_and_normal(){
+    fn test_transformation_times_vector_and_normal() {
         let trans = Transformation::new(MAT1);
         let vec = Vector::new(1.0, -2.0, 3.0);
         let result = trans * vec;
-        assert_eq!(result,  2.0 * vec);
+        assert_eq!(result, 2.0 * vec);
 
         let normal = Normal::new(1.0, 2.0, 3.0);
         let result = trans * normal;
-        assert_eq!(result,  0.5 * normal);
+        assert_eq!(result, 0.5 * normal);
     }
 
     #[test]
-    fn test_transformation_times_point(){
+    fn test_transformation_times_point() {
         let transformation = Transformation::new(MAT1);
         let point = Point::new(1.0, -2.0, 3.0);
         let result = transformation * point;
@@ -591,25 +551,33 @@ mod test {
         assert_eq!(result, expected);
     }
 
-
     // - - - - - - - - - - - - -   Scaling   - - - - - - - - - - - - - - -
     #[test]
     #[should_panic(expected = "Wrong inputs in Scaling Matrix definition")]
-    fn test_scaling_constructor(){
+    fn test_scaling_constructor() {
         let scaling_matrix = [
-            1.0, 0.0, 0.0, 0.0,
-            0.0, 2.0, 0.0, 0.0,
-            0.0, 0.0, 3.0, 0.0,
-            0.0, 0.0, 0.0, 1.0,
+            1.0, 0.0, 0.0, 0.0, 0.0, 2.0, 0.0, 0.0, 0.0, 0.0, 3.0, 0.0, 0.0, 0.0, 0.0, 1.0,
         ];
-        let scale = Scaling::new([1.0,2.0,3.0]);
+        let scale = Scaling::new([1.0, 2.0, 3.0]);
         assert!(equal_matrices(scale.mat(), &scaling_matrix));
 
         let it_scaling_matrix = [
-            1.0, 0.0, 0.0, 0.0,
-            0.0, 0.5, 0.0, 0.0,
-            0.0, 0.0, 1.0/3.0, 0.0,
-            0.0, 0.0, 0.0, 1.0,
+            1.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.5,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            1.0 / 3.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            1.0,
         ];
 
         assert!(equal_matrices(scale.it_mat(), &it_scaling_matrix));
@@ -617,23 +585,21 @@ mod test {
         let result = fast_matrix_mul(&it_mat, scale.mat());
         assert!(equal_matrices(&result, &IDENTITY_4X4));
 
-        let _ = Scaling::new([0.0,2.0,3.0]);
+        let _ = Scaling::new([0.0, 2.0, 3.0]);
     }
 
     #[test]
-    fn test_scaling_matrix_mul(){
+    fn test_scaling_matrix_mul() {
         // just a quick check, code compiles a
         // nd works for Transformation
-        let scale = Scaling::new([1.0,2.0,3.0]);
+        let scale = Scaling::new([1.0, 2.0, 3.0]);
         let matrix = Transformation::new(MAT2);
         let result = scale * matrix;
         assert!(is_consistent(&result));
-        let matrix = Scaling::new([1.0,2.0,3.0]);
+        let matrix = Scaling::new([1.0, 2.0, 3.0]);
         let result = scale * matrix;
         assert!(is_consistent(&result));
-        let matrix = Translation::new(
-            Vector::new(1.0, 2.0, 3.0),
-        );
+        let matrix = Translation::new(Vector::new(1.0, 2.0, 3.0));
         let result = scale * matrix;
         assert!(is_consistent(&result));
         let matrix = XRotation::new(consts::PI / 2.0);
@@ -648,7 +614,7 @@ mod test {
     }
 
     #[test]
-    fn test_scaling_vector(){
+    fn test_scaling_vector() {
         let v = Vector::new(1.0, 2.0, 3.0);
         let scale = Scaling::new([5.0, 6.0, -10.0]);
         let expected = Vector::new(5.0, 12.0, -30.0);
@@ -656,7 +622,7 @@ mod test {
     }
 
     #[test]
-    fn test_scaling_point(){
+    fn test_scaling_point() {
         let p = Point::new(1.0, 2.0, 3.0);
         let scale = Scaling::new([5.0, 6.0, -10.0]);
         let expected = Point::new(5.0, 12.0, -30.0);
@@ -669,11 +635,7 @@ mod test {
         let scale = Scaling::new([2.0, 4.0, 10.0]);
 
         // The it_mat is 1/value
-        let expected = Normal::new(
-            1.0 / 2.0,
-            2.0 / 4.0,
-            3.0 / 10.0,
-        );
+        let expected = Normal::new(1.0 / 2.0, 2.0 / 4.0, 3.0 / 10.0);
 
         let result = scale * n;
 
@@ -684,21 +646,15 @@ mod test {
 
     // - - - - - - - - - - - - -   Translation   - - - - - - - - - - - - - - -
     #[test]
-    fn test_translation_constructor(){
-        let v = Vector::new(1.0,2.0,3.0);
+    fn test_translation_constructor() {
+        let v = Vector::new(1.0, 2.0, 3.0);
         let translation = Translation::new(v);
-        let expected : [f32;16] = [
-            1.0, 0.0, 0.0, 1.0,
-            0.0, 1.0, 0.0, 2.0,
-            0.0, 0.0, 1.0, 3.0,
-            0.0, 0.0, 0.0, 1.0,
+        let expected: [f32; 16] = [
+            1.0, 0.0, 0.0, 1.0, 0.0, 1.0, 0.0, 2.0, 0.0, 0.0, 1.0, 3.0, 0.0, 0.0, 0.0, 1.0,
         ];
         assert!(equal_matrices(translation.mat(), &expected));
-        let expected : [f32;16] = [
-            1.0, 0.0, 0.0, 0.0,
-            0.0, 1.0, 0.0, 0.0,
-            0.0, 0.0, 1.0, 0.0,
-            -1.0, -2.0, -3.0, 1.0
+        let expected: [f32; 16] = [
+            1.0, 0.0, 0.0, 0.0, 0.0, 1.0, 0.0, 0.0, 0.0, 0.0, 1.0, 0.0, -1.0, -2.0, -3.0, 1.0,
         ];
         assert!(equal_matrices(translation.it_mat(), &expected));
 
@@ -708,21 +664,17 @@ mod test {
     }
 
     #[test]
-    fn test_translation_matrix_mul(){
+    fn test_translation_matrix_mul() {
         // just a quick check, code compiles a
         // nd works for Transformation
-        let translation = Translation::new(
-            Vector::new(1.0, 2.0, 3.0),
-        );
+        let translation = Translation::new(Vector::new(1.0, 2.0, 3.0));
         let matrix = Transformation::new(MAT2);
         let result = translation * matrix;
         assert!(is_consistent(&result));
-        let matrix = Scaling::new([1.0,2.0,3.0]);
+        let matrix = Scaling::new([1.0, 2.0, 3.0]);
         let result = translation * matrix;
         assert!(is_consistent(&result));
-        let matrix = Translation::new(
-            Vector::new(1.0, 2.0, 3.0),
-        );
+        let matrix = Translation::new(Vector::new(1.0, 2.0, 3.0));
         let result = translation * matrix;
         assert!(is_consistent(&result));
         let matrix = XRotation::new(consts::PI / 2.0);
@@ -737,10 +689,8 @@ mod test {
     }
 
     #[test]
-    fn test_translation_times_vector_and_normal(){
-        let trans = Translation::new(
-            Vector::new(1.0, 2.0, 3.0),
-        );
+    fn test_translation_times_vector_and_normal() {
+        let trans = Translation::new(Vector::new(1.0, 2.0, 3.0));
         let vec = Vector::new(1.0, -2.0, 3.0);
         assert_eq!(trans * vec, vec);
 
@@ -749,10 +699,8 @@ mod test {
     }
 
     #[test]
-    fn test_translation_times_point(){
-        let transformation = Translation::new(
-            Vector::new(1.0, 2.0, 3.0),
-        );
+    fn test_translation_times_point() {
+        let transformation = Translation::new(Vector::new(1.0, 2.0, 3.0));
         let point = Point::new(1.0, -2.0, 3.0);
         let result = transformation * point;
         let expected = Point::new(2.0, 0.0, 6.0);
@@ -761,36 +709,31 @@ mod test {
 
     // - - - - - - - - - - - - -   XRotation   - - - - - - - - - - - - - - -
     #[test]
-    fn test_rotation_x_constructor(){
+    fn test_rotation_x_constructor() {
         let angle = consts::FRAC_PI_3;
         let rotation = XRotation::new(angle);
         let sin = angle.sin();
         let cos = angle.cos();
-        let matrix : [f32;16] = [
-            1.0, 0.0, 0.0, 0.0,
-            0.0, cos, -sin, 0.0,
-            0.0, sin, cos, 0.0,
-            0.0, 0.0, 0.0, 1.0,
+        let matrix: [f32; 16] = [
+            1.0, 0.0, 0.0, 0.0, 0.0, cos, -sin, 0.0, 0.0, sin, cos, 0.0, 0.0, 0.0, 0.0, 1.0,
         ];
         assert!(equal_matrices(rotation.mat(), &matrix));
         assert!(equal_matrices(&rotation.it_mat, &matrix));
         let matrix = transpose_matrix(rotation.it_mat());
-        let result = fast_matrix_mul(rotation.mat(),&matrix);
+        let result = fast_matrix_mul(rotation.mat(), &matrix);
         assert!(equal_matrices(&result, &IDENTITY_4X4));
     }
 
     #[test]
-    fn test_rotation_x_matrix_mul(){
+    fn test_rotation_x_matrix_mul() {
         let rotation = XRotation::new(consts::FRAC_PI_3);
         let matrix = Transformation::new(MAT1);
         let result = rotation * matrix;
         assert!(is_consistent(&result));
-        let matrix = Translation::new(
-            Vector::new(1.0, 2.0, 3.0),
-        );
+        let matrix = Translation::new(Vector::new(1.0, 2.0, 3.0));
         let result = rotation * matrix;
         assert!(is_consistent(&result));
-        let matrix = Scaling::new([1.0,2.0,3.0]);
+        let matrix = Scaling::new([1.0, 2.0, 3.0]);
         let result = rotation * matrix;
         assert!(is_consistent(&result));
         let matrix = XRotation::new(consts::PI);
@@ -805,65 +748,60 @@ mod test {
     }
 
     #[test]
-    fn test_rotation_x_vectorial(){
+    fn test_rotation_x_vectorial() {
         let rotation = XRotation::new(consts::FRAC_PI_3);
         let vec = Vector::new(1.0, 2.0, 3.0);
         let result = rotation * vec;
-        let expected = Vector{
-            x : 1.0,
-            y : 1.0 - 3.0_f32.sqrt() * 3.0 /2.0,
-            z : 3.0_f32.sqrt() + 1.5,
+        let expected = Vector {
+            x: 1.0,
+            y: 1.0 - 3.0_f32.sqrt() * 3.0 / 2.0,
+            z: 3.0_f32.sqrt() + 1.5,
         };
         assert!(is_close(result, expected));
         let nor = Normal::new(1.0, 2.0, 3.0);
         let result = rotation * nor;
-        let expected = Normal{
-            x : 1.0,
-            y : 1.0 - 3.0_f32.sqrt() * 3.0 /2.0,
-            z : 3.0_f32.sqrt() + 1.5,
+        let expected = Normal {
+            x: 1.0,
+            y: 1.0 - 3.0_f32.sqrt() * 3.0 / 2.0,
+            z: 3.0_f32.sqrt() + 1.5,
         };
         assert!(is_close(result, expected));
         let point = Point::new(1.0, 2.0, 3.0);
         let result = rotation * point;
-        let expected = Point{
-            x : 1.0,
-            y : 1.0 - 3.0_f32.sqrt() * 3.0 /2.0,
-            z : 3.0_f32.sqrt() + 1.5,
+        let expected = Point {
+            x: 1.0,
+            y: 1.0 - 3.0_f32.sqrt() * 3.0 / 2.0,
+            z: 3.0_f32.sqrt() + 1.5,
         };
         assert!(is_close(result, expected));
     }
     // - - - - - - - - - - - - -   YRotation   - - - - - - - - - - - - - - -
     #[test]
-    fn test_rotation_y_constructor(){
+    fn test_rotation_y_constructor() {
         let theta = consts::FRAC_PI_6;
         let rotation = YRotation::new(theta);
         let cos = theta.cos();
         let sin = theta.sin();
         let matrix = [
-            cos, 0.0, sin, 0.0,
-            0.0, 1.0, 0.0, 0.0,
-            -sin, 0.0, cos, 0.0,
-            0.0, 0.0, 0.0, 1.0
+            cos, 0.0, sin, 0.0, 0.0, 1.0, 0.0, 0.0, -sin, 0.0, cos, 0.0, 0.0, 0.0, 0.0, 1.0,
         ];
         assert!(equal_matrices(rotation.mat(), &matrix));
         assert!(equal_matrices(&rotation.it_mat, &matrix));
         let matrix = transpose_matrix(rotation.it_mat());
-        let result = fast_matrix_mul(rotation.mat(),&matrix);
+        let result = fast_matrix_mul(rotation.mat(), &matrix);
         assert!(equal_matrices(&result, &IDENTITY_4X4));
     }
 
     #[test]
-    fn test_rotation_y_matrix_mul(){
+    fn test_rotation_y_matrix_mul() {
         let rotation = YRotation::new(consts::FRAC_PI_3);
         let matrix = Transformation::new(MAT1);
         let result = rotation * matrix;
         assert!(is_consistent(&result));
-        let matrix = Translation::new(
-            Vector::new(1.0, 2.0, 3.0),
-        );
+        let matrix = Translation::new(Vector::new(1.0, 2.0, 3.0));
         let result = rotation * matrix;
         assert!(is_consistent(&result));
-        let matrix = Scaling::new([1.0,2.0,3.0]);
+        let matrix = Scaling::new([1.0, 2.0, 3.0]);
         let result = rotation * matrix;
         assert!(is_consistent(&result));
         let matrix = XRotation::new(consts::PI);
@@ -878,68 +816,62 @@ mod test {
     }
 
     #[test]
-    fn test_rotation_y_vectorial(){
+    fn test_rotation_y_vectorial() {
         let rotation = YRotation::new(consts::FRAC_PI_3);
         println!("{:?}", rotation.mat);
         let vec = Vector::new(1.0, 2.0, 3.0);
         let result = rotation * vec;
-        let expected = Vector{
-            x : 0.5 + 3.0_f32.sqrt() * 3.0 /2.0,
-            y : 2.0,
-            z : -3.0_f32.sqrt()/2.0 + 1.5,
+        let expected = Vector {
+            x: 0.5 + 3.0_f32.sqrt() * 3.0 / 2.0,
+            y: 2.0,
+            z: -3.0_f32.sqrt() / 2.0 + 1.5,
         };
-        assert!(is_close(result, expected)
-        , "{}\n{}", result, expected);
+        assert!(is_close(result, expected), "{}\n{}", result, expected);
         let nor = Normal::new(1.0, 2.0, 3.0);
         let result = rotation * nor;
-        let expected = Normal{
-            x : 0.5 + 3.0_f32.sqrt() * 3.0 /2.0,
-            y : 2.0,
-            z : -3.0_f32.sqrt()/2.0 + 1.5,
+        let expected = Normal {
+            x: 0.5 + 3.0_f32.sqrt() * 3.0 / 2.0,
+            y: 2.0,
+            z: -3.0_f32.sqrt() / 2.0 + 1.5,
         };
         assert!(is_close(result, expected));
         let point = Point::new(1.0, 2.0, 3.0);
         let result = rotation * point;
-        let expected = Point{
-            x : 0.5 + 3.0_f32.sqrt() * 3.0 /2.0,
-            y : 2.0,
-            z : -3.0_f32.sqrt()/2.0 + 1.5,
+        let expected = Point {
+            x: 0.5 + 3.0_f32.sqrt() * 3.0 / 2.0,
+            y: 2.0,
+            z: -3.0_f32.sqrt() / 2.0 + 1.5,
         };
         assert!(is_close(result, expected));
     }
 
     // - - - - - - - - - - - - -   ZRotation   - - - - - - - - - - - - - - -
     #[test]
-    fn test_rotation_z_constructor(){
+    fn test_rotation_z_constructor() {
         let theta = consts::FRAC_PI_3;
         let rotation = ZRotation::new(theta);
         let cos = theta.cos();
         let sin = theta.sin();
         let matrix = [
-            cos, -sin, 0.0, 0.0,
-            sin, cos, 0.0, 0.0,
-            0.0, 0.0, 1.0, 0.0,
-            0.0, 0.0, 0.0, 1.0
+            cos, -sin, 0.0, 0.0, sin, cos, 0.0, 0.0, 0.0, 0.0, 1.0, 0.0, 0.0, 0.0, 0.0, 1.0,
         ];
         assert!(equal_matrices(rotation.mat(), &matrix));
         assert!(equal_matrices(&rotation.it_mat, &matrix));
         let matrix = transpose_matrix(rotation.it_mat());
-        let result = fast_matrix_mul(rotation.mat(),&matrix);
+        let result = fast_matrix_mul(rotation.mat(), &matrix);
         assert!(equal_matrices(&result, &IDENTITY_4X4));
     }
 
     #[test]
-    fn test_rotation_z_matrix_mul(){
+    fn test_rotation_z_matrix_mul() {
         let rotation = ZRotation::new(consts::FRAC_PI_3);
         let matrix = Transformation::new(MAT1);
         let result = rotation * matrix;
         assert!(is_consistent(&result));
-        let matrix = Translation::new(
-            Vector::new(1.0, 2.0, 3.0),
-        );
+        let matrix = Translation::new(Vector::new(1.0, 2.0, 3.0));
         let result = rotation * matrix;
         assert!(is_consistent(&result));
-        let matrix = Scaling::new([1.0,2.0,3.0]);
+        let matrix = Scaling::new([1.0, 2.0, 3.0]);
         let result = rotation * matrix;
         assert!(is_consistent(&result));
         let matrix = XRotation::new(consts::PI);
@@ -954,39 +886,35 @@ mod test {
     }
 
     #[test]
-    fn test_rotation_z_vectorial(){
+    fn test_rotation_z_vectorial() {
         let rotation = ZRotation::new(consts::FRAC_PI_3);
         println!("{:?}", rotation.mat);
         let vec = Vector::new(1.0, 2.0, 3.0);
         let result = rotation * vec;
-        let expected = Vector{
-            x : 0.5 - 3.0_f32.sqrt(),
-            y : 3.0_f32.sqrt()/2.0 + 1.0,
-            z : 3.0,
+        let expected = Vector {
+            x: 0.5 - 3.0_f32.sqrt(),
+            y: 3.0_f32.sqrt() / 2.0 + 1.0,
+            z: 3.0,
         };
-        assert!(is_close(result, expected)
-                , "{}\n{}", result, expected);
+        assert!(is_close(result, expected), "{}\n{}", result, expected);
         let nor = Normal::new(1.0, 2.0, 3.0);
         let result = rotation * nor;
-        let expected = Normal{
-            x : 0.5 - 3.0_f32.sqrt(),
-            y : 3.0_f32.sqrt()/2.0 + 1.0,
-            z : 3.0,
+        let expected = Normal {
+            x: 0.5 - 3.0_f32.sqrt(),
+            y: 3.0_f32.sqrt() / 2.0 + 1.0,
+            z: 3.0,
         };
         assert!(is_close(result, expected));
         let point = Point::new(1.0, 2.0, 3.0);
         let result = rotation * point;
-        let expected = Point{
-            x : 0.5 - 3.0_f32.sqrt(),
-            y : 3.0_f32.sqrt()/2.0 + 1.0,
-            z : 3.0,
+        let expected = Point {
+            x: 0.5 - 3.0_f32.sqrt(),
+            y: 3.0_f32.sqrt() / 2.0 + 1.0,
+            z: 3.0,
         };
         assert!(is_close(result, expected));
     }
 }
-
-
-
 
 // -------------------------------------------------------------
 //                            NOTES

@@ -24,7 +24,7 @@ use std::ops::{Add, Div, Mul};
 /// Arithmetic operations do not enforce validity, so intermediate values
 /// may be outside the physically meaningful range.
 #[derive(Copy, Clone, Debug, PartialEq)]
-pub struct Color{
+pub struct Color {
     pub r: f32,
     pub g: f32,
     pub b: f32,

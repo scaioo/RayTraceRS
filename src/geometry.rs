@@ -2,25 +2,35 @@
 
 use std::fmt;
 //use std::fmt::Display;
-use std::ops::{Add, Div, Mul, Neg, Sub};
 use crate::functions::are_close;
+use std::ops::{Add, Div, Mul, Neg, Sub};
 
 // =======================================================================
 // CONSTANTS DEFINITIONS
 // =======================================================================
-pub static X_AXIS : Vector = Vector{x: 1.0, y: 0.0, z: 0.0};
-pub static Y_AXIS : Vector = Vector{x: 0.0, y: 1.0, z: 0.0};
-pub static Z_AXIS : Vector = Vector{x: 0.0, y: 0.0, z: 1.0};
+pub static X_AXIS: Vector = Vector {
+    x: 1.0,
+    y: 0.0,
+    z: 0.0,
+};
+pub static Y_AXIS: Vector = Vector {
+    x: 0.0,
+    y: 1.0,
+    z: 0.0,
+};
+pub static Z_AXIS: Vector = Vector {
+    x: 0.0,
+    y: 0.0,
+    z: 1.0,
+};
 
 // =======================================================================
 // FUNCTIONS DEFINITIONS
 // =======================================================================
 
 // We could make it a trait through all the project!
-pub fn is_close<T : TDV>(a : T, b : T)-> bool {
-    are_close(a.x(), b.x())
-        && are_close(a.y(), b.y())
-        && are_close(a.z(), b.z())
+pub fn is_close<T: TDV>(a: T, b: T) -> bool {
+    are_close(a.x(), b.x()) && are_close(a.y(), b.y()) && are_close(a.z(), b.z())
 }
 
 // =======================================================================
@@ -29,7 +39,7 @@ pub fn is_close<T : TDV>(a : T, b : T)-> bool {
 
 /// Marker trait that signals the struct to be either Vector, Point or Normal
 pub trait TDV {
-    fn to_homogeneous(&self) -> [f32;4];
+    fn to_homogeneous(&self) -> [f32; 4];
 
     fn x(&self) -> f32;
     fn y(&self) -> f32;
@@ -41,11 +51,11 @@ pub trait TDV {
 // =======================================================================
 
 #[macro_export]
-macro_rules! impl_homogeneous{
-($t:ty, $w:expr) => {
+macro_rules! impl_homogeneous {
+    ($t:ty, $w:expr) => {
         // Note: this trait implementation works only
         // on structs that have 'x', 'y', 'z' arguments!
-        impl TDV for $t{
+        impl TDV for $t {
             fn to_homogeneous(&self) -> [f32; 4] {
                 [self.x, self.y, self.z, $w]
             }
@@ -65,18 +75,18 @@ macro_rules! impl_homogeneous{
 
 /// Vector module stored as three floating-point components.
 #[derive(Copy, Clone, Debug, PartialEq)]
-pub struct Vector{
-    pub x : f32,
-    pub y : f32,
-    pub z : f32,
+pub struct Vector {
+    pub x: f32,
+    pub y: f32,
+    pub z: f32,
 }
 
 /// Point module stored as three floating-point components.
 #[derive(Copy, Clone, Debug, PartialEq)]
-pub struct Point{
-    pub x : f32,
-    pub y : f32,
-    pub z : f32,
+pub struct Point {
+    pub x: f32,
+    pub y: f32,
+    pub z: f32,
 }
 
 /// Normal module stored as three floating-point components.
@@ -173,11 +183,7 @@ macro_rules! impl_mul_scalar {
             type Output = Self;
 
             fn mul(self, scalar: f32) -> Self {
-                Self::new(
-                    self.x * scalar,
-                    self.y * scalar,
-                    self.z * scalar
-                )
+                Self::new(self.x * scalar, self.y * scalar, self.z * scalar)
             }
         }
 
@@ -186,11 +192,7 @@ macro_rules! impl_mul_scalar {
             type Output = $type_name;
 
             fn mul(self, other: $type_name) -> Self::Output {
-                $type_name::new(
-                    self * other.x,
-                    self * other.y,
-                    self * other.z
-                )
+                $type_name::new(self * other.x, self * other.y, self * other.z)
             }
         }
     };
@@ -224,11 +226,7 @@ macro_rules! impl_add {
             /// Note: 'self' and 'other' are passed by value, which is safe and efficient
             /// because our structs implement the Copy trait.
             fn add(self, other: $type_other) -> Self::Output {
-                $type_out::new(
-                    self.x + other.x,
-                    self.y + other.y,
-                    self.z + other.z,
-                )
+                $type_out::new(self.x + other.x, self.y + other.y, self.z + other.z)
             }
         }
     };
@@ -245,11 +243,7 @@ macro_rules! impl_sub {
             /// Performs the subtraction component by component.
             /// Standard behavior: (self.x - other.x, ...)
             fn sub(self, other: $type_other) -> Self::Output {
-                $type_out::new(
-                    self.x - other.x,
-                    self.y - other.y,
-                    self.z - other.z,
-                )
+                $type_out::new(self.x - other.x, self.y - other.y, self.z - other.z)
             }
         }
     };
@@ -277,21 +271,21 @@ macro_rules! impl_norm {
 macro_rules! impl_dot {
     ($type_self: ident, $type_other: ident) => {
         //dot product return a float (f32)
-        impl Dot<$type_other> for $type_self{
+        impl Dot<$type_other> for $type_self {
             fn dot(&self, second_term: &$type_other) -> f32 {
-                self.x*second_term.x + self.y*second_term.y +self.z*second_term.z
+                self.x * second_term.x + self.y * second_term.y + self.z * second_term.z
             }
         }
     };
 }
 /// Macro to implement the `Cross Product` method for 3D structs.
 macro_rules! impl_cross {
-    ($type_self: ident) =>{
-        impl Cross<$type_self> for $type_self{
+    ($type_self: ident) => {
+        impl Cross<$type_self> for $type_self {
             type Output = $type_self;
             // Cross product returns a custom type ($type_other)
-            fn cross(&self,other: &$type_self) -> $type_self {
-                $type_self{
+            fn cross(&self, other: &$type_self) -> $type_self {
+                $type_self {
                     x: self.y * other.z - self.z * other.y,
                     y: self.z * other.x - self.x * other.z,
                     z: self.x * other.y - self.y * other.x,
@@ -407,10 +401,10 @@ impl_norm!(Normal);
 //----------------------------------------------------------------------
 // Automatically implement Dot and Cross products between the 3D Structs
 //----------------------------------------------------------------------
-impl_dot!(Vector,Vector);
+impl_dot!(Vector, Vector);
 impl_cross!(Vector);
-impl_dot!(Vector,Normal);
-impl_dot!(Normal,Vector);
+impl_dot!(Vector, Normal);
+impl_dot!(Normal, Vector);
 
 //-----------------------------------------------------
 // Automatically implement normalization for 3D Structs
@@ -449,7 +443,10 @@ mod tests {
         assert!(v1.is_close(&v2), "v1 and v2 should be considered close");
 
         // We use ! (NOT) because this should be false
-        assert!(!v1.is_close(&v3), "v1 and v3 should NOT be considered close");
+        assert!(
+            !v1.is_close(&v3),
+            "v1 and v3 should NOT be considered close"
+        );
 
         // Test with a Normal just to be safe
         let n1 = Normal::new(0.0, 1.0, 0.0);
@@ -466,7 +463,6 @@ mod tests {
         assert_eq!(v, Vector::new(1.0, 2.0, 3.0));
         assert_eq!(p, Point::new(4.0, 5.0, 6.0));
         assert_eq!(n, Normal::new(7.0, 8.0, 9.0));
-
     }
     #[test]
     fn test_display_trait() {
@@ -477,7 +473,7 @@ mod tests {
         // Using format! allows us to capture the Display output as a String
         let formatted_vector = format!("{}", v);
         let formatted_normal = format!("{}", n);
-        let formatted_point = format!("{}",p);
+        let formatted_point = format!("{}", p);
         // Check if the output matches the expected string
         assert_eq!(formatted_vector, "Vector(x = 1, y = 2.5, z = 3)");
         assert_eq!(formatted_normal, "Normal(x = 0, y = -1, z = 4.2)");
@@ -488,11 +484,11 @@ mod tests {
         // Create an initial normal
         let n = Normal::new(1.0, -2.5, 3.0);
         let v = Vector::new(-5.0, 0.0, 4.2);
-        let p = Point::new(2.2,1.9,0.8);
+        let p = Point::new(2.2, 1.9, 0.8);
 
         assert_eq!(-n, Normal::new(-1.0, 2.5, -3.0));
         assert_eq!(-v, Vector::new(5.0, 0.0, -4.2));
-        assert_eq!(-p,Point::new(-2.2,-1.9,-0.8));
+        assert_eq!(-p, Point::new(-2.2, -1.9, -0.8));
     }
     #[test]
     fn test_scalar_math() {
@@ -537,18 +533,26 @@ mod tests {
         let v = Vector::new(3.0, 4.0, 0.0);
 
         // We use assert! with the are_close function
-        assert!(are_close(v.squared_norm(), 25.0), "Vector squared norm is incorrect!");
+        assert!(
+            are_close(v.squared_norm(), 25.0),
+            "Vector squared norm is incorrect!"
+        );
         assert!(are_close(v.norm(), 5.0), "Vector norm is incorrect!");
 
         // 2. Test with a Normal using negative and decimal values
         // (-1)^2 + 1^2 + 1^2 = 1 + 1 + 1 = 3
         // Sqrt(3) ≈ 1.73205
         let n = Normal::new(-1.0, 1.0, 1.0);
-        assert!(are_close(n.squared_norm(), 3.0), "Normal squared norm is incorrect!");
+        assert!(
+            are_close(n.squared_norm(), 3.0),
+            "Normal squared norm is incorrect!"
+        );
 
         let expected_n_norm = 3.0_f32.sqrt();
-        assert!(are_close(n.norm(), expected_n_norm), "Normal norm is incorrect!");
-
+        assert!(
+            are_close(n.norm(), expected_n_norm),
+            "Normal norm is incorrect!"
+        );
     }
     #[test]
     fn test_dot_vector_vector() {
@@ -563,24 +567,27 @@ mod tests {
         assert_eq!(result, 32.0, "Dot product between Vector and Vector failed");
     }
     #[test]
-    fn test_cross_vec_vec(){
-        let v = Vector::new(1.0,2.0,3.0);
-        let u = Vector::new(2.0,3.0,4.0);
+    fn test_cross_vec_vec() {
+        let v = Vector::new(1.0, 2.0, 3.0);
+        let u = Vector::new(2.0, 3.0, 4.0);
 
         let ax = 2.0 * 4.0 - 3.0 * 3.0;
         let ay = 3.0 * 2.0 - 1.0 * 4.0;
         let az = 1.0 * 3.0 - 2.0 * 2.0;
 
-        assert_eq!(v.cross(&u), Vector::new(ax, ay, az), "Cross product between Vectors failed");
-
+        assert_eq!(
+            v.cross(&u),
+            Vector::new(ax, ay, az),
+            "Cross product between Vectors failed"
+        );
     }
     #[test]
-    fn test_dot_normal_vec(){
-        let v = Vector::new(1.0,2.0,3.0);
-        let u = Normal::new(2.0,3.0,4.0);
-        
-        assert_eq!(v.dot(&u),20.0);
-        assert_eq!(u.dot(&v),20.0);
+    fn test_dot_normal_vec() {
+        let v = Vector::new(1.0, 2.0, 3.0);
+        let u = Normal::new(2.0, 3.0, 4.0);
+
+        assert_eq!(v.dot(&u), 20.0);
+        assert_eq!(u.dot(&v), 20.0);
     }
 
     #[test]
@@ -592,7 +599,10 @@ mod tests {
         let v_normalized = v.normalize();
 
         // 1. The new length MUST be exactly 1.0
-        assert!(are_close(v_normalized.norm(), 1.0), "Normalized vector length is not 1.0!");
+        assert!(
+            are_close(v_normalized.norm(), 1.0),
+            "Normalized vector length is not 1.0!"
+        );
 
         // 2. The components should be 3/5, 0/5, and 4/5
         assert!(are_close(v_normalized.x, 0.6), "X component incorrect");
@@ -603,6 +613,9 @@ mod tests {
         let n = Normal::new(1.0, 1.0, 1.0);
         let n_norm = n.normalize();
 
-        assert!(are_close(n_norm.norm(), 1.0), "Normalized normal length is not 1.0!");
+        assert!(
+            are_close(n_norm.norm(), 1.0),
+            "Normalized normal length is not 1.0!"
+        );
     }
 }

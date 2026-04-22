@@ -8,8 +8,8 @@ use crate::functions::are_close;
 use crate::geometry::Point;
 use crate::geometry::X_AXIS;
 use crate::ray::Ray;
-use std::ops::Mul;
 use crate::transformations::IsHomogeneousMatrix;
+use std::ops::Mul;
 
 // =======================================================================
 // CAMERA TRAIT
@@ -143,11 +143,8 @@ mod tests {
     fn test_orthogonal_camera() {
         let transformation = Scaling::new([1.0, 2.0, 3.0]);
         let camera = OrthogonalCamera::new(transformation);
-        let mat :[f32;16] = [
-            1.0, 0.0, 0.0, 0.0,
-            0.0, 2.0, 0.0, 0.0,
-            0.0, 0.0, 3.0, 0.0,
-            0.0, 0.0, 0.0, 1.0
+        let mat: [f32; 16] = [
+            1.0, 0.0, 0.0, 0.0, 0.0, 2.0, 0.0, 0.0, 0.0, 0.0, 3.0, 0.0, 0.0, 0.0, 0.0, 1.0,
         ];
         assert!(equal_matrices(&mat, &camera.transformation.mat));
         assert_eq!(camera.aspect_ratio, 1.0);
@@ -172,10 +169,8 @@ mod tests {
 
     #[test]
     #[should_panic(expected = "invalid aspect ratio")]
-    fn test_oc_set_ar(){
-        let mut orthogonal_camera = OrthogonalCamera::new(
-            Transformation::new(IDENTITY_4X4)
-        );
+    fn test_oc_set_ar() {
+        let mut orthogonal_camera = OrthogonalCamera::new(Transformation::new(IDENTITY_4X4));
         assert_eq!(orthogonal_camera.aspect_ratio, 1.0);
         orthogonal_camera.set_aspect_ratio(16.0 / 9.0);
         println!("not exploded\n");
@@ -184,11 +179,9 @@ mod tests {
     }
 
     #[test]
-    fn test_oc_fire_ray(){
-        let mut orthogonal_camera = OrthogonalCamera::new(
-            Transformation::new(IDENTITY_4X4)
-        );
-        let aspect_ratio = 16.0/9.0;
+    fn test_oc_fire_ray() {
+        let mut orthogonal_camera = OrthogonalCamera::new(Transformation::new(IDENTITY_4X4));
+        let aspect_ratio = 16.0 / 9.0;
         orthogonal_camera.set_aspect_ratio(aspect_ratio);
         let ray1 = orthogonal_camera.fire_ray(0.0, 0.0);
         let ray2 = orthogonal_camera.fire_ray(0.0, 1.0);
@@ -200,10 +193,10 @@ mod tests {
             let cross_product = vec[i].dir.cross(&vec[i + 1].dir);
             assert!(is_close(cross_product, Vector::new(0.0, 0.0, 0.0)));
         }
-        assert!(ray1.at(1.0).is_close(&Point::new(0.0,- aspect_ratio, -1.0 )));
-        assert!(ray2.at(1.0).is_close(&Point::new(0.0, - aspect_ratio,1.0)));
-        assert!(ray3.at(1.0).is_close(&Point::new(0.0,aspect_ratio, -1.0)));
-        assert!(ray4.at(1.0).is_close(&Point::new(0.0, aspect_ratio,1.0 )));
+        assert!(ray1.at(1.0).is_close(&Point::new(0.0, -aspect_ratio, -1.0)));
+        assert!(ray2.at(1.0).is_close(&Point::new(0.0, -aspect_ratio, 1.0)));
+        assert!(ray3.at(1.0).is_close(&Point::new(0.0, aspect_ratio, -1.0)));
+        assert!(ray4.at(1.0).is_close(&Point::new(0.0, aspect_ratio, 1.0)));
     }
 
     #[test]
@@ -211,11 +204,8 @@ mod tests {
         let theta = std::f32::consts::PI / 4.0;
         let cos = theta.cos();
         let sin = theta.sin();
-        let mat : [f32;16] = [
-            1.0, 0.0, 0.0, 0.0,
-            0.0, cos, -sin, 0.0,
-            0.0, sin, cos, 0.0,
-            0.0, 0.0, 0.0, 1.0
+        let mat: [f32; 16] = [
+            1.0, 0.0, 0.0, 0.0, 0.0, cos, -sin, 0.0, 0.0, sin, cos, 0.0, 0.0, 0.0, 0.0, 1.0,
         ];
         let transformation = XRotation::new(theta);
         let camera = PerspectiveCamera::new(transformation);
@@ -231,7 +221,7 @@ mod tests {
     }
 
     #[test]
-    fn test_perspective_camera_transformation(){
+    fn test_perspective_camera_transformation() {
         let transformation = ZRotation::new(std::f32::consts::PI);
         let camera = PerspectiveCamera::new(transformation);
         let ray = camera.fire_ray(1.0, 0.0);
@@ -242,20 +232,16 @@ mod tests {
     }
 
     #[test]
-    fn test_pc_set_distance(){
-        let mut perspective_camera = PerspectiveCamera::new(
-            Transformation::new(IDENTITY_4X4)
-        );
+    fn test_pc_set_distance() {
+        let mut perspective_camera = PerspectiveCamera::new(Transformation::new(IDENTITY_4X4));
         perspective_camera.set_distance(16.0);
         assert_eq!(perspective_camera.distance, 16.0);
     }
 
     #[test]
     #[should_panic(expected = "invalid aspect ratio")]
-    fn test_pc_set_ar(){
-        let mut perspective_camera = PerspectiveCamera::new(
-            Transformation::new(IDENTITY_4X4)
-        );
+    fn test_pc_set_ar() {
+        let mut perspective_camera = PerspectiveCamera::new(Transformation::new(IDENTITY_4X4));
         perspective_camera.set_aspect_ratio(19.0);
         assert_eq!(perspective_camera.aspect_ratio, 19.0);
         println!("not exploded\n");
@@ -263,19 +249,12 @@ mod tests {
     }
 
     #[test]
-    fn test_pc_fire_ray(){
-        let mut perspective_camera = PerspectiveCamera::new(
-            Transformation::new(IDENTITY_4X4)
-        );
+    fn test_pc_fire_ray() {
+        let mut perspective_camera = PerspectiveCamera::new(Transformation::new(IDENTITY_4X4));
         perspective_camera.set_aspect_ratio(2.0);
         perspective_camera.set_distance(1.0);
 
-        let angles = vec![
-            [0.0, 0.0] , 
-            [0.0, 1.0], 
-            [1.0, 0.0], 
-            [1.0, 1.0]
-        ];
+        let angles = vec![[0.0, 0.0], [0.0, 1.0], [1.0, 0.0], [1.0, 1.0]];
 
         let mut rays: Vec<Ray> = Vec::with_capacity(4);
 

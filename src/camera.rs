@@ -190,8 +190,8 @@ mod tests{
         }
         assert!(ray1.at(1.0).is_close(&Point::new(0.0,- aspect_ratio, -1.0 )));
         assert!(ray2.at(1.0).is_close(&Point::new(0.0, - aspect_ratio,1.0)));
-        assert!(ray3.at(1.0).is_close(&Point::new(0.0,aspect_ratio,-1.0)));
-        assert!(ray4.at(1.0).is_close(&Point::new(0.0, aspect_ratio,1.0)));
+        assert!(ray3.at(1.0).is_close(&Point::new(0.0,aspect_ratio, -1.0)));
+        assert!(ray4.at(1.0).is_close(&Point::new(0.0, aspect_ratio,1.0 )));
     }
 
     #[test]
@@ -216,6 +216,17 @@ mod tests{
         let _ = PerspectiveCamera::new(YRotation::new(std::f32::consts::FRAC_PI_4));
         let _ = PerspectiveCamera::new(ZRotation::new(std::f32::consts::FRAC_PI_4));
         let _ = PerspectiveCamera::new(Translation::new(Vector::new(1.0, 2.0, 1.0)));
+    }
+
+    #[test]
+    fn test_perspective_camera_transformation(){
+        let transformation = ZRotation::new(std::f32::consts::PI);
+        let camera = PerspectiveCamera::new(transformation);
+        let ray = camera.fire_ray(1.0, 0.0);
+
+        // Default aspect_ration and distance
+        println!("{:?}", ray);
+        assert!(is_close(ray.at(1.0), Point::new(0.0, -1.0, -1.0)));
     }
 
     #[test]

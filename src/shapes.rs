@@ -6,6 +6,19 @@
 //! All the documentation is a WIP - draft!
 use crate::hit_record;
 
+
+// =========================================================================
+// =========================================================================
+//
+//
+//                          IMPORTANT NOTE!!!
+//
+//         should we define a shape trait with all the utilities?
+//
+//
+// =========================================================================
+// =========================================================================
+
 /// The class Sphere adds the possibility to represent spherical objects in images
 ///
 /// Draft:

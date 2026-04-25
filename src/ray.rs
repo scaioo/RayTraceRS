@@ -5,6 +5,7 @@
 //! - `dir : Vector` (direction of the light ray)
 //! - `t_min : f32` ... TODO DOCKING
 
+use crate::functions::are_close;
 use crate::geometry::{Point, Vector, is_close};
 use crate::transformations::{
     Scaling, Transformation, Translation, XRotation, YRotation, ZRotation,
@@ -12,7 +13,6 @@ use crate::transformations::{
 use std::f32;
 use std::fmt::{Display, Formatter};
 use std::ops::Mul;
-use crate::functions::are_close;
 
 //================================================================
 //                    Struct definition
@@ -154,8 +154,7 @@ mod tests {
             Point::new(1.0, 1.9999999, 3.0),
             Vector::new(4.000001, 5.0, 6.0),
         );
-        
-        
+
         assert!(ray1.is_close(ray2));
         ray2.t_min = 0.0001;
         assert!(!ray1.is_close(ray2));

@@ -193,10 +193,10 @@ mod tests {
             let cross_product = vec[i].dir.cross(&vec[i + 1].dir);
             assert!(is_close(cross_product, Vector::new(0.0, 0.0, 0.0)));
         }
-        assert!(ray1.at(1.0).is_close(&Point::new(0.0, -aspect_ratio, -1.0)));
-        assert!(ray2.at(1.0).is_close(&Point::new(0.0, -aspect_ratio, 1.0)));
-        assert!(ray3.at(1.0).is_close(&Point::new(0.0, aspect_ratio, -1.0)));
-        assert!(ray4.at(1.0).is_close(&Point::new(0.0, aspect_ratio, 1.0)));
+        assert!(ray1.at(1.0).is_close(&Point::new(0.0, aspect_ratio, -1.0)));
+        assert!(ray2.at(1.0).is_close(&Point::new(0.0, aspect_ratio, 1.0)));
+        assert!(ray3.at(1.0).is_close(&Point::new(0.0, -aspect_ratio, -1.0)));
+        assert!(ray4.at(1.0).is_close(&Point::new(0.0, -aspect_ratio, 1.0)));
     }
 
     #[test]
@@ -228,7 +228,7 @@ mod tests {
 
         // Default aspect_ration and distance
         println!("{:?}", ray);
-        assert!(is_close(ray.at(1.0), Point::new(0.0, -1.0, -1.0)));
+        assert!(is_close(ray.at(1.0), Point::new(0.0, 1.0, -1.0)));
     }
 
     #[test]
@@ -250,7 +250,9 @@ mod tests {
 
     #[test]
     fn test_pc_fire_ray() {
-        let mut perspective_camera = PerspectiveCamera::new(Transformation::new(IDENTITY_4X4));
+        let mut perspective_camera = PerspectiveCamera::new(
+            Transformation::new(IDENTITY_4X4)
+        );
         perspective_camera.set_aspect_ratio(2.0);
         perspective_camera.set_distance(1.0);
 
@@ -263,7 +265,7 @@ mod tests {
             let ray = perspective_camera.fire_ray(matrix[0], matrix[1]);
             let screen = Point {
                 x: 0.0,
-                y: 2.0 * (2.0 * matrix[0] - 1.0),
+                y: - 2.0 * (2.0 * matrix[0] - 1.0),
                 z: 2.0 * matrix[1] - 1.0,
             };
             let expected_vector = screen - Point::new(-1.0, 0.0, 0.0);

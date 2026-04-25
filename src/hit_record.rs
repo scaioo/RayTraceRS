@@ -24,10 +24,10 @@ pub struct HitRecord{
 
 
 impl HitRecord{
-    pub fn is_close(&self, HR : &HitRecord)->bool{
-        is_close(self.world_point, HR.world_point )
-        && is_close(self.normal, HR.normal)
-        && are_close(self.t, HR.t )
-        // TODO: FINISH AFTER CORRECTION IN MASTER!
+    pub fn is_close(&self, hr: &HitRecord) ->bool{
+        is_close(self.world_point, hr.world_point )
+        && is_close(self.normal, hr.normal)
+        && are_close(self.t, hr.t)
+       && self.ray.is_close(hr.ray)
     }
 }

@@ -25,8 +25,10 @@ pub static IDENTITY_4X4: [f32; 16] = [
 /// assert!(!are_close(1.0, 2.0));
 /// ```
 pub fn are_close(x: f32, y: f32) -> bool {
-    let epsilon = 1e-5;
-    (x - y).abs() < epsilon
+    match (x.is_finite(), y.is_finite()) {
+        (true, true) => (x - y).abs() < 1e-5,
+        _ => x == y || (x.is_nan() && y.is_nan()),
+    }
 }
 
 /// Converts an endianness value into a numeric representation.
@@ -200,6 +202,7 @@ pub fn equal_matrices(mat1: &[f32; 16], mat2: &[f32; 16]) -> bool {
 // tests
 #[cfg(test)]
 mod tests {
+    use image::ExtendedColorType::A8;
     //use crate::geometry::{is_close, Vector};
     use super::*;
 
@@ -215,6 +218,19 @@ mod tests {
         if !are_close(x, y) {
             panic!("are_close is not working");
         }
+
+        let x = f32::NAN;
+        let y = f32::NAN;
+        assert!(are_close(x, y));
+
+        let x = f32::INFINITY;
+        assert!(!are_close(x, y));
+
+        let y = f32::NEG_INFINITY;
+        assert!(!are_close(x, y));
+
+        let y = f32::INFINITY;
+        assert!(are_close(x, y));
     }
 
     #[test]

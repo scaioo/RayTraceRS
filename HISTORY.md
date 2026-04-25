@@ -22,6 +22,10 @@
 - Camera system replaces previous fixed-direction ray generation model.
 - Perspective and orthogonal projections are now explicitly separated via distinct camera types.
 
+### Fixed
+- Resolved CI failures on GitHub Actions caused by linting and formatting issues
+- Updated codebase to pass `cargo clippy` and `cargo fmt --check`
+
 ---
 
 ## [0.1.0] - Initial Release

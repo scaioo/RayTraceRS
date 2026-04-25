@@ -265,7 +265,7 @@ impl HDR {
     /// color = (color * a) / L_avg
     /// ```
     pub fn normalization(&mut self, wrapped_a: Option<&f32>) -> Result<()> {
-        if self.pixels.len() == 0 {
+        if self.pixels.is_empty() {
             return Err(anyhow!("normalization(): no pixels to normalize!!!!"));
         }
 
@@ -303,7 +303,7 @@ impl HDR {
     /// c = c / (1 + c)
     /// ```
     pub fn sem_clamp_image(&mut self) -> Result<()> {
-        if self.pixels.len() == 0 {
+        if self.pixels.is_empty() {
             return Err(anyhow!(
                 "sem_clamp_image(): no pixel to tone_map_reinhard!!!!!"
             ));

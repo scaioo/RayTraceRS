@@ -125,7 +125,7 @@ macro_rules! impl_mul_zrot {
 
 pub fn is_consistent<T: IsHomogeneousMatrix>(matrix: &T) -> bool {
     let it_mat: [f32; 16] = transpose_matrix(matrix.it_mat());
-    let mat = fast_matrix_mul(&matrix.mat(), &it_mat);
+    let mat = fast_matrix_mul(matrix.mat(), &it_mat);
     let mut result = true;
     for i in 0..16 {
         result = result && are_close(mat[i], IDENTITY_4X4[i]);

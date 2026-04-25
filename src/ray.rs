@@ -9,10 +9,10 @@ use crate::geometry::{Point, Vector, is_close};
 use crate::transformations::{
     Scaling, Transformation, Translation, XRotation, YRotation, ZRotation,
 };
-use anyhow::{Result, anyhow};
 use std::f32;
 use std::fmt::{Display, Formatter};
 use std::ops::Mul;
+use crate::functions::are_close;
 
 //================================================================
 //                    Struct definition
@@ -71,23 +71,12 @@ impl Ray {
         self.t_min = t_min;
     }
 
-    pub fn is_close(self, other: Ray) -> Result<bool> {
-        let condition = is_close(self.origin, other.origin)
+    pub fn is_close(self, other: Ray) -> bool {
+        is_close(self.origin, other.origin)
             && is_close(self.dir, other.dir)
-            && self.t_max == other.t_max
-            && self.t_min == other.t_min
-            && self.depth == other.depth;
-
-        if !condition {
-            Err(anyhow!(
-                "Two rays are not approximately equal!\
-            \nFirst ray:\n{}\nSecond ray:\n{}\n",
-                self,
-                other
-            ))
-        } else {
-            Ok(true)
-        }
+            && are_close(self.t_max, other.t_max)
+            && are_close(self.t_min, other.t_min)
+            && self.depth == other.depth
     }
 
     pub fn at(&self, t: f32) -> Point {
@@ -165,8 +154,11 @@ mod tests {
             Point::new(1.0, 1.9999999, 3.0),
             Vector::new(4.000001, 5.0, 6.0),
         );
+        
+        
+        assert!(ray1.is_close(ray2));
         ray2.t_min = 0.0001;
-        ray1.is_close(ray2).unwrap();
+        assert!(!ray1.is_close(ray2));
     }
 
     #[test]

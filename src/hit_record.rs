@@ -9,8 +9,9 @@
 //!
 //! Note for programmers: add `is_close`/`are_close` method for debugging.
 
+use crate::functions::are_close;
 use crate::ray::Ray;
-use crate::geometry::{Point, Normal, Vec2D};
+use crate::geometry::{Point, Normal, Vec2D, is_close};
 
 #[derive(Clone, Copy,  Debug, PartialEq)]
 pub struct HitRecord{
@@ -19,4 +20,14 @@ pub struct HitRecord{
     surface_normal: Vec2D,
     t : f32,
     ray: Ray,
+}
+
+
+impl HitRecord{
+    pub fn is_close(&self, HR : &HitRecord)->bool{
+        is_close(self.world_point, HR.world_point )
+        && is_close(self.normal, HR.normal)
+        && are_close(self.t, HR.t )
+        // TODO: FINISH AFTER CORRECTION IN MASTER!
+    }
 }

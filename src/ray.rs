@@ -161,10 +161,11 @@ mod tests {
     #[test]
     fn test_is_close() {
         let ray1 = Ray::new(Point::new(1.0, 2.0, 3.0), Vector::new(4.0, 5.0, 6.0));
-        let ray2 = Ray::new(
+        let mut ray2 = Ray::new(
             Point::new(1.0, 1.9999999, 3.0),
             Vector::new(4.000001, 5.0, 6.0),
         );
+        ray2.t_min = 0.0001;
         ray1.is_close(ray2).unwrap();
     }
 

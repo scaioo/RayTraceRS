@@ -14,6 +14,8 @@ pub trait IsHomogeneousMatrix {
 
     /// It returns the inverse-transposed matrix of the transformation
     fn it_mat(&self) -> &[f32; 16];
+
+    fn inverse_transformation(&self) -> Transformation;
 }
 
 // =======================================================================
@@ -34,6 +36,13 @@ macro_rules! impl_matrix_operations {
 
             fn it_mat(&self) -> &[f32; 16] {
                 &self.it_mat
+            }
+
+            fn inverse_transformation(&self) -> Transformation {
+                Transformation{
+                    mat : transpose_matrix(&self.it_mat),
+                    it_mat : transpose_matrix(&self.mat),
+                }
             }
         }
         // -----------------------   Matrix * Matrix    -------------------------

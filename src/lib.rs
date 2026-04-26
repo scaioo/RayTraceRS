@@ -35,3 +35,6 @@ pub mod image_tracer;
 pub mod pfm_func;
 pub mod ray;
 pub mod transformations;
+pub mod shapes;
+pub mod hit_record;
+pub mod world;

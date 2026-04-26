@@ -5,4 +5,15 @@
 //! - It implements a `ray_intersection` method that iterates over the shapes,
 //! searches for intersections, and returns the one closest to the ray origin.
 
-use crate::shapes;
+use crate::geometry::Point;
+use crate::shapes::Shape;
+
+pub struct World {
+    pub objects: Vec<Box<dyn Shape>>
+}
+
+impl World {
+    pub fn ray_intersection(&self) -> Point {
+        panic!("Write function to ray_intersection!")
+    }
+}

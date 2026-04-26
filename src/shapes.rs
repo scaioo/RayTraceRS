@@ -48,7 +48,6 @@ impl<T: IsHomogeneousMatrix> Sphere<T> {
 impl<T> Shape for Sphere<T>
 where
     T: IsHomogeneousMatrix
-    + Sub<Point, Output=Vector>
     + Mul<Ray, Output = Ray>
     + Mul<Point, Output = Point>
     + Mul<Normal, Output = Normal>
@@ -152,3 +151,78 @@ pub struct Plane{}
 /// Understand where to put the triangle properly for then further transformations!
 #[derive(Copy, Clone, Debug, PartialEq)]
 pub struct Triangle{}
+
+
+
+
+// =================================================================================
+//
+//                                    TESTS
+//
+// =================================================================================
+
+#[cfg(test)]
+mod tests {
+    use crate::functions::IDENTITY_4X4;
+    use crate::geometry::is_close;
+    use crate::transformations::{Transformation, IsHomogeneousMatrix};
+    use super::*;
+
+    fn setup1() -> (Sphere<Transformation>, [Ray;3]) {
+        let rays = [
+            Ray::new(
+                Point::new(0.0, 0.0, 2.0),
+                Vector::new(0.0, 0.0, -1.0)
+            ),
+            Ray::new(
+                Point::new(3.0, 0.0, 0.0),
+                Vector::new(-1.0, 0.0, 0.0)
+            ),
+            Ray::new(
+                Point::new(0.0, 0.0, 0.0),
+                Vector::new(1.0, 0.0, 0.0)
+            )
+        ];
+
+        let transformation = Transformation::new(IDENTITY_4X4);
+        let sphere = Sphere::new(transformation);
+        (sphere, rays)
+    }
+    #[test]
+    fn test_sphere_ray_point_intersection() {
+        let (sphere, rays) = setup1();
+
+        let points : [Point;3] = [
+            Point::new(0.0, 0.0, 1.0),
+            Point::new(1.0,0.0,0.0),
+            Point::new(1.0,0.0,0.0)
+        ];
+
+        for i in 0..3{
+            let hit_record = match sphere.ray_intersection(rays[i]) {
+                None => panic!("FUNCTION IS WRONG!"),
+                Some(h) => h,
+            };
+            assert!(is_close(hit_record.world_point, points[i]));
+        }
+    }
+
+    #[test]
+    fn test_sphere_ray_normal_att() {
+        let (sphere, rays) = setup1();
+
+        let normals : [Normal;3] = [
+            Normal::new(0.0,0.0,1.0),
+            Normal::new(1.0,0.0,0.0),
+            Normal::new(-1.0,0.0,0.0)
+        ];
+
+        for i in 0..3{
+            let hit_record = match sphere.ray_intersection(rays[i]) {
+                None => panic!("FUNCTION IS WRONG!"),
+                Some(h) => h,
+            };
+            assert!(is_close(hit_record.normal, normals[i]));
+        }
+    }
+}

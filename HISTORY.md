@@ -30,6 +30,8 @@ and added comprehensive unit tests for floating-point edge cases ([PR #10](https
 - Perspective and orthogonal projections are now explicitly separated via distinct camera types.
 
 ### Fixed
+- Fix an issue with the vertical order of the images 
+([#7](https://github.com/scaioo/RayTraceRS/issues/7), [PR#8](https://github.com/scaioo/RayTraceRS/pull/8))
 - Resolved CI failures on GitHub Actions caused by linting and formatting issues
 - Updated codebase to pass `cargo clippy` and `cargo fmt --check`
 

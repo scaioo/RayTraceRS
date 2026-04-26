@@ -5,13 +5,12 @@
 //!
 //! All the documentation is a WIP - draft!
 
-use std::ops::{Mul, Sub};
-use crate::camera::{Camera, PerspectiveCamera};
-use crate::functions::{are_close, transpose_matrix};
+use std::ops::{Mul};
+use crate::functions::{are_close};
 use crate::hit_record::HitRecord;
 use crate::ray::Ray;
 use crate::geometry::{Dot, Normal, Point, Vec2D, Vector};
-use crate::transformations::{IsHomogeneousMatrix, Transformation};
+use crate::transformations::{IsHomogeneousMatrix};
 
 pub trait Shape {
     fn ray_intersection(&self, ray: Ray) -> Option<HitRecord>;
@@ -165,7 +164,7 @@ pub struct Triangle{}
 mod tests {
     use crate::functions::IDENTITY_4X4;
     use crate::geometry::is_close;
-    use crate::transformations::{Transformation, IsHomogeneousMatrix};
+    use crate::transformations::{Transformation, Translation};
     use super::*;
 
     fn setup1() -> (Sphere<Transformation>, [Ray;3]) {
@@ -188,6 +187,7 @@ mod tests {
         let sphere = Sphere::new(transformation);
         (sphere, rays)
     }
+
     #[test]
     fn test_sphere_ray_point_intersection1() {
         let (sphere, rays) = setup1();
@@ -200,17 +200,34 @@ mod tests {
 
         for i in 0..3{
             let hit_record = match sphere.ray_intersection(rays[i]) {
-                None => panic!("FUNCTION IS WRONG!"),
+                None => panic!("ray_intersection IS WRONG!"),
                 Some(h) => h,
             };
-            assert!(is_close(hit_record.world_point, points[i]));
+            assert!(is_close(hit_record.world_point, points[i]),
+                    "Error occurred: index {} is responsible.\n", i
+            );
         }
-        panic!("Check also u,v!")
     }
-    
+
     #[test]
-    fn test_sphere_ray_point_intersection2() {
-        panic!("Not yet implemented!");
+    fn test_sphere_uv_point_intersection1() {
+        let (sphere, rays) = setup1();
+
+        let uv_points: [Vec2D;3] = [
+            Vec2D::new(0.0, 0.0),
+            Vec2D::new(0.0, 0.5),
+            Vec2D::new(0.0, 0.5)
+        ];
+
+        for i in 0..3{
+            let hit_record = match sphere.ray_intersection(rays[i]) {
+                None => panic!("ray_intersection IS WRONG!"),
+                Some(h) => h,
+            };
+            assert!(hit_record.uv.is_close(&uv_points[i]),
+                    "Error occurred: index {} is responsible.\n", i
+            );
+        }
     }
 
     #[test]
@@ -225,16 +242,148 @@ mod tests {
 
         for i in 0..3{
             let hit_record = match sphere.ray_intersection(rays[i]) {
-                None => panic!("FUNCTION IS WRONG!"),
+                None => panic!("ray_intersection IS WRONG!"),
                 Some(h) => h,
             };
-            assert!(is_close(hit_record.normal, normals[i]));
+            assert!(is_close(hit_record.normal, normals[i]),
+                    "Error occurred: index {} is responsible.\n", i
+            );
         }
-        panic!("Check also u,v!")
     }
-    
+
+
+    fn setup2() -> (Sphere<Translation>, Ray, Ray) {
+        let translation = Translation::new(
+            Vector::new(10.0,0.0,0.0)
+        );
+        let sphere = Sphere::new(translation);
+        let ray =
+            Ray::new(
+                Point::new(10.0, 0.0, 2.0),
+                Vector::new(0.0, 0.0, -1.0)
+            );
+        let ray2 = Ray::new(
+                Point::new(13.0, 0.0, 0.0),
+                Vector::new(-1.0, 0.0, 0.0)
+            );
+
+        (sphere, ray, ray2)
+    }
+
+    #[test]
+    fn test_sphere_ray_point_intersection2() {
+        let (sphere, ray, ray2) = setup2();
+
+        let point = Point::new(10.0, 0.0, 1.0);
+
+        let hit_record = match sphere.ray_intersection(ray) {
+            None => panic!("ray_intersection IS WRONG!"),
+            Some(h) => h,
+        };
+
+        assert!(is_close(hit_record.world_point, point),
+                "Error occurred (1): point : {}\nhit_record.world_point : {}\n",
+                point, hit_record.world_point
+        );
+
+        let point = Point::new(11.0,0.0,0.0);
+
+        let hit_record = match sphere.ray_intersection(ray2) {
+            None => panic!("ray_intersection IS WRONG!"),
+            Some(h) => h,
+        };
+
+        assert!(is_close(hit_record.world_point, point),
+                "Error occurred (2): point : {}\nhit_record.world_point : {}\n",
+                point, hit_record.world_point
+        );
+
+    }
+
     #[test]
     fn test_sphere_ray_normal_att2() {
-        panic!("Not yet implemented!");
+        let (sphere, ray, ray2) = setup2();
+
+        let normal = Normal::new(0.0, 0.0, 1.0);
+
+        let hit_record = match sphere.ray_intersection(ray) {
+            None => panic!("ray_intersection IS WRONG!"),
+            Some(h) => h,
+        };
+
+        assert!(is_close(hit_record.normal, normal),
+                "Error occurred (1): normal : {}\nhit_record.normal : {}\n",
+                normal, hit_record.normal
+        );
+
+        let normal = Normal::new(1.0,0.0,0.0);
+
+        let hit_record = match sphere.ray_intersection(ray2) {
+            None => panic!("ray_intersection IS WRONG!"),
+            Some(h) => h,
+        };
+
+        assert!(is_close(hit_record.normal, normal),
+                "Error occurred (2): normal : {}\nhit_record.normal : {}\n",
+                normal, hit_record.normal
+        );
+
+    }
+
+    #[test]
+    fn test_sphere_uv_point_intersection2() {
+        let (sphere, ray, ray2) = setup2();
+
+        let uv = Vec2D::new(0.0, 0.0);
+
+        let hit_record = match sphere.ray_intersection(ray) {
+            None => panic!("ray_intersection IS WRONG!"),
+            Some(h) => h,
+        };
+
+        assert!(uv.is_close(&hit_record.uv),
+                "Error occurred (1): uv : {:?}\nhit_record.uv : {:?}\n",
+                uv, hit_record.uv
+        );
+
+        let uv = Vec2D::new(0.0, 0.50);
+
+        let hit_record = match sphere.ray_intersection(ray2) {
+            None => panic!("ray_intersection IS WRONG!"),
+            Some(h) => h,
+        };
+
+        assert!(uv.is_close(&hit_record.uv),
+                "Error occurred (2): uv : {:?}\nhit_record.uv : {:?}\n",
+                uv, hit_record.uv
+        );
+
+    }
+
+    #[test]
+    fn test_sphere_ray_miss() {
+        let (sphere, _ , _ ) = setup2();
+        let ray = Ray::new(
+            Point::new(0.0, 0.0, 2.0),
+            Vector::new(0.0, 0.0, -1.0)
+        );
+
+        let hit_record = sphere.ray_intersection(ray);
+        assert!(hit_record.is_none(),
+                "Error occurred (1): there is intersection where shouldn't!\n{}",
+                hit_record.unwrap().world_point
+        );
+
+        
+        let ray = Ray::new(
+            Point::new(-10.0, 0.0, 0.0),
+            Vector::new(0.0, 0.0, -1.0)
+        );
+        
+        let hit_record = sphere.ray_intersection(ray);
+        assert!(hit_record.is_none(),
+                "Error occurred (2): there is intersection where shouldn't!\n{}",
+                hit_record.unwrap().world_point
+        );   
     }
 }

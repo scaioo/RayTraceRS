@@ -17,7 +17,7 @@ use crate::geometry::{Point, Normal, Vec2D, is_close};
 pub struct HitRecord{
     pub world_point: Point,
     pub normal: Normal,
-    pub surface_normal: Vec2D,
+    pub uv: Vec2D,
     pub t : f32,
     pub ray: Ray,
 }
@@ -28,7 +28,7 @@ impl HitRecord{
         is_close(self.world_point, hr.world_point )
             && is_close(self.normal, hr.normal)
             && are_close(self.t, hr.t)
-            && self.surface_normal.is_close(&hr.surface_normal)
+            && self.uv.is_close(&hr.uv)
             && self.ray.is_close(hr.ray)
     }
 }
@@ -44,7 +44,7 @@ mod tests{
         let mut hr1 = HitRecord{
             world_point : Point::new(1.0,2.0,3.0),
             normal : Normal::new(4.0, 5.0,6.0),
-            surface_normal : Vec2D::new(7.0,8.0),
+            uv: Vec2D::new(7.0, 8.0),
             t : 1.0,
             ray,
         };
@@ -55,7 +55,7 @@ mod tests{
         let mut hr2 = HitRecord {
             world_point : Point::new(1.0, 1.999999, 3.0),
             normal : Normal::new(4.0000001,5.0, 6.0),
-            surface_normal : Vec2D::new(7.0, 8.0000001),
+            uv: Vec2D::new(7.0, 8.0000001),
             t : 1.0000001,
             ray: ray2
         };
@@ -73,10 +73,10 @@ mod tests{
         assert!(!hr1.is_close(&hr2));
 
         hr1.world_point = Point::new(1.0,2.001,3.0);
-        hr2.surface_normal = Vec2D::new(7.0,7.9999);
+        hr2.uv = Vec2D::new(7.0, 7.9999);
         assert!(!hr1.is_close(&hr2));
 
-        hr1.surface_normal = Vec2D::new(7.0,7.9999);
+        hr1.uv = Vec2D::new(7.0, 7.9999);
         hr2.ray = Ray::new(
             Point::new(0.0,1.0001,-1.0),
             Vector::new(0.0, 0.0, 0.0)

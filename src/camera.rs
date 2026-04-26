@@ -57,7 +57,7 @@ where
         // "Ugly but I hope fast" ~ Isacco.
         let point = Point {
             x: -1.0,
-            y: - self.aspect_ratio * (2.0 * u - 1.0),
+            y: -self.aspect_ratio * (2.0 * u - 1.0),
             z: 2.0 * v - 1.0,
         };
         let ray = Ray {
@@ -112,7 +112,7 @@ where
     fn fire_ray(&self, u: f32, v: f32) -> Ray {
         let point = Point {
             x: 0.0,
-            y: - self.aspect_ratio * (2.0 * u - 1.0),
+            y: -self.aspect_ratio * (2.0 * u - 1.0),
             z: 2.0 * v - 1.0,
         };
 
@@ -250,9 +250,7 @@ mod tests {
 
     #[test]
     fn test_pc_fire_ray() {
-        let mut perspective_camera = PerspectiveCamera::new(
-            Transformation::new(IDENTITY_4X4)
-        );
+        let mut perspective_camera = PerspectiveCamera::new(Transformation::new(IDENTITY_4X4));
         perspective_camera.set_aspect_ratio(2.0);
         perspective_camera.set_distance(1.0);
 
@@ -265,7 +263,7 @@ mod tests {
             let ray = perspective_camera.fire_ray(matrix[0], matrix[1]);
             let screen = Point {
                 x: 0.0,
-                y: - 2.0 * (2.0 * matrix[0] - 1.0),
+                y: -2.0 * (2.0 * matrix[0] - 1.0),
                 z: 2.0 * matrix[1] - 1.0,
             };
             let expected_vector = screen - Point::new(-1.0, 0.0, 0.0);

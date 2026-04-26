@@ -46,8 +46,8 @@ mod tests {
     use crate::camera::PerspectiveCamera;
     use crate::color::Color;
     use crate::functions::IDENTITY_4X4;
-    use crate::transformations::Transformation;
     use crate::geometry::Point;
+    use crate::transformations::Transformation;
 
     #[test]
     fn test_image_tracer() -> Result<()> {
@@ -68,12 +68,12 @@ mod tests {
         let mut camera = PerspectiveCamera::new(Transformation::new(IDENTITY_4X4));
         camera.set_aspect_ratio(2.0);
         let tracer = ImageTracer::new(image, camera);
-        let top_left_ray = tracer.fire_ray(0, 0,  0.0,  0.0);
-        assert!( Point::new(0.0, 2.0, 1.0).is_close(&top_left_ray.at(1.0)));
-        
-        let bottom_right_ray = tracer.fire_ray(2, 0 ,1.0, 1.0);
+        let top_left_ray = tracer.fire_ray(0, 0, 0.0, 0.0);
+        assert!(Point::new(0.0, 2.0, 1.0).is_close(&top_left_ray.at(1.0)));
+
+        let bottom_right_ray = tracer.fire_ray(2, 0, 1.0, 1.0);
         println!("{:?}", bottom_right_ray.at(1.0));
-        assert!( Point::new(0.0, -2.0, -1.0).is_close(&bottom_right_ray.at(1.0)));
+        assert!(Point::new(0.0, -2.0, -1.0).is_close(&bottom_right_ray.at(1.0)));
     }
 
     #[test]

@@ -32,7 +32,9 @@ impl<C: Camera> ImageTracer<C> {
 
                 let color = func(ray)?;
 
-                self.image.set_pixel(col, row, color)?;
+                self.image
+                    .set_pixel(col, row, color)
+                    .expect("TODO: panic message");
             }
         }
         Ok(())
@@ -57,7 +59,7 @@ mod tests {
 
         let ray_1 = tracer.fire_ray(0, 0, 2.5, 1.5);
         let ray_2 = tracer.fire_ray(2, 1, 0.5, 0.5);
-        assert!(ray_1.is_close(ray_2)?);
+        assert!(ray_1.is_close(ray_2));
         Ok(())
     }
 

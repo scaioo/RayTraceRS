@@ -264,18 +264,18 @@ pub fn read_pfm_file(filename: &str) -> anyhow::Result<HDR> {
 pub fn read_pfm<R: BufRead>(mut reader: R) -> anyhow::Result<HDR> {
     let mut line: String = String::new();
     reader.read_line(&mut line)?;
-    _read_magic(&mut line)?;
+    _read_magic(&line)?;
 
     //// checks the dimension of the image
     line.clear();
 
     reader.read_line(&mut line)?;
-    let (width, height) = _parse_img_size(&mut line)?;
+    let (width, height) = _parse_img_size(&line)?;
 
     println!("Pfm image size: {}x{}", width, height);
     line.clear();
     reader.read_line(&mut line)?;
-    let endianness = _parse_endianness(&mut line);
+    let endianness = _parse_endianness(&line);
 
     println!("endianness: {}", line.trim());
 

@@ -15,11 +15,11 @@ use crate::geometry::{Point, Normal, Vec2D, is_close};
 
 #[derive(Clone, Copy,  Debug, PartialEq)]
 pub struct HitRecord{
-    world_point: Point,
-    normal: Normal,
-    surface_normal: Vec2D,
-    t : f32,
-    ray: Ray,
+    pub world_point: Point,
+    pub normal: Normal,
+    pub surface_normal: Vec2D,
+    pub t : f32,
+    pub ray: Ray,
 }
 
 

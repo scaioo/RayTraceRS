@@ -189,7 +189,7 @@ mod tests {
         (sphere, rays)
     }
     #[test]
-    fn test_sphere_ray_point_intersection() {
+    fn test_sphere_ray_point_intersection1() {
         let (sphere, rays) = setup1();
 
         let points : [Point;3] = [
@@ -205,10 +205,16 @@ mod tests {
             };
             assert!(is_close(hit_record.world_point, points[i]));
         }
+        panic!("Check also u,v!")
+    }
+    
+    #[test]
+    fn test_sphere_ray_point_intersection2() {
+        panic!("Not yet implemented!");
     }
 
     #[test]
-    fn test_sphere_ray_normal_att() {
+    fn test_sphere_ray_normal_att1() {
         let (sphere, rays) = setup1();
 
         let normals : [Normal;3] = [
@@ -224,5 +230,11 @@ mod tests {
             };
             assert!(is_close(hit_record.normal, normals[i]));
         }
+        panic!("Check also u,v!")
+    }
+    
+    #[test]
+    fn test_sphere_ray_normal_att2() {
+        panic!("Not yet implemented!");
     }
 }

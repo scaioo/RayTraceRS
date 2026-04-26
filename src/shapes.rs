@@ -5,7 +5,7 @@
 //!
 //! All the documentation is a WIP - draft!
 
-use std::ops::Mul;
+use std::ops::{Mul, Sub};
 use crate::camera::{Camera, PerspectiveCamera};
 use crate::functions::{are_close, transpose_matrix};
 use crate::hit_record::HitRecord;
@@ -16,7 +16,7 @@ use crate::transformations::{IsHomogeneousMatrix, Transformation};
 pub trait Shape {
     fn ray_intersection(&self, ray: Ray) -> Option<HitRecord>;
 
-    fn normal_at(&self) -> Normal;
+    fn normal_at(&self, point: Point, ray: &Ray) -> Normal;
 
     fn point_to_uv(&self, point: &Point) -> Vec2D;
 }
@@ -48,11 +48,12 @@ impl<T: IsHomogeneousMatrix> Sphere<T> {
 impl<T> Shape for Sphere<T>
 where
     T: IsHomogeneousMatrix
+    + Sub<Point, Output=Vector>
     + Mul<Ray, Output = Ray>
-    + Copy
     + Mul<Point, Output = Point>
     + Mul<Normal, Output = Normal>
     + Mul<Vector, Output = Vector>
+    + Copy
 {
     fn ray_intersection(&self, ray: Ray) -> Option<HitRecord> {
         let inverse_transformation =
@@ -78,7 +79,7 @@ where
                 let hit_point = transformed_ray.at(t_1);
                 Some( HitRecord {
                     world_point : self.transformation * hit_point,
-                    normal : self.transformation * self.normal_at(),
+                    normal : self.transformation * self.normal_at(hit_point, &transformed_ray),
                     surface_normal : self.point_to_uv(&hit_point),
                     t : t_1,
                     ray
@@ -87,23 +88,33 @@ where
                 let hit_point = transformed_ray.at(t_2);
                 Some(HitRecord{
                     world_point : self.transformation * hit_point,
-                    normal : self.transformation * self.normal_at(),
+                    normal : self.transformation * self.normal_at(hit_point, &transformed_ray),
                     surface_normal : self.point_to_uv(&hit_point),
                     t : t_2,
                     ray
                 })
-            } else { None } // Does it make sense?
+            } else { None }
         }
     }
 
-    fn normal_at(&self) -> Normal {
-        // TODO!!!!!
-        Normal::new(0.0,0.0,0.0)
+    fn normal_at(&self, point: Point, ray: &Ray) -> Normal {
+        let result = Normal::new(point.x, point.y, point.z);
+        let vector = point - Point::new(0.0, 0.0, 0.0);
+        if (vector.dot(&ray.dir)) < 0.0 {
+            result
+        } else {- result}
     }
 
     fn point_to_uv(&self, point: &Point) -> Vec2D {
-        // TODO!!!!!
-        Vec2D::new(point.x, point.y)
+        let pi = std::f32::consts::PI;
+        let mut u = point.y.atan2(point.x) / (2.0 * pi);
+        if u < 0.0 {
+            u += 1.0;
+        }
+
+        let v = point.z.acos() / pi;
+
+        Vec2D { x: u, y : v }
     }
 }
 

@@ -71,7 +71,7 @@ mod tests {
         let top_left_ray = tracer.fire_ray(0, 0,  0.0,  0.0);
         assert!( Point::new(0.0, 2.0, 1.0).is_close(&top_left_ray.at(1.0)));
         
-        let bottom_right_ray = tracer.fire_ray(3, 1, 1.0, 1.0);
+        let bottom_right_ray = tracer.fire_ray(2, 0 ,1.0, 1.0);
         println!("{:?}", bottom_right_ray.at(1.0));
         assert!( Point::new(0.0, -2.0, -1.0).is_close(&bottom_right_ray.at(1.0)));
     }

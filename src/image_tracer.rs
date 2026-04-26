@@ -15,8 +15,9 @@ impl<C: Camera> ImageTracer<C> {
         ImageTracer { image, camera }
     }
     pub fn fire_ray(&self, col: usize, row: usize, u_pixel: f32, v_pixel: f32) -> Ray {
-        let u = (col as f32 + u_pixel) / (self.image.width as f32 - 1.0);
-        let v = (1.0 - (row as f32 + v_pixel)) / (self.image.height as f32 - 1.0);
+        // -1!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+        let u = (col as f32 + u_pixel) / (self.image.width as f32);
+        let v = 1.0 - ((row as f32 + v_pixel) / (self.image.height as f32));
         self.camera.fire_ray(u, v)
     }
     pub fn fire_all_rays<F>(&mut self, func: F) -> Result<()>
@@ -31,8 +32,7 @@ impl<C: Camera> ImageTracer<C> {
 
                 let color = func(ray)?;
 
-                self.image
-                    .set_pixel(col, row, color)?;
+                self.image.set_pixel(col, row, color)?;
             }
         }
         Ok(())
@@ -45,8 +45,8 @@ mod tests {
     use crate::camera::PerspectiveCamera;
     use crate::color::Color;
     use crate::functions::IDENTITY_4X4;
-    use crate::transformations::Transformation;
     use crate::geometry::Point;
+    use crate::transformations::Transformation;
 
     #[test]
     fn test_image_tracer() -> Result<()> {
@@ -67,12 +67,14 @@ mod tests {
         let mut camera = PerspectiveCamera::new(Transformation::new(IDENTITY_4X4));
         camera.set_aspect_ratio(2.0);
         let tracer = ImageTracer::new(image, camera);
-        let top_left_ray = tracer.fire_ray(0, 0,  0.0,  0.0);
-        assert!( Point::new(0.0, 2.0, 1.0).is_close(&top_left_ray.at(1.0)));
-        
+        let top_left_ray = tracer.fire_ray(0, 0, 0.0, 0.0);
+        println!("top left: {:?}", top_left_ray.at(1.0));
+
+        assert!(Point::new(0.0, 2.0, 1.0).is_close(&top_left_ray.at(1.0)));
+
         let bottom_right_ray = tracer.fire_ray(3, 1, 1.0, 1.0);
-        println!("{:?}", bottom_right_ray.at(1.0));
-        assert!( Point::new(0.0, -2.0, -1.0).is_close(&bottom_right_ray.at(1.0)));
+        println!("bottom right: {:?}", bottom_right_ray.at(1.0));
+        assert!(Point::new(0.0, -2.0, -1.0).is_close(&bottom_right_ray.at(1.0)));
     }
 
     #[test]

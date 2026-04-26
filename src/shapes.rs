@@ -73,9 +73,9 @@ where
            return None;
         }
 
-        let sqrtd = discriminant.sqrt();
-        let t1 = (-half_b - sqrtd) / a;
-        let t2 = (-half_b + sqrtd) / a;
+        let sqrt_d = discriminant.sqrt();
+        let t1 = (-half_b - sqrt_d) / a;
+        let t2 = (-half_b + sqrt_d) / a;
 
         let condition = |t:f32| t > transformed_ray.t_min && t < transformed_ray.t_max;
 

@@ -16,7 +16,7 @@ impl<C: Camera> ImageTracer<C> {
     }
     pub fn fire_ray(&self, col: usize, row: usize, u_pixel: f32, v_pixel: f32) -> Ray {
         let u = (col as f32 + u_pixel) / (self.image.width as f32 - 1.0);
-        let v = (row as f32 + v_pixel) / (self.image.height as f32 - 1.0);
+        let v = (1.0 - (row as f32 + v_pixel)) / (self.image.height as f32 - 1.0);
         self.camera.fire_ray(u, v)
     }
     pub fn fire_all_rays<F>(&mut self, func: F) -> Result<()>
@@ -46,16 +46,42 @@ mod tests {
     use crate::camera::PerspectiveCamera;
     use crate::color::Color;
     use crate::functions::IDENTITY_4X4;
+    use crate::geometry::Point;
     use crate::transformations::Transformation;
+
     #[test]
     fn test_image_tracer() -> Result<()> {
         let image = HDR::new(4, 2);
-        let camera = PerspectiveCamera::new(Transformation::new(IDENTITY_4X4));
-        let mut tracer = ImageTracer::new(image, camera);
+        let mut camera = PerspectiveCamera::new(Transformation::new(IDENTITY_4X4));
+        camera.set_aspect_ratio(2.0);
+        let tracer = ImageTracer::new(image, camera);
 
         let ray_1 = tracer.fire_ray(0, 0, 2.5, 1.5);
         let ray_2 = tracer.fire_ray(2, 1, 0.5, 0.5);
         assert!(ray_1.is_close(ray_2));
+        Ok(())
+    }
+
+    #[test]
+    fn test_orientation() {
+        let image = HDR::new(4, 2);
+        let mut camera = PerspectiveCamera::new(Transformation::new(IDENTITY_4X4));
+        camera.set_aspect_ratio(2.0);
+        let tracer = ImageTracer::new(image, camera);
+        let top_left_ray = tracer.fire_ray(0, 0, 0.0, 0.0);
+        assert!(Point::new(0.0, 2.0, 1.0).is_close(&top_left_ray.at(1.0)));
+
+        let bottom_right_ray = tracer.fire_ray(2, 0, 1.0, 1.0);
+        println!("{:?}", bottom_right_ray.at(1.0));
+        assert!(Point::new(0.0, -2.0, -1.0).is_close(&bottom_right_ray.at(1.0)));
+    }
+
+    #[test]
+    fn test_image_coverage() -> Result<()> {
+        let image = HDR::new(4, 2);
+        let mut camera = PerspectiveCamera::new(Transformation::new(IDENTITY_4X4));
+        camera.set_aspect_ratio(2.0);
+        let mut tracer = ImageTracer::new(image, camera);
 
         tracer.fire_all_rays(|_ray| Ok(Color::new(1.0, 2.0, 3.0)))?;
 

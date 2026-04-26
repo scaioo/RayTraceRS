@@ -4,20 +4,17 @@
 //! can put in the image tracer scene. Then follows the shape classes: `Sphere`, `Plane` and `Triangle`.
 //!
 //! All the documentation is a WIP - draft!
-use crate::hit_record;
+use crate::hit_record::HitRecord;
+use crate::ray::Ray;
+use crate::geometry::{Normal, Point, Vec2D};
 
+pub trait Shape {
+     fn ray_intersection(&self, ray: &Ray) -> Option<HitRecord>;
 
-// =========================================================================
-// =========================================================================
-//
-//
-//                          IMPORTANT NOTE!!!
-//
-//         should we define a shape trait with all the utilities?
-//
-//
-// =========================================================================
-// =========================================================================
+    fn normal_at(&self) -> Normal;
+
+   fn point_to_uv(&self, point: &Point) -> Vec2D;
+}
 
 /// The class Sphere adds the possibility to represent spherical objects in images
 ///
@@ -34,7 +31,6 @@ use crate::hit_record;
 /// we use transformations.
 #[derive(Copy, Clone, Debug, PartialEq)]
 pub struct Sphere{}
-
 
 /// The class Plane adds the possibility to represent the plane in an image
 ///

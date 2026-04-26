@@ -63,39 +63,41 @@ where
         let origin =
             transformed_ray.origin - Point::new(0.0, 0.0, 0.0);
 
-        let module_of_d = transformed_ray.dir.norm();
-        let o_times_d =  origin.dot(&transformed_ray.dir);
-        let delta_fourth : f32 =
-            o_times_d * o_times_d - module_of_d * module_of_d * (origin.norm() - 1.0);
+        let a = transformed_ray.dir.squared_norm();
+        let half_b = origin.dot(&transformed_ray.dir);
+        let c = origin.squared_norm() - 1.0;
 
-        if delta_fourth < 0.0 || are_close(delta_fourth, 0.0) {
-            return None;
-        } else {
-            let t_1 : f32 = (- o_times_d - delta_fourth.sqrt()) / module_of_d;
-            let t_2 : f32 = (- o_times_d + delta_fourth.sqrt()) / module_of_d;
+        let discriminant = half_b * half_b - a * c;
 
-            let condition = |t:f32| t > transformed_ray.t_min && t < transformed_ray.t_max;
-            if condition(t_1){
-                let hit_point = transformed_ray.at(t_1);
-                Some( HitRecord {
-                    world_point : self.transformation * hit_point,
-                    normal : self.transformation * self.normal_at(hit_point, &transformed_ray),
-                    surface_normal : self.point_to_uv(&hit_point),
-                    t : t_1,
-                    ray
-                })
-            }else if condition(t_2){
-                let hit_point = transformed_ray.at(t_2);
-                Some(HitRecord{
-                    world_point : self.transformation * hit_point,
-                    normal : self.transformation * self.normal_at(hit_point, &transformed_ray),
-                    surface_normal : self.point_to_uv(&hit_point),
-                    t : t_2,
-                    ray
-                })
-            } else { None }
+        if discriminant < 0.0 || are_close(discriminant, 0.0) {
+           return None;
         }
+
+        let sqrtd = discriminant.sqrt();
+        let t1 = (-half_b - sqrtd) / a;
+        let t2 = (-half_b + sqrtd) / a;
+
+        let condition = |t:f32| t > transformed_ray.t_min && t < transformed_ray.t_max;
+
+        let t = if condition(t1) {
+            t1
+        }else if condition(t2) {
+            t2
+        }else { return None };
+
+        let hit_point = transformed_ray.at(t);
+
+        Some(
+            HitRecord{
+                world_point : self.transformation * hit_point,
+                normal: self.transformation * self.normal_at(hit_point, &transformed_ray),
+                uv : self.point_to_uv(&hit_point),
+                t,
+                ray
+            }
+        )
     }
+
 
     fn normal_at(&self, point: Point, ray: &Ray) -> Normal {
         let result = Normal::new(point.x, point.y, point.z);
@@ -150,3 +152,40 @@ pub struct Plane{}
 /// Understand where to put the triangle properly for then further transformations!
 #[derive(Copy, Clone, Debug, PartialEq)]
 pub struct Triangle{}
+
+
+
+/*
+
+
+
+        let square_module_of_d = transformed_ray.dir.squared_norm();
+        let o_times_d =  origin.dot(&transformed_ray.dir);
+        let delta_fourth : f32 =
+            o_times_d * o_times_d - square_module_of_d * (origin.norm() - 1.0);
+
+        if delta_fourth < 0.0 || are_close(delta_fourth, 0.0) {
+            None
+        } else {
+            let t_1 : f32 = (- o_times_d - delta_fourth.sqrt()) / square_module_of_d;
+            let t_2 : f32 = (- o_times_d + delta_fourth.sqrt()) / square_module_of_d;
+
+            let condition = |t:f32| t > transformed_ray.t_min && t < transformed_ray.t_max;
+
+            let t = if condition(t_1) {
+                t_1
+            } else if condition(t_2) {
+                t_2
+            } else {
+                return None;
+            };
+
+            let hit_point = transformed_ray.at(t);
+            Some( HitRecord {
+                world_point : self.transformation * hit_point,
+                normal : self.transformation * self.normal_at(hit_point, &transformed_ray),
+                surface_normal : self.point_to_uv(&hit_point),
+                t,
+                ray
+            })
+ */

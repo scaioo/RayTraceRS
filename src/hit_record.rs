@@ -10,22 +10,21 @@
 //! Note for programmers: add `is_close`/`are_close` method for debugging.
 
 use crate::functions::are_close;
+use crate::geometry::{Normal, Point, Vec2D, is_close};
 use crate::ray::Ray;
-use crate::geometry::{Point, Normal, Vec2D, is_close};
 
-#[derive(Clone, Copy,  Debug, PartialEq)]
-pub struct HitRecord{
+#[derive(Clone, Copy, Debug, PartialEq)]
+pub struct HitRecord {
     pub world_point: Point,
     pub normal: Normal,
     pub uv: Vec2D,
-    pub t : f32,
+    pub t: f32,
     pub ray: Ray,
 }
 
-
-impl HitRecord{
-    pub fn is_close(&self, hr: &HitRecord) ->bool{
-        is_close(self.world_point, hr.world_point )
+impl HitRecord {
+    pub fn is_close(&self, hr: &HitRecord) -> bool {
+        is_close(self.world_point, hr.world_point)
             && is_close(self.normal, hr.normal)
             && are_close(self.t, hr.t)
             && self.uv.is_close(&hr.uv)
@@ -33,31 +32,30 @@ impl HitRecord{
     }
 }
 
-
 #[cfg(test)]
-mod tests{
-    use crate::geometry::{Vector, Point, Vec2D};
+mod tests {
     use super::*;
+    use crate::geometry::{Point, Vec2D, Vector};
     #[test]
     fn test_is_close() {
-        let ray = Ray::new(Point::new(0.0,1.0,-1.0), Vector::new(0.0, 0.0, 0.0));
-        let mut hr1 = HitRecord{
-            world_point : Point::new(1.0,2.0,3.0),
-            normal : Normal::new(4.0, 5.0,6.0),
+        let ray = Ray::new(Point::new(0.0, 1.0, -1.0), Vector::new(0.0, 0.0, 0.0));
+        let mut hr1 = HitRecord {
+            world_point: Point::new(1.0, 2.0, 3.0),
+            normal: Normal::new(4.0, 5.0, 6.0),
             uv: Vec2D::new(7.0, 8.0),
-            t : 1.0,
+            t: 1.0,
             ray,
         };
         let ray2 = Ray::new(
-            Point::new(0.0000001,1.0,-0.999999),
+            Point::new(0.0000001, 1.0, -0.999999),
             Vector::new(0.0000001, 0.0, -0.0000001),
         );
         let mut hr2 = HitRecord {
-            world_point : Point::new(1.0, 1.999999, 3.0),
-            normal : Normal::new(4.0000001,5.0, 6.0),
+            world_point: Point::new(1.0, 1.999999, 3.0),
+            normal: Normal::new(4.0000001, 5.0, 6.0),
             uv: Vec2D::new(7.0, 8.0000001),
-            t : 1.0000001,
-            ray: ray2
+            t: 1.0000001,
+            ray: ray2,
         };
         assert!(hr1.is_close(&hr2));
 
@@ -69,28 +67,19 @@ mod tests{
         assert!(!hr1.is_close(&hr2));
 
         hr1.normal = Normal::new(4.001, 5.0, 6.0); // Make it equal
-        hr2.world_point = Point::new(1.0,2.001,3.0);
+        hr2.world_point = Point::new(1.0, 2.001, 3.0);
         assert!(!hr1.is_close(&hr2));
 
-        hr1.world_point = Point::new(1.0,2.001,3.0);
+        hr1.world_point = Point::new(1.0, 2.001, 3.0);
         hr2.uv = Vec2D::new(7.0, 7.9999);
         assert!(!hr1.is_close(&hr2));
 
         hr1.uv = Vec2D::new(7.0, 7.9999);
-        hr2.ray = Ray::new(
-            Point::new(0.0,1.0001,-1.0),
-            Vector::new(0.0, 0.0, 0.0)
-        );
+        hr2.ray = Ray::new(Point::new(0.0, 1.0001, -1.0), Vector::new(0.0, 0.0, 0.0));
         assert!(!hr1.is_close(&hr2));
 
-        hr1.ray =  Ray::new(
-            Point::new(0.0,1.0001,-1.0),
-            Vector::new(0.0, 0.0, 0.0)
-        );
-        hr2.ray = Ray::new(
-            Point::new(0.0,1.0001,-1.0),
-            Vector::new(0.0, 0.0, 0.0001)
-        );
+        hr1.ray = Ray::new(Point::new(0.0, 1.0001, -1.0), Vector::new(0.0, 0.0, 0.0));
+        hr2.ray = Ray::new(Point::new(0.0, 1.0001, -1.0), Vector::new(0.0, 0.0, 0.0001));
         assert!(!hr1.is_close(&hr2));
     }
 }

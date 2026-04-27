@@ -9,7 +9,7 @@ use crate::geometry::Point;
 use crate::shapes::Shape;
 
 pub struct World {
-    pub objects: Vec<Box<dyn Shape>>
+    pub objects: Vec<Box<dyn Shape>>,
 }
 
 impl World {

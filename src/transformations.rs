@@ -39,9 +39,9 @@ macro_rules! impl_matrix_operations {
             }
 
             fn inverse_transformation(&self) -> Transformation {
-                Transformation{
-                    mat : transpose_matrix(&self.it_mat),
-                    it_mat : transpose_matrix(&self.mat),
+                Transformation {
+                    mat: transpose_matrix(&self.it_mat),
+                    it_mat: transpose_matrix(&self.mat),
                 }
             }
         }

@@ -5,7 +5,6 @@ use rstrace::pfm_func::read_pfm;
 use std::fs::File;
 use std::io::BufReader;
 
-
 /*=============================================================================
 PROGRAMMER NOTES:
 The `demo` command:

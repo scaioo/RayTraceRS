@@ -5,23 +5,22 @@ use std::fmt;
 use crate::functions::are_close;
 use std::ops::{Add, Div, Mul, Neg, Sub};
 
-
 // =======================================================================
 // VEC2D
 // =======================================================================
 #[derive(Copy, Clone, Debug, PartialEq)]
-pub struct Vec2D{
+pub struct Vec2D {
     pub x: f32,
     pub y: f32,
 }
 
 impl Vec2D {
     pub fn new(x: f32, y: f32) -> Vec2D {
-        Vec2D{x, y}
+        Vec2D { x, y }
     }
 
     pub fn is_close(&self, other: &Vec2D) -> bool {
-        are_close(self.x ,other.x) && are_close(self.y ,other.y)
+        are_close(self.x, other.x) && are_close(self.y, other.y)
     }
 }
 

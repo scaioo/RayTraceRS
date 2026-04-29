@@ -1,5 +1,5 @@
 use anyhow::Result;
-use rstrace::hdr_image::hdr_to_ldr;
+use rstrace::hdr_image::{hdr_to_ldr, HDR};
 use rstrace::pfm_func::Parameter;
 use rstrace::pfm_func::read_pfm;
 use std::fs::File;
@@ -9,6 +9,10 @@ use rstrace::geometry::Vector;
 use rstrace::shapes::{Shape, Sphere};
 use rstrace::transformations::{Scaling, Transformation, Translation};
 use rstrace::world::World;
+use rstrace::camera::OrthogonalCamera;
+use rstrace::geometry::Point;
+use rstrace::image_tracer::ImageTracer;
+use rstrace::transformations::Transformation;
 /*=============================================================================
 PROGRAMMER NOTES:
 The `demo` command:
@@ -23,6 +27,15 @@ The `demo` command:
 #[derive(Parser)]
 
 struct Cli {
+    #[arg(long, default_value_t = 1920)]
+    width: usize,
+
+    #[arg(long, default_value_t = 1080)]
+    height: usize,
+
+    #[arg(long)]
+    orthogonal: bool,
+
     #[command(subcommand)]
     command: Commands,
 }
@@ -85,11 +98,24 @@ fn main() -> Result<()> {
     println! {"\n------------------------------------------------------\n"};
 
     let cli = Cli::parse();
+    let origin: Point = Point::new(-2.0, 0.0, 0.0);
+    let screen_center: Point = Point::new(-1.0, 0.0, 0.0);
+    let mat = Vector::new(-2.0, 0.0, 0.0);
+    let trasl = Translation::new(mat);
+    let world = demo_world();
 
     match cli.command {
         Commands::Demo {file} => {
             let world = demo_world();
 
+            if cli.orthogonal {
+                let o_cam =OrthogonalCamera::new(trasl);
+                let img = HDR::new(cli.width, cli.height);
+                let imagetracer = ImageTracer::new(img, o_cam);
+                imagetracer.fire_all_rays()
+            }else{
+
+            }
             return Ok(())
         }
 

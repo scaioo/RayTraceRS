@@ -9,7 +9,7 @@ use crate::functions::are_close;
 use crate::geometry::{Dot, Normal, Point, Vec2D, Vector};
 use crate::hit_record::HitRecord;
 use crate::ray::Ray;
-use crate::transformations::{IsHomogeneousMatrix, Transformation};
+use crate::transformations::IsHomogeneousMatrix;
 use std::ops::Mul;
 
 pub trait Shape {

@@ -9,7 +9,7 @@ use crate::functions::are_close;
 use crate::geometry::{Dot, Normal, Point, Vec2D, Vector};
 use crate::hit_record::HitRecord;
 use crate::ray::Ray;
-use crate::transformations::IsHomogeneousMatrix;
+use crate::transformations::{IsHomogeneousMatrix, Transformation};
 use std::ops::Mul;
 
 pub trait Shape {
@@ -195,7 +195,12 @@ where
 ///
 /// Understand where to put the triangle properly for then further transformations!
 #[derive(Copy, Clone, Debug, PartialEq)]
-pub struct Triangle {}
+pub struct Triangle<T: IsHomogeneousMatrix> {
+    pub a: Point,
+    pub b: Point,
+    pub c: Point,
+    pub transformation: T
+}
 
 // =================================================================================
 //

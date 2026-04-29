@@ -6,7 +6,7 @@
 //! All the documentation is a WIP - draft!
 
 use crate::functions::are_close;
-use crate::geometry::{Dot, Normal, Point, Vec2D, Vector};
+use crate::geometry::{Cross, Dot, Normal, Point, Vec2D, Vector};
 use crate::hit_record::HitRecord;
 use crate::ray::Ray;
 use crate::transformations::{IsHomogeneousMatrix, Transformation};
@@ -174,6 +174,7 @@ where
         let result = Normal::new(0.0, 0.0, 1.0);
         if ray.dir.z > 0.0 { -result } else { result }
     }
+    
     fn point_to_uv(&self, point: &Point) -> Vec2D {
         Vec2D {
             x: point.x - point.x.floor(),
@@ -216,7 +217,10 @@ where
     }
     
     fn normal_at(&self, point: Point, ray: &Ray) -> Normal {
-        panic!("TO BE WRITTEN!")
+        let result = (self.b - self.a).cross(&(self.c - self.a)) ;
+        let result = Normal{x: result.x, y: result.y, z: result.z};
+        
+        if ray.dir.dot(&result) > 0.0 { - result } else { result }
     }
     
     fn point_to_uv(&self, point: &Point) -> Vec2D {

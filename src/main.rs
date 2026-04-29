@@ -5,6 +5,17 @@ use rstrace::pfm_func::read_pfm;
 use std::fs::File;
 use std::io::BufReader;
 
+/*=============================================================================
+PROGRAMMER NOTES:
+The `demo` command:
+1. Initialize a World object with the 10 spheres in the indicated positions
+2. Create an OrthogonalCamera or PerspectiveCamera object
+3. Rotate the observer
+4. Create an ImageTracer object
+5. Perform image tracing, using an “on/off” criterion
+6. Save the PFM image
+7. Immediately convert the image to PNG using default values for tone-mapping
+ =============================================================================*/
 fn main() -> Result<()> {
     // Leave two lines between the execution and the printing of the
     println! {"\n------------------------------------------------------\n"};

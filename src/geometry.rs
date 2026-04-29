@@ -6,6 +6,25 @@ use crate::functions::are_close;
 use std::ops::{Add, Div, Mul, Neg, Sub};
 
 // =======================================================================
+// VEC2D
+// =======================================================================
+#[derive(Copy, Clone, Debug, PartialEq)]
+pub struct Vec2D {
+    pub x: f32,
+    pub y: f32,
+}
+
+impl Vec2D {
+    pub fn new(x: f32, y: f32) -> Vec2D {
+        Vec2D { x, y }
+    }
+
+    pub fn is_close(&self, other: &Vec2D) -> bool {
+        are_close(self.x, other.x) && are_close(self.y, other.y)
+    }
+}
+
+// =======================================================================
 // CONSTANTS DEFINITIONS
 // =======================================================================
 pub static X_AXIS: Vector = Vector {
@@ -428,6 +447,15 @@ impl_from!(Vector, Point);
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn test_vec2d_is_close() {
+        let v1 = Vec2D::new(1.0, 2.0);
+        let v2 = Vec2D::new(1.000001, 2.0);
+        assert!(v1.is_close(&v2));
+        assert!(!v1.is_close(&Vec2D::new(1.00001, 2.0)));
+    }
+
     #[test]
     fn test_is_close_method() {
         // Create a base vector

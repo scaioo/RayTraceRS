@@ -9,7 +9,7 @@ use crate::functions::are_close;
 use crate::geometry::{Dot, Normal, Point, Vec2D, Vector};
 use crate::hit_record::HitRecord;
 use crate::ray::Ray;
-use crate::transformations::IsHomogeneousMatrix;
+use crate::transformations::{IsHomogeneousMatrix, Transformation};
 use std::ops::Mul;
 
 pub trait Shape {
@@ -195,7 +195,34 @@ where
 ///
 /// Understand where to put the triangle properly for then further transformations!
 #[derive(Copy, Clone, Debug, PartialEq)]
-pub struct Triangle {}
+pub struct Triangle<T: IsHomogeneousMatrix> {
+    pub a: Point,
+    pub b: Point,
+    pub c: Point,
+    pub transformation: T
+}
+
+impl<T> Shape for Triangle<T>
+where
+    T: IsHomogeneousMatrix
+    + Mul<Ray, Output = Ray>
+    + Mul<Point, Output = Point>
+    + Mul<Normal, Output = Normal>
+    + Mul<Vector, Output = Vector>
+    + Copy,
+{
+    fn ray_intersection(&self, ray: Ray) -> Option<HitRecord> {
+        panic!("TO BE WRITTEN!")
+    }
+    
+    fn normal_at(&self, point: Point, ray: &Ray) -> Normal {
+        panic!("TO BE WRITTEN!")
+    }
+    
+    fn point_to_uv(&self, point: &Point) -> Vec2D {
+        panic!("TO BE WRITTEN!")
+    }
+}
 
 // =================================================================================
 //

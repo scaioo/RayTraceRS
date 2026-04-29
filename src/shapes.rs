@@ -202,6 +202,28 @@ pub struct Triangle<T: IsHomogeneousMatrix> {
     pub transformation: T
 }
 
+impl<T> Shape for Triangle<T>
+where
+    T: IsHomogeneousMatrix
+    + Mul<Ray, Output = Ray>
+    + Mul<Point, Output = Point>
+    + Mul<Normal, Output = Normal>
+    + Mul<Vector, Output = Vector>
+    + Copy,
+{
+    fn ray_intersection(&self, ray: Ray) -> Option<HitRecord> {
+        panic!("TO BE WRITTEN!")
+    }
+    
+    fn normal_at(&self, point: Point, ray: &Ray) -> Normal {
+        panic!("TO BE WRITTEN!")
+    }
+    
+    fn point_to_uv(&self, point: &Point) -> Vec2D {
+        panic!("TO BE WRITTEN!")
+    }
+}
+
 // =================================================================================
 //
 //                                    TESTS

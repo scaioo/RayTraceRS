@@ -8,6 +8,7 @@
 use crate::geometry::Point;
 use crate::ray::Ray;
 use crate::shapes::Shape;
+use std::ops::Add;
 
 pub struct World {
     pub objects: Vec<Box<dyn Shape>>,
@@ -41,13 +42,22 @@ impl World {
 }
 
 
+impl Add for World {
+    type Output = World;
+    fn add(self, rhs: World) -> World {
+        World {
+            objects: self.objects.into_iter().chain(rhs.objects).collect(),
+        }
+    }
+}
+
 #[cfg(test)]
 mod tests {
-    use crate::functions::are_close;
+    use crate::functions::{are_close, IDENTITY_4X4};
     use crate::geometry::{is_close, Point, Vector};
     use crate::ray::Ray;
-    use crate::shapes::{Sphere};
-    use crate::transformations::{Translation, Scaling,};
+    use crate::shapes::{Plane, Sphere};
+    use crate::transformations::{Translation, Scaling, Transformation};
     use crate::world::World;
 
     fn setup() -> World {
@@ -104,5 +114,20 @@ mod tests {
         for i in 0..5 {
             assert_eq!(expected[i], world.ray_intersection(rays[i]));
         }
+    }
+
+    #[test]
+    fn test_add() {
+        let world_1 = setup();
+
+        let transformation = Transformation::new(IDENTITY_4X4);
+        let plane = Plane::new(transformation);
+        let world_2 = World{
+            objects: vec![Box::new(plane), Box::new(plane), Box::new(plane)],
+        };
+
+        let world = world_1 + world_2;
+
+        assert_eq!(world.objects.len(), 6);
     }
 }

@@ -435,7 +435,6 @@ mod tests {
     }
 
     #[test]
-    #[test]
     fn test_plane_intersection_and_normal() {
         let (plane, ray_top, ray_bottom, ray_parallel) = setup_plane();
 
@@ -475,8 +474,8 @@ mod tests {
 
         let hit = plane.ray_intersection(ray).expect("Should hit the plane");
 
-        //  x = 2.5: 2.5 - 2.0 = 0.5
-        //  y = -1.3: -1.3 - floor(-1.3) = -1.3 - (-2.0) = 0.7
+        //  x = 2.5 -> 2.5 - 2.0 = 0.5
+        //  y = -1.3 -> -1.3 - floor(-1.3) = -1.3 - (-2.0) = 0.7
         assert!(hit.uv.is_close(&Vec2D::new(0.5, 0.7)));
     }
 }

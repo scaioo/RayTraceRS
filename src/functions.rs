@@ -207,6 +207,36 @@ pub fn det_3x3(m: &[f32; 9]) -> f32 {
         c * (d * h - e * g)
 }
 
+
+
+pub fn cramer(m: &[f32; 9], v: [f32; 3]) -> [f32; 3] {
+    let det = det_3x3(m);
+    let mut result : [f32; 3] = [1.0/det, 1.0/det, 1.0/det];
+
+    let [a, b, c, d, e, f, g, h, i] = *m;
+    let mat: [f32; 9] = [
+        v[0], b, c,
+        v[1], e, f,
+        v[2], h, i
+    ];
+    result[0] *= det_3x3(&mat);
+
+    let mat : [f32; 9] = [
+        a, v[0], c,
+        d, v[1], f,
+        g, v[2], i
+    ];
+    result[1] *= det_3x3(&mat);
+
+    let mat : [f32; 9] = [
+        a, b, v[0],
+        d, e, v[1],
+        g, h, v[2]
+    ];
+    result[2] *= det_3x3(&mat);
+
+    result
+}
 // tests
 #[cfg(test)]
 mod tests {
@@ -343,5 +373,23 @@ mod tests {
         // aei + bfg + cdh - ceg - bdi - afg
         let expected = 3.0 + 0.0 + 0.0 - 0.0 - 12.0 - 0.0 - 0.0;
         assert!(are_close(result, expected), "computed determinant: {}",result );
+    }
+
+    #[test]
+    fn test_cramer() {
+        let mat:[f32; 9] = [1.0, 0.0, 0.0, 0.0, 1.0, 0.0, 0.0, 0.0, 1.0];
+        let v : [f32; 3] = [1.0, 2.0, 3.0];
+        let result = cramer(&mat,v);
+        for i in 0..3 {
+            assert!(are_close(result[i], v[i]), "{:?}", mat[i]);
+        }
+
+        let mat:[f32; 9] = [2.0, 5.0, -3.0, 2.0, -5.0, 3.0, 0.0, -5.0, 2.0];
+        let v : [f32; 3] = [1.0, 3.0, 0.0];
+        let result = cramer(&mat,v);
+        let expected: [f32; 3] = [1.0, 0.4, 1.0];
+        for i in 0..3 {
+            assert!(are_close(result[i], expected[i]), "{}: {:?}", i+1, mat[i]);
+        }
     }
 }

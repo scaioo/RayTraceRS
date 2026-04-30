@@ -199,6 +199,14 @@ pub fn equal_matrices(mat1: &[f32; 16], mat2: &[f32; 16]) -> bool {
     result
 }
 
+pub fn det_3x3(m: &[f32; 9]) -> f32 {
+    let [a, b, c, d, e, f, g, h, i] = *m;
+
+    a * (e * i - f * h) -
+        b * (d * i - f * g) +
+        c * (d * h - e * g)
+}
+
 // tests
 #[cfg(test)]
 mod tests {
@@ -323,5 +331,17 @@ mod tests {
         ];
         let result = fast_matrix_mul(&mat1, &mat1_inverse);
         assert!(equal_matrices(&result, &IDENTITY_4X4));
+    }
+
+    #[test]
+    fn test_det_3x3() {
+        let mat:[f32; 9] = [1.0, 0.0, 0.0, 0.0, 1.0, 0.0, 0.0, 0.0, 1.0];
+        let result = det_3x3(&mat);
+        assert!(are_close(result, 1.0), "computed determinant: {}",result );
+        let mat:[f32; 9] = [2.0, 3.0, 0.0, 4.0, 1.5, 0.0, 0.0, 1.0, 1.0];
+        let result = det_3x3(&mat);
+        // aei + bfg + cdh - ceg - bdi - afg
+        let expected = 3.0 + 0.0 + 0.0 - 0.0 - 12.0 - 0.0 - 0.0;
+        assert!(are_close(result, expected), "computed determinant: {}",result );
     }
 }

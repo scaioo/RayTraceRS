@@ -196,16 +196,15 @@ where
 ///
 /// Understand where to put the triangle properly for then further transformations!
 #[derive(Copy, Clone, Debug, PartialEq)]
-pub struct Triangle<T: IsHomogeneousMatrix> {
+pub struct Triangle {
     pub a: Point,
     pub b: Point,
     pub c: Point,
-    pub transformation: T
 }
 
-impl<T> Triangle<T>
-where
-    T: IsHomogeneousMatrix{
+//                           For triangle implementation
+
+impl Triangle {
     pub fn _intersection(&self, ray: Ray) -> (f32, f32, f32) {
         let mat : [f32; 9] = [
             self.b.x - self.a.x, self.c.x - self.a.x, - ray.dir.x,
@@ -223,15 +222,7 @@ where
     }
 }
 
-impl<T> Shape for Triangle<T>
-where
-    T: IsHomogeneousMatrix
-    + Mul<Ray, Output = Ray>
-    + Mul<Point, Output = Point>
-    + Mul<Normal, Output = Normal>
-    + Mul<Vector, Output = Vector>
-    + Copy,
-{
+impl Shape for Triangle {
     fn ray_intersection(&self, ray: Ray) -> Option<HitRecord> {
         let (t, beta, gamma) = self._intersection(ray);
 
@@ -267,7 +258,7 @@ where
 
 
 
-//                           For triangle implementation
+
 
 
 // =================================================================================

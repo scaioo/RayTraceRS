@@ -269,7 +269,7 @@ impl Shape for Triangle {
         let origin = *point - normal;
         let ray = Ray::new(origin, normal);
         let (_, beta, gamma) = self._intersection(ray)
-            .expect("Logic error - Triangle::point_to_uv");
+            .expect("Error in Triangle::point_to_uv: point is invalid");
         Vec2D { x: beta, y: gamma }
     }
 }
@@ -612,5 +612,15 @@ mod tests {
         assert!(hit_record.uv.is_close( &Vec2D::new(0.4, 0.5)), "uv != hit_record.uv");
         assert!(are_close(hit_record.t, 1.0), "t != hit_record.t");
         assert!(ray.is_close(hit_record.ray), "world_point != hit_point");
+    }
+
+    #[test]
+    #[should_panic(expected = "Error in Triangle::point_to_uv")]
+    fn test_triangle_point_to_uv() {
+        let triangle = setup_triangle1();
+        let uv = triangle.point_to_uv(&Point::new(0.0, 0.0, 2.0));
+        assert!(uv.is_close(&Vec2D::new(0.4, 0.5)));
+        
+        let _ = triangle.point_to_uv(&Point::new(10.0, 0.0, 0.0));
     }
 }

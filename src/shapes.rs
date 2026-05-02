@@ -5,7 +5,7 @@
 //!
 //! All the documentation is a WIP - draft!
 
-use crate::functions::{are_close, cramer};
+use crate::functions::{are_close, cramer, Within};
 use crate::geometry::{Cross, Dot, Normal, Point, Vec2D, Vector};
 use crate::hit_record::HitRecord;
 use crate::ray::Ray;
@@ -219,7 +219,10 @@ impl Triangle {
         ];
 
         let result = cramer(&mat, right_member)?;
-        Ok((result[0], result[1], result[2]))
+        if result[1].is_between(&0.0, &1.0)
+            && result[2].is_between(&0.0, &1.0){
+            Ok((result[0], result[1], result[2]))
+        } else { Err(anyhow!("No Ray-Triangle intersection!!")) }
     }
 }
 
@@ -227,16 +230,18 @@ impl Shape for Triangle {
     fn ray_intersection(&self, ray: Ray) -> Option<HitRecord> {
         let (t, beta, gamma) = self._intersection(ray).ok()?;
 
-        let hit_point = ray.at(t);
-        Some(
-            HitRecord{
-                world_point: hit_point,
-                normal: self.normal_at(hit_point, &ray),
-                uv : Vec2D::new(beta, gamma),
-                t,
-                ray
-            }
-        )
+        if t.is_between(&ray.t_min,& ray.t_max) {
+            let hit_point = ray.at(t);
+            Some(
+                HitRecord{
+                    world_point: hit_point,
+                    normal: self.normal_at(hit_point, &ray),
+                    uv : Vec2D::new(beta, gamma),
+                    t,
+                    ray
+                }
+            )
+        } else { None }
     }
     
     fn normal_at(&self, point: Point, ray: &Ray) -> Normal {

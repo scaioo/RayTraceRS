@@ -5,7 +5,7 @@
 //!
 //! All the documentation is a WIP - draft!
 
-use crate::functions::are_close;
+use crate::functions::{are_close, cramer};
 use crate::geometry::{Cross, Dot, Normal, Point, Vec2D, Vector};
 use crate::hit_record::HitRecord;
 use crate::ray::Ray;
@@ -19,7 +19,7 @@ pub trait Shape {
 
     fn point_to_uv(&self, point: &Point) -> Vec2D;
 }
-
+// =================================================================================
 /// The class Sphere adds the possibility to represent spherical objects in images
 ///
 /// Draft:
@@ -116,7 +116,7 @@ where
         Vec2D { x: u, y: v }
     }
 }
-
+// =================================================================================
 /// The class Plane adds the possibility to represent the plane in an image
 ///
 /// Draft:
@@ -174,7 +174,7 @@ where
         let result = Normal::new(0.0, 0.0, 1.0);
         if ray.dir.z > 0.0 { -result } else { result }
     }
-    
+
     fn point_to_uv(&self, point: &Point) -> Vec2D {
         Vec2D {
             x: point.x - point.x.floor(),
@@ -182,7 +182,7 @@ where
         }
     }
 }
-
+// =================================================================================
 /// The class Triangle adds the possibility to represent a triangle in an image
 ///
 /// Draft:
@@ -203,6 +203,26 @@ pub struct Triangle<T: IsHomogeneousMatrix> {
     pub transformation: T
 }
 
+impl<T> Triangle<T>
+where
+    T: IsHomogeneousMatrix{
+    pub fn _intersection(&self, ray: Ray) -> (f32, f32, f32) {
+        let mat : [f32; 9] = [
+            self.b.x - self.a.x, self.c.x - self.a.x, - ray.dir.x,
+            self.b.y - self.a.y, self.c.y - self.a.y, - ray.dir.y,
+            self.b.z - self.a.z, self.c.z - self.a.z, - ray.dir.z,
+        ];
+        let right_member = [
+            ray.origin.x - self.a.x,
+            ray.origin.y - self.a.y,
+            ray.origin.z - self.a.z
+        ];
+
+        let result = cramer(&mat, right_member);
+        (result[0], result[1], result[2])
+    }
+}
+
 impl<T> Shape for Triangle<T>
 where
     T: IsHomogeneousMatrix
@@ -213,20 +233,44 @@ where
     + Copy,
 {
     fn ray_intersection(&self, ray: Ray) -> Option<HitRecord> {
-        panic!("TO BE WRITTEN!")
+        let (t, beta, gamma) = self._intersection(ray);
+
+        let hit_point = ray.at(t);
+        Some(
+            HitRecord{
+                world_point: hit_point,
+                normal: self.normal_at(hit_point, &ray),
+                uv : Vec2D::new(beta, gamma),
+                t,
+                ray
+            }
+        )
     }
     
     fn normal_at(&self, point: Point, ray: &Ray) -> Normal {
+        
         let result = (self.b - self.a).cross(&(self.c - self.a)) ;
         let result = Normal{x: result.x, y: result.y, z: result.z};
-        
+
         if ray.dir.dot(&result) > 0.0 { - result } else { result }
     }
     
     fn point_to_uv(&self, point: &Point) -> Vec2D {
-        panic!("TO BE WRITTEN!")
+        // double check this:
+        let normal = (self.b - self.a).cross(&(self.c - self.a));
+        let origin = *point - normal;
+        let ray = Ray::new(origin, normal);
+        let (_, beta, gamma) = self._intersection(ray);
+        Vec2D { x: beta, y: gamma }
     }
 }
+
+
+
+//                           For triangle implementation
+
+
+// =================================================================================
 
 // =================================================================================
 //

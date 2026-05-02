@@ -181,6 +181,8 @@ pub fn inverse_4x4(m: &[f32; 16]) -> [f32; 16] {
     inv
 }
 
+
+/// TODO
 pub fn transpose_matrix(m: &[f32; 16]) -> [f32; 16] {
     let mut result: [f32; 16] = [0.0; 16];
     for i in 0..4 {
@@ -191,6 +193,7 @@ pub fn transpose_matrix(m: &[f32; 16]) -> [f32; 16] {
     result
 }
 
+/// TODO
 pub fn equal_matrices(mat1: &[f32; 16], mat2: &[f32; 16]) -> bool {
     let mut result = true;
     for i in 0..16 {

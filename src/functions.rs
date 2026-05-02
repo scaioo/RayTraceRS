@@ -384,17 +384,25 @@ mod tests {
     fn test_cramer() {
         let mat:[f32; 9] = [1.0, 0.0, 0.0, 0.0, 1.0, 0.0, 0.0, 0.0, 1.0];
         let v : [f32; 3] = [1.0, 2.0, 3.0];
-        let result = cramer(&mat,v);
+        let result = cramer(&mat,v).unwrap();
         for i in 0..3 {
             assert!(are_close(result[i], v[i]), "{:?}", mat[i]);
         }
 
         let mat:[f32; 9] = [2.0, 5.0, -3.0, 2.0, -5.0, 3.0, 0.0, -5.0, 2.0];
         let v : [f32; 3] = [1.0, 3.0, 0.0];
-        let result = cramer(&mat,v);
+        let result = cramer(&mat,v).unwrap();
         let expected: [f32; 3] = [1.0, 0.4, 1.0];
         for i in 0..3 {
             assert!(are_close(result[i], expected[i]), "{}: {:?}", i+1, mat[i]);
         }
+    }
+    
+    #[test]
+    #[should_panic(expected = "det is 0.0!")]
+    fn test_zero_determinant_cramer() {
+        let mat:[f32; 9] = [1.0, 0.0, 1.0, 0.0, 1.0, 0.0, 1.0, 0.0, 1.0];
+        let v : [f32; 3] = [1.0, 1.0, 0.0];
+        let _ = cramer(&mat,v).unwrap();
     }
 }

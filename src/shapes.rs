@@ -563,13 +563,18 @@ mod tests {
         assert!(hit.uv.is_close(&Vec2D::new(0.5, 0.7)));
     }
 
-    #[test]
-    fn test_triangle_intersection() {
-        let triangle = Triangle{
+
+    fn setup_triangle1() -> Triangle {
+        Triangle{
             a: Point::new(0.0, 4.0, 0.0),
             b: Point::new(0.0, -1.0, 0.0),
             c: Point::new(0.0, 0.0, 4.0),
-        };
+        }
+    }
+
+    #[test]
+    fn test_triangle_intersection() {
+        let triangle = setup_triangle1();
 
         let ray = Ray::new(Point::new(-1.0, 0.0, 2.0), Vector::new(1.0, 0.0, 0.0));
 
@@ -577,5 +582,35 @@ mod tests {
         assert!(are_close(t, 1.0), "t: {}\nexpected: 1.0", t);
         assert!(beta.is_between_open(&0.0, &1.0), "b: {}", beta);
         assert!(gamma.is_between_open(&0.0, &1.0), "gamma: {}", gamma);
+    }
+
+    #[test]
+    fn test_triangle_intersection_none() {
+        let triangle = setup_triangle1();
+        let ray = Ray::new(Point::new(-1.0, 0.0, 4.0), Vector::new(1.0, 0.0, 0.0));
+        match triangle._intersection(ray) {
+            Err(e) => println!("{}", e),
+            _ => panic!("TEST SHOULD FAIL!")
+        }
+
+        let ray = Ray::new(Point::new(-1.0, 0.0, 10.0), Vector::new(1.0, 0.0, 0.0));
+        match triangle._intersection(ray) {
+            Err(e) => println!("{}", e),
+            _ => panic!("TEST SHOULD FAIL!")
+        }
+    }
+
+    #[test]
+    fn test_triangle_ray_intersection() {
+        let triangle = setup_triangle1();
+        let ray = Ray::new(Point::new(-1.0, 0.0, 2.0), Vector::new(1.0, 0.0, 0.0));
+
+        let hit_record = triangle.ray_intersection(ray).expect("Should hit the triangle");
+
+        assert!(is_close(hit_record.world_point, Point::new(0.0, 0.0, 2.0)), "hit_record.world_point != hit_point");
+        assert!(is_close(hit_record.normal, Normal::new(-20.0, 0.0, 0.0)), "normal != hit_record.normal");
+        assert!(hit_record.uv.is_close( &Vec2D::new(0.4, 0.5)), "uv != hit_record.uv");
+        assert!(are_close(hit_record.t, 1.0), "t != hit_record.t");
+        assert!(ray.is_close(hit_record.ray), "world_point != hit_point");
     }
 }

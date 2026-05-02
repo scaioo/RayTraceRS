@@ -11,6 +11,7 @@ use crate::hit_record::HitRecord;
 use crate::ray::Ray;
 use crate::transformations::{IsHomogeneousMatrix, Transformation};
 use std::ops::Mul;
+use anyhow::{ anyhow, Result};
 
 pub trait Shape {
     fn ray_intersection(&self, ray: Ray) -> Option<HitRecord>;
@@ -205,7 +206,7 @@ pub struct Triangle {
 //                           For triangle implementation
 
 impl Triangle {
-    pub fn _intersection(&self, ray: Ray) -> (f32, f32, f32) {
+    pub fn _intersection(&self, ray: Ray) -> Result<(f32, f32, f32)> {
         let mat : [f32; 9] = [
             self.b.x - self.a.x, self.c.x - self.a.x, - ray.dir.x,
             self.b.y - self.a.y, self.c.y - self.a.y, - ray.dir.y,
@@ -217,14 +218,14 @@ impl Triangle {
             ray.origin.z - self.a.z
         ];
 
-        let result = cramer(&mat, right_member);
-        (result[0], result[1], result[2])
+        let result = cramer(&mat, right_member)?;
+        Ok((result[0], result[1], result[2]))
     }
 }
 
 impl Shape for Triangle {
     fn ray_intersection(&self, ray: Ray) -> Option<HitRecord> {
-        let (t, beta, gamma) = self._intersection(ray);
+        let (t, beta, gamma) = self._intersection(ray).ok()?;
 
         let hit_point = ray.at(t);
         Some(
@@ -239,7 +240,7 @@ impl Shape for Triangle {
     }
     
     fn normal_at(&self, point: Point, ray: &Ray) -> Normal {
-        
+
         let result = (self.b - self.a).cross(&(self.c - self.a)) ;
         let result = Normal{x: result.x, y: result.y, z: result.z};
 
@@ -251,7 +252,8 @@ impl Shape for Triangle {
         let normal = (self.b - self.a).cross(&(self.c - self.a));
         let origin = *point - normal;
         let ray = Ray::new(origin, normal);
-        let (_, beta, gamma) = self._intersection(ray);
+        let (_, beta, gamma) = self._intersection(ray)
+            .expect("Logic error - Triangle::point_to_uv");
         Vec2D { x: beta, y: gamma }
     }
 }

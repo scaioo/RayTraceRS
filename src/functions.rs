@@ -4,6 +4,7 @@
 //! specific subsystem but are used throughout the codebase.
 
 use endianness::ByteOrder;
+use anyhow::{anyhow, Result};
 //use crate::geometry::TDV;
 
 pub static IDENTITY_4X4: [f32; 16] = [
@@ -209,33 +210,37 @@ pub fn det_3x3(m: &[f32; 9]) -> f32 {
 
 
 
-pub fn cramer(m: &[f32; 9], v: [f32; 3]) -> [f32; 3] {
+pub fn cramer(m: &[f32; 9], v: [f32; 3]) -> Result<[f32; 3]> {
     let det = det_3x3(m);
-    let mut result : [f32; 3] = [1.0/det, 1.0/det, 1.0/det];
+    if are_close(det, 0.0) {
+        Err(anyhow!("det is 0.0! No solution available!"))
+    } else {
+        let mut result : [f32; 3] = [1.0/det, 1.0/det, 1.0/det];
 
-    let [a, b, c, d, e, f, g, h, i] = *m;
-    let mat: [f32; 9] = [
-        v[0], b, c,
-        v[1], e, f,
-        v[2], h, i
-    ];
-    result[0] *= det_3x3(&mat);
+        let [a, b, c, d, e, f, g, h, i] = *m;
+        let mat: [f32; 9] = [
+            v[0], b, c,
+            v[1], e, f,
+            v[2], h, i
+        ];
+        result[0] *= det_3x3(&mat);
 
-    let mat : [f32; 9] = [
-        a, v[0], c,
-        d, v[1], f,
-        g, v[2], i
-    ];
-    result[1] *= det_3x3(&mat);
+        let mat : [f32; 9] = [
+            a, v[0], c,
+            d, v[1], f,
+            g, v[2], i
+        ];
+        result[1] *= det_3x3(&mat);
 
-    let mat : [f32; 9] = [
-        a, b, v[0],
-        d, e, v[1],
-        g, h, v[2]
-    ];
-    result[2] *= det_3x3(&mat);
+        let mat : [f32; 9] = [
+            a, b, v[0],
+            d, e, v[1],
+            g, h, v[2]
+        ];
+        result[2] *= det_3x3(&mat);
 
-    result
+        Ok(result)
+    }
 }
 // tests
 #[cfg(test)]

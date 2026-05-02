@@ -32,6 +32,55 @@ pub fn are_close(x: f32, y: f32) -> bool {
     }
 }
 
+// =======================================================================
+//                               is_in() trait
+// =======================================================================
+
+/// A trait for checking whether a value falls within a specific numeric boundary.
+pub trait Within {
+    /// Returns `true` if the value is strictly between `min` and `max` (exclusive).
+    ///
+    /// $$min < x < max$$
+    ///
+    /// # Examples
+    /// ```rust
+    /// use rstrace::Within;
+    ///
+    /// assert!(5.0.is_between(&0.0, &10.0));
+    /// assert!(!0.0.is_between(&0.0, &10.0)); // Lower bound returns false
+    /// assert!(!10.0.is_between(&0.0, &10.0)); // Upper bound returns false
+    /// ```
+    fn is_between(&self, min: &Self, max: &Self) -> bool;
+
+    /// Returns `true` if the value is within the range including the lower bound, 
+    /// but excluding the upper bound.
+    ///
+    /// $$min \le x < max$$
+    ///
+    /// # Examples
+    /// ```rust
+    /// use rstrace::Within;
+    ///
+    /// assert!(0.0.is_between_half_open(&0.0, &10.0)); // Lower bound returns true
+    /// assert!(!10.0.is_between_half_open(&0.0, &10.0)); // Upper bound returns false
+    /// ```
+    fn is_between_half_open(&self, min: &Self, max: &Self) -> bool;
+}
+
+impl Within for f32 {
+    /// Checks if the `f32` value is strictly greater than `min` and strictly less than `max`.
+    #[inline]
+    fn is_between(&self, min: &Self, max: &Self) -> bool {
+        self > min && self < max
+    }
+
+    /// Checks if the `f32` value is greater than or equal to `min` and strictly less than `max`.
+    #[inline]
+    fn is_between_half_open(&self, min: &Self, max: &Self) -> bool {
+        self >= min && self < max
+    }
+}
+
 /// Converts an endianness value into a numeric representation.
 ///
 /// Returns:
@@ -397,7 +446,7 @@ mod tests {
             assert!(are_close(result[i], expected[i]), "{}: {:?}", i+1, mat[i]);
         }
     }
-    
+
     #[test]
     #[should_panic(expected = "det is 0.0!")]
     fn test_zero_determinant_cramer() {

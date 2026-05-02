@@ -46,11 +46,13 @@ pub trait Within {
     /// ```rust
     /// use rstrace::Within;
     ///
-    /// assert!(5.0.is_between(&0.0, &10.0));
-    /// assert!(!0.0.is_between(&0.0, &10.0)); // Lower bound returns false
-    /// assert!(!10.0.is_between(&0.0, &10.0)); // Upper bound returns false
+    /// assert!(5.0.is_between_open(&0.0, &10.0));
+    /// assert!(!0.0.is_between_open(&0.0, &10.0)); // Lower bound returns false
+    /// assert!(!10.0.is_between_open(&0.0, &10.0)); // Upper bound returns false
     /// ```
-    fn is_between(&self, min: &Self, max: &Self) -> bool;
+    fn is_between_open(&self, min: &Self, max: &Self) -> bool;
+    
+    fn is_between_close(&self, min: &Self, max: &Self) -> bool;
 
     /// Returns `true` if the value is within the range including the lower bound, 
     /// but excluding the upper bound.
@@ -70,14 +72,19 @@ pub trait Within {
 impl Within for f32 {
     /// Checks if the `f32` value is strictly greater than `min` and strictly less than `max`.
     #[inline]
-    fn is_between(&self, min: &Self, max: &Self) -> bool {
+    fn is_between_open(&self, min: &Self, max: &Self) -> bool {
         self > min && self < max
+    }
+    
+    #[inline]
+    fn is_between_close(&self, min: &Self, max: &Self) -> bool {
+        self > min && self < max || are_close(*self, *max) || are_close(*self, *min)
     }
 
     /// Checks if the `f32` value is greater than or equal to `min` and strictly less than `max`.
     #[inline]
     fn is_between_half_open(&self, min: &Self, max: &Self) -> bool {
-        self >= min && self < max
+        self > min && self < max || are_close(*self, *min)
     }
 }
 

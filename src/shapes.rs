@@ -9,7 +9,7 @@ use crate::functions::{are_close, cramer, Within};
 use crate::geometry::{Cross, Dot, Normal, Point, Vec2D, Vector};
 use crate::hit_record::HitRecord;
 use crate::ray::Ray;
-use crate::transformations::{IsHomogeneousMatrix, Transformation};
+use crate::transformations::{IsHomogeneousMatrix};
 use std::ops::Mul;
 use anyhow::{ anyhow, Result};
 
@@ -208,9 +208,9 @@ pub struct Triangle {
 impl Triangle {
     pub fn _intersection(&self, ray: Ray) -> Result<(f32, f32, f32)> {
         let mat : [f32; 9] = [
-            self.b.x - self.a.x, self.c.x - self.a.x, - ray.dir.x,
-            self.b.y - self.a.y, self.c.y - self.a.y, - ray.dir.y,
-            self.b.z - self.a.z, self.c.z - self.a.z, - ray.dir.z,
+            self.b.x - self.a.x, self.c.x - self.a.x, -ray.dir.x,
+            self.b.y - self.a.y, self.c.y - self.a.y, -ray.dir.y,
+            self.b.z - self.a.z, self.c.z - self.a.z, -ray.dir.z,
         ];
         let right_member = [
             ray.origin.x - self.a.x,
@@ -219,10 +219,21 @@ impl Triangle {
         ];
 
         let result = cramer(&mat, right_member)?;
-        if result[1].is_between(&0.0, &1.0)
-            && result[2].is_between(&0.0, &1.0){
-            Ok((result[0], result[1], result[2]))
-        } else { Err(anyhow!("No Ray-Triangle intersection!!")) }
+
+        // Correct the variable mapping:
+        let beta = result[0];
+        let gamma = result[1];
+        let t = result[2];
+
+        // We ignore borders
+        if beta.is_between_open(&0.0, &1.0)
+            && gamma.is_between_open(&0.0, &1.0)
+            && (beta + gamma < 1.0 || are_close(beta + gamma, 1.0))
+        {
+            Ok((t, beta, gamma))
+        } else {
+            Err(anyhow!("No Ray-Triangle intersection!!\nBeta: {}\nGamma: {}", beta, gamma))
+        }
     }
 }
 
@@ -230,7 +241,7 @@ impl Shape for Triangle {
     fn ray_intersection(&self, ray: Ray) -> Option<HitRecord> {
         let (t, beta, gamma) = self._intersection(ray).ok()?;
 
-        if t.is_between(&ray.t_min,& ray.t_max) {
+        if t.is_between_close(&ray.t_min,& ray.t_max) {
             let hit_point = ray.at(t);
             Some(
                 HitRecord{
@@ -244,7 +255,7 @@ impl Shape for Triangle {
         } else { None }
     }
     
-    fn normal_at(&self, point: Point, ray: &Ray) -> Normal {
+    fn normal_at(&self, _point: Point, ray: &Ray) -> Normal {
 
         let result = (self.b - self.a).cross(&(self.c - self.a)) ;
         let result = Normal{x: result.x, y: result.y, z: result.z};
@@ -550,5 +561,21 @@ mod tests {
         //  x = 2.5 -> 2.5 - 2.0 = 0.5
         //  y = -1.3 -> -1.3 - floor(-1.3) = -1.3 - (-2.0) = 0.7
         assert!(hit.uv.is_close(&Vec2D::new(0.5, 0.7)));
+    }
+
+    #[test]
+    fn test_triangle_intersection() {
+        let triangle = Triangle{
+            a: Point::new(0.0, 4.0, 0.0),
+            b: Point::new(0.0, -1.0, 0.0),
+            c: Point::new(0.0, 0.0, 4.0),
+        };
+
+        let ray = Ray::new(Point::new(-1.0, 0.0, 2.0), Vector::new(1.0, 0.0, 0.0));
+
+        let (t, beta, gamma) = triangle._intersection(ray).unwrap();
+        assert!(are_close(t, 1.0), "t: {}\nexpected: 1.0", t);
+        assert!(beta.is_between_open(&0.0, &1.0), "b: {}", beta);
+        assert!(gamma.is_between_open(&0.0, &1.0), "gamma: {}", gamma);
     }
 }

@@ -12,7 +12,7 @@
 //!
 //! - Linear RGB floating-point storage
 //! - Safe pixel indexing with bounds checking
-//! - Basic tone mapping (Reinhard operator)
+//! - Basic tone mappings
 //! - Log-average luminance computation
 //!
 //! ## Example
@@ -85,6 +85,51 @@ impl HDR {
         }
     }
 
+    /// Sets the color of a pixel at `(x, y)`.
+    ///
+    /// # Errors
+    /// Returns an error if `(x, y)` is out of bounds.
+    pub fn set_pixel(&mut self, x: usize, y: usize, color: Color) -> Result<()> {
+        self.check_position(x, y)?;
+        self.pixels[y * self.width + x] = color;
+        Ok(())
+    }
+
+    /// Returns the color of the pixel at `(x, y)`.
+    ///
+    /// # Errors
+    /// Returns an error if `(x, y)` is out of bounds.
+    pub fn get_pixel(&self, x: usize, y: usize) -> Result<Color> {
+        Ok(self.pixels[self.vector_index(x, y)?])
+    }
+
+    /// Converts `(x, y)` coordinates into a linear index.
+    ///
+    /// # Errors
+    /// Returns an error if `(x, y)` is out of bounds.
+    pub fn vector_index(&self, x: usize, y: usize) -> Result<usize> {
+        self.check_position(x, y)?;
+        Ok(x + y * self.width)
+    }
+
+    /// Checks whether `(x, y)` is inside image bounds.
+    ///
+    /// # Errors
+    /// Returns an error if the coordinates are out of bounds.
+    fn check_position(&self, x: usize, y: usize) -> Result<()> {
+        if x < self.width && y < self.height {
+            Ok(())
+        } else {
+            Err(anyhow!("OUT OF BOUND PIXEL ({},{})!", x, y))
+        }
+    }
+}
+
+// =================================================================
+// PFM Writing
+// =================================================================
+
+impl HDR {
     /// Writes the image to a `.pfm` (Portable Float Map) file.
     ///
     /// # Arguments
@@ -103,7 +148,6 @@ impl HDR {
     /// use crate::rstrace::hdr_image::HDR;
     /// use std::fs::File;
     /// use std::io::BufWriter;
-    /// use std::net::TcpStream;
     /// use endianness::ByteOrder;
     ///
     ///
@@ -119,10 +163,6 @@ impl HDR {
     /// // Example 2: Writing directly to RAM (useful for automated tests or passing data to other APIs)
     /// let mut memory_buffer: Vec<u8> = Vec::new();
     /// img.write_pfm(&mut memory_buffer, &endianness)?;
-    ///
-    /// // Example 3: Streaming the image over a network connection (e.g., to a render node)
-    /// let mut network_stream = TcpStream::connect("127.0.0.1:8080")?;
-    /// img.write_pfm(&mut network_stream, &endianness)?;
     /// # Ok(())
     /// # }
     /// ```
@@ -167,51 +207,11 @@ impl HDR {
 
         Ok(())
     }
-
-    /// Sets the color of a pixel at `(x, y)`.
-    ///
-    /// # Errors
-    /// Returns an error if `(x, y)` is out of bounds.
-    pub fn set_pixel(&mut self, x: usize, y: usize, color: Color) -> Result<()> {
-        self.check_position(x, y)?;
-        self.pixels[y * self.width + x] = color;
-        Ok(())
-    }
-
-    /// Returns the color of the pixel at `(x, y)`.
-    ///
-    /// # Errors
-    /// Returns an error if `(x, y)` is out of bounds.
-    pub fn get_pixel(&self, x: usize, y: usize) -> Result<Color> {
-        //Ok(self.pixels[y * self.width + x])  Is it better this previous version??
-        Ok(self.pixels[self.vector_index(x, y)?])
-    }
-
-    /// Converts `(x, y)` coordinates into a linear index.
-    ///
-    /// # Errors
-    /// Returns an error if `(x, y)` is out of bounds.
-    pub fn vector_index(&self, x: usize, y: usize) -> Result<usize> {
-        self.check_position(x, y)?;
-        Ok(x + y * self.width)
-    }
-
-    /// Checks whether `(x, y)` is inside image bounds.
-    ///
-    /// # Errors
-    /// Returns an error if the coordinates are out of bounds.
-    fn check_position(&self, x: usize, y: usize) -> Result<()> {
-        if x < self.width && y < self.height {
-            Ok(())
-        } else {
-            Err(anyhow!("OUT OF BOUND PIXEL ({},{})!", x, y))
-        }
-    }
 }
 
-// ====================
-//     Tone Mapping
-// ====================
+// =================================================================
+// Tone Mapping
+// =================================================================
 
 impl HDR {
     /// Computes the logarithmic average luminance of the image.
@@ -397,7 +397,11 @@ pub fn hdr_to_ldr(argv: &mut Parameter) -> Result<()> {
 
     Ok(())
 }
-//                 tests
+
+
+// =================================================================
+// Tests
+// =================================================================
 
 #[cfg(test)]
 mod test {

@@ -30,17 +30,14 @@ pub struct Color {
     pub b: f32,
 }
 
-// ====================
+// =================================================================
 //     Constructor
 //     and methods
-// ====================
+// =================================================================
 
 impl Color {
     /// Creates a new validated `Color`.
     ///
-    /// ## Notes
-    /// All the validations are intended to help during development. In the final
-    /// optimized renderer, these checks may be removed for performance.
     /// # Examples
     /// ```rust
     /// use rstrace::color::Color;
@@ -49,26 +46,11 @@ impl Color {
     /// assert_eq!(c.r, 0.2);
     /// ```
     pub fn new(red: f32, green: f32, blue: f32) -> Self {
-        // These checks are intended for development
-        // and may be removed later.
-        if !(red >= 0.0
-            && green >= 0.0
-            && blue >= 0.0
-            && red.is_finite()
-            && green.is_finite()
-            && blue.is_finite())
-        {
-            panic!(
-                "Color constructor:\ninvalid color red({}), green({}), blue({})",
-                red, green, blue
-            );
-        }
-
         Color {
-            r: red.abs(),
-            g: green.abs(),
-            b: blue.abs(),
-        } // The .abs() is to transform -0.0 -> +0.0
+            r: red,
+            g: green,
+            b: blue,
+        }
     }
 
     fn is_valid(&self) -> bool {
@@ -117,8 +99,6 @@ impl Color {
 
     /// Applies a simple tone-mapping transform in place.
     ///
-    /// This is a simplified variant,
-    /// not a full Reinhard tone mapping operator.
     /// Each component is mapped as:
     /// `c -> c / (c + 1)`
     ///
@@ -127,8 +107,6 @@ impl Color {
     /// # Errors
     /// Returns an error if the color is invalid.
     ///
-    /// # Note
-    /// Despite the name, this is not a traditional tone_map_reinhard operation.
     ///
     /// # Examples
     /// ```rust
@@ -148,6 +126,10 @@ impl Color {
     }
 }
 
+// =================================================================
+// Trait implementation
+// =================================================================
+
 /// Returns the default black color `(0.0, 0.0, 0.0)`.
 impl Default for Color {
     fn default() -> Self {
@@ -158,10 +140,6 @@ impl Default for Color {
         }
     }
 }
-
-// ====================
-// Trait implementation
-// ====================
 
 /// Component-wise addition of two colors.
 ///
@@ -189,6 +167,21 @@ impl Add for Color {
 }
 
 /// Component-wise multiplication of two colors.
+/// 
+/// # Examples
+/// ```rust
+/// use rstrace::color::Color;
+/// 
+/// let first_color = Color::new(1.0, 2.0, 3.0);
+/// let second_color = Color::new(10.0, 20.0, 30.0);
+/// 
+/// let mul = first_color * second_color;
+/// 
+/// assert_eq!(mul.r, 10.0);
+/// assert_eq!(mul.g, 40.0);
+/// assert_eq!(mul.b, 90.0)
+/// ```
+/// 
 impl Mul<Color> for Color {
     type Output = Color;
 
@@ -269,12 +262,6 @@ mod tests {
         assert_eq!(c.r, 0.1);
         assert_eq!(c.g, 0.2);
         assert_eq!(c.b, 0.3);
-    }
-
-    #[test]
-    #[should_panic]
-    fn test_constructor_2() {
-        let _ = Color::new(-0.1, 0.2, 0.3);
     }
 
     #[test]

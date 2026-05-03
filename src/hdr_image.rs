@@ -422,7 +422,7 @@ mod test {
     }
 
     #[test]
-    fn test_set_pixel() {
+    fn test_get_and_set_pixel() {
         let mut hdr = HDR::new(10, 2);
         hdr.set_pixel(
             5,
@@ -439,23 +439,9 @@ mod test {
         assert_eq!(pixel.g, 2.5);
         assert_eq!(pixel.b, 10.0);
     }
-    #[test]
-    fn test_get_pixel() {
-        let mut hdr = HDR::new(10, 2);
-        let color = Color {
-            r: 1.0,
-            g: 0.2,
-            b: 30.0,
-        };
-        hdr.set_pixel(1, 1, color).unwrap();
-        let pixel = hdr.get_pixel(1, 1).unwrap();
-        assert_eq!(pixel.r, color.r);
-        assert_eq!(pixel.g, color.g);
-        assert_eq!(pixel.b, color.b);
-    }
 
     #[test]
-    #[should_panic]
+    #[should_panic(expected = "OUT OF BOUND PIXEL")]
     fn test_get_pixel_panic() {
         let hdr = HDR::new(10, 2);
         let _ = hdr.get_pixel(11, 1).unwrap();
@@ -470,7 +456,7 @@ mod test {
     }
 
     #[test]
-    #[should_panic]
+    #[should_panic(expected = "OUT OF BOUND PIXEL")]
     fn test_check_position() {
         let hdr = HDR::new(10, 55);
         hdr.check_position(11, 2).unwrap();
@@ -498,13 +484,13 @@ mod test {
         let mut img = HDR::new(3, 2);
 
         img.set_pixel(0, 0, Color::new(1.0e1, 2.0e1, 3.0e1))
-            .unwrap(); // Each component is
+            .unwrap();
         img.set_pixel(1, 0, Color::new(4.0e1, 5.0e1, 6.0e1))
-            .unwrap(); // different from any
+            .unwrap();
         img.set_pixel(2, 0, Color::new(7.0e1, 8.0e1, 9.0e1))
-            .unwrap(); // other: important in
+            .unwrap();
         img.set_pixel(0, 1, Color::new(1.0e2, 2.0e2, 3.0e2))
-            .unwrap(); // tests!
+            .unwrap();
         img.set_pixel(1, 1, Color::new(4.0e2, 5.0e2, 6.0e2))
             .unwrap();
         img.set_pixel(2, 1, Color::new(7.0e2, 8.0e2, 9.0e2))

@@ -1,18 +1,18 @@
 use anyhow::Result;
-use rstrace::hdr_image::{hdr_to_ldr, HDR};
-use rstrace::pfm_func::Parameter;
-use rstrace::pfm_func::read_pfm;
-use std::fs::File;
-use std::io::BufReader;
-use clap::{Parser, Subcommand};
+use clap::{Parser};
+use rstrace::camera::{OrthogonalCamera, PerspectiveCamera};
+use rstrace::color::Color;
+use rstrace::geometry::Point;
 use rstrace::geometry::Vector;
+use rstrace::hdr_image::HDR;
+use rstrace::image_tracer::ImageTracer;
+use rstrace::pfm_func::{pfm_to_png, Endianness};
+use rstrace::ray::Ray;
 use rstrace::shapes::{Shape, Sphere};
 use rstrace::transformations::{Scaling, Transformation, Translation};
 use rstrace::world::World;
-use rstrace::camera::OrthogonalCamera;
-use rstrace::geometry::Point;
-use rstrace::image_tracer::ImageTracer;
-use rstrace::transformations::Transformation;
+use std::fs::File;
+use std::io::BufWriter;
 /*=============================================================================
 PROGRAMMER NOTES:
 The `demo` command:
@@ -27,10 +27,10 @@ The `demo` command:
 #[derive(Parser)]
 
 struct Cli {
-    #[arg(long, default_value_t = 1920)]
+    #[arg(long, default_value_t = 2000)]
     width: usize,
 
-    #[arg(long, default_value_t = 1080)]
+    #[arg(long, default_value_t = 1500)]
     height: usize,
 
     #[arg(long)]
@@ -40,19 +40,16 @@ struct Cli {
     command: Commands,
 }
 
-#[derive(Parser)]
-#[derive(Clone)]
+#[derive(Parser, Clone)]
 enum Commands {
-    Demo {
-        file: String
-    },
+    Demo { file_name: String },
 
-    Pfm2Png {
-        args: Vec<String>
-    },
+    Pfm2Png { input_file: String,
+            output_file: String,
+            factor_a: f32,
+            gamma: f32,
+        },
 }
-
-
 
 fn demo_world() -> World {
     let sphere_scaling = Scaling::new([0.1, 0.1, 0.1]);
@@ -70,13 +67,9 @@ fn demo_world() -> World {
         Sphere::new(transformation)
     };
 
-    let upper_spheres = flat_corners
-        .iter()
-        .map(|vec| return_sphere(vec, 0.5));
+    let upper_spheres = flat_corners.iter().map(|vec| return_sphere(vec, 0.5));
 
-    let lower_spheres = flat_corners
-        .iter()
-        .map(|vec| return_sphere(vec, -0.5));
+    let lower_spheres = flat_corners.iter().map(|vec| return_sphere(vec, -0.5));
 
     let central_spheres = vec![
         Sphere::new(Translation::new(Vector::new(0.0, 0.0, -0.5)) * sphere_scaling),
@@ -101,39 +94,69 @@ fn main() -> Result<()> {
     let origin: Point = Point::new(-2.0, 0.0, 0.0);
     let screen_center: Point = Point::new(-1.0, 0.0, 0.0);
     let mat = Vector::new(-2.0, 0.0, 0.0);
-    let trasl = Translation::new(mat);
-    let world = demo_world();
+    let transl = Translation::new(mat);
+
 
     match cli.command {
-        Commands::Demo {file} => {
+        Commands::Demo { file_name } => {
             let world = demo_world();
 
             if cli.orthogonal {
-                let o_cam =OrthogonalCamera::new(trasl);
+                let o_cam = OrthogonalCamera::new(transl);
                 let img = HDR::new(cli.width, cli.height);
-                let imagetracer = ImageTracer::new(img, o_cam);
-                imagetracer.fire_all_rays()
-            }else{
+                let mut imagetracer = ImageTracer::new(img, o_cam);
+                imagetracer
+                    .fire_all_rays(&world, color_image)
+                    .expect("error firing all rays");
+                println!("all done orthogonal!");
+                let file = File::create(&file_name)?;
+                let disk_writer = BufWriter::new(&file);
+                imagetracer.image.write_pfm(disk_writer, &Endianness::BigEndian).expect("error creating pfm file ");
+                pfm_to_png(file_name, 0.18, 2.2, "first_image.png".to_string()).expect("error converting file from pfm");
+
+            } else {
+                let p_cam = PerspectiveCamera::new(transl);
+                let img = HDR::new(cli.width, cli.height);
+                let mut imagetracer = ImageTracer::new(img, p_cam);
+                imagetracer
+                    .fire_all_rays(
+                        &world,
+                        color_image
+                    )
+                    .expect("error firing all rays");
+                println!("all done!");
+                let file = File::create(&file_name)?;
+                let mut disk_writer = BufWriter::new(&file);
+                imagetracer.image.write_pfm(disk_writer, &Endianness::BigEndian).expect("error creating pfm file ");
+                pfm_to_png(file_name, 0.18, 2.2, "second_image.png".to_string()).expect("error converting file from pfm");
 
             }
-            return Ok(())
+
+            // create a file
+
+
+
+
+            return Ok(());
         }
 
-        Commands::Pfm2Png {args} => {
+        Commands::Pfm2Png { input_file, output_file, factor_a, gamma } => {
+            pfm_to_png(input_file, factor_a, gamma, output_file).expect("error converting file from pfm");
+            return Ok(());
+        }
+    }
+}
 
-            let mut params = Parameter::new(args)?;
-
-            let file = File::open(&params.input_pfm_file_name);
-            let mut reader: BufReader<File> = BufReader::new(file?);
-
-            let mut img = read_pfm(&mut reader)?;
-
-            img.normalization(Some(&params.factor_a))?;
-
-            img.sem_clamp_image()?;
-
-            hdr_to_ldr(&mut params)?;
-            return Ok(())
+fn color_image(ray: Ray, world: &World) -> Result<Color> {
+    let inters = world.ray_intersection(ray);
+    match inters {
+        Some(_x) => {
+            let color = Color::new(1.0, 1.0, 1.0);
+            Ok(color)
+        }
+        None => {
+            let color = Color::new(0.0, 0.0, 0.0);
+            Ok(color)
         }
     }
 }

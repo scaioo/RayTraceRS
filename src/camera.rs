@@ -54,9 +54,10 @@ where
     }
 
     fn fire_ray(&self, u: f32, v: f32) -> Ray {
+
         // "Ugly but I hope fast" ~ Isacco.
         let point = Point {
-            x: -1.0,
+            x: -500.0,
             y: -self.aspect_ratio * (2.0 * u - 1.0),
             z: 2.0 * v - 1.0,
         };

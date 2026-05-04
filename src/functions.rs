@@ -4,6 +4,7 @@
 //! specific subsystem but are used throughout the codebase.
 
 use endianness::ByteOrder;
+use crate::pfm_func::Endianness;
 //use crate::geometry::TDV;
 
 pub static IDENTITY_4X4: [f32; 16] = [
@@ -44,10 +45,10 @@ pub fn are_close(x: f32, y: f32) -> bool {
 /// assert_eq!(-1.0, endianness_number(&ByteOrder::LittleEndian));
 /// assert_eq!(1.0, endianness_number(&ByteOrder::BigEndian));
 /// ```
-pub fn endianness_number(endianness: &ByteOrder) -> f32 {
+pub fn endianness_number(endianness: &Endianness) -> f32 {
     match endianness {
-        ByteOrder::LittleEndian => -1.0,
-        ByteOrder::BigEndian => 1.0,
+        Endianness::LittleEndian => -1.0,
+        Endianness::BigEndian => 1.0,
     }
 }
 
@@ -202,37 +203,21 @@ pub fn equal_matrices(mat1: &[f32; 16], mat2: &[f32; 16]) -> bool {
 pub fn det_3x3(m: &[f32; 9]) -> f32 {
     let [a, b, c, d, e, f, g, h, i] = *m;
 
-    a * (e * i - f * h) -
-        b * (d * i - f * g) +
-        c * (d * h - e * g)
+    a * (e * i - f * h) - b * (d * i - f * g) + c * (d * h - e * g)
 }
-
-
 
 pub fn cramer(m: &[f32; 9], v: [f32; 3]) -> [f32; 3] {
     let det = det_3x3(m);
-    let mut result : [f32; 3] = [1.0/det, 1.0/det, 1.0/det];
+    let mut result: [f32; 3] = [1.0 / det, 1.0 / det, 1.0 / det];
 
     let [a, b, c, d, e, f, g, h, i] = *m;
-    let mat: [f32; 9] = [
-        v[0], b, c,
-        v[1], e, f,
-        v[2], h, i
-    ];
+    let mat: [f32; 9] = [v[0], b, c, v[1], e, f, v[2], h, i];
     result[0] *= det_3x3(&mat);
 
-    let mat : [f32; 9] = [
-        a, v[0], c,
-        d, v[1], f,
-        g, v[2], i
-    ];
+    let mat: [f32; 9] = [a, v[0], c, d, v[1], f, g, v[2], i];
     result[1] *= det_3x3(&mat);
 
-    let mat : [f32; 9] = [
-        a, b, v[0],
-        d, e, v[1],
-        g, h, v[2]
-    ];
+    let mat: [f32; 9] = [a, b, v[0], d, e, v[1], g, h, v[2]];
     result[2] *= det_3x3(&mat);
 
     result
@@ -240,6 +225,7 @@ pub fn cramer(m: &[f32; 9], v: [f32; 3]) -> [f32; 3] {
 // tests
 #[cfg(test)]
 mod tests {
+    use std::io::SeekFrom::End;
     use image::ExtendedColorType::A8;
     //use crate::geometry::{is_close, Vector};
     use super::*;
@@ -273,8 +259,8 @@ mod tests {
 
     #[test]
     fn test_endianness_number() {
-        assert_eq!(-1.0, endianness_number(&ByteOrder::LittleEndian));
-        assert_eq!(1.0, endianness_number(&ByteOrder::BigEndian));
+        assert_eq!(-1.0, endianness_number(&Endianness::LittleEndian));
+        assert_eq!(1.0, endianness_number(&Endianness::BigEndian));
     }
 
     #[test]
@@ -365,31 +351,35 @@ mod tests {
 
     #[test]
     fn test_det_3x3() {
-        let mat:[f32; 9] = [1.0, 0.0, 0.0, 0.0, 1.0, 0.0, 0.0, 0.0, 1.0];
+        let mat: [f32; 9] = [1.0, 0.0, 0.0, 0.0, 1.0, 0.0, 0.0, 0.0, 1.0];
         let result = det_3x3(&mat);
-        assert!(are_close(result, 1.0), "computed determinant: {}",result );
-        let mat:[f32; 9] = [2.0, 3.0, 0.0, 4.0, 1.5, 0.0, 0.0, 1.0, 1.0];
+        assert!(are_close(result, 1.0), "computed determinant: {}", result);
+        let mat: [f32; 9] = [2.0, 3.0, 0.0, 4.0, 1.5, 0.0, 0.0, 1.0, 1.0];
         let result = det_3x3(&mat);
         // aei + bfg + cdh - ceg - bdi - afg
         let expected = 3.0 + 0.0 + 0.0 - 0.0 - 12.0 - 0.0 - 0.0;
-        assert!(are_close(result, expected), "computed determinant: {}",result );
+        assert!(
+            are_close(result, expected),
+            "computed determinant: {}",
+            result
+        );
     }
 
     #[test]
     fn test_cramer() {
-        let mat:[f32; 9] = [1.0, 0.0, 0.0, 0.0, 1.0, 0.0, 0.0, 0.0, 1.0];
-        let v : [f32; 3] = [1.0, 2.0, 3.0];
-        let result = cramer(&mat,v);
+        let mat: [f32; 9] = [1.0, 0.0, 0.0, 0.0, 1.0, 0.0, 0.0, 0.0, 1.0];
+        let v: [f32; 3] = [1.0, 2.0, 3.0];
+        let result = cramer(&mat, v);
         for i in 0..3 {
             assert!(are_close(result[i], v[i]), "{:?}", mat[i]);
         }
 
-        let mat:[f32; 9] = [2.0, 5.0, -3.0, 2.0, -5.0, 3.0, 0.0, -5.0, 2.0];
-        let v : [f32; 3] = [1.0, 3.0, 0.0];
-        let result = cramer(&mat,v);
+        let mat: [f32; 9] = [2.0, 5.0, -3.0, 2.0, -5.0, 3.0, 0.0, -5.0, 2.0];
+        let v: [f32; 3] = [1.0, 3.0, 0.0];
+        let result = cramer(&mat, v);
         let expected: [f32; 3] = [1.0, 0.4, 1.0];
         for i in 0..3 {
-            assert!(are_close(result[i], expected[i]), "{}: {:?}", i+1, mat[i]);
+            assert!(are_close(result[i], expected[i]), "{}: {:?}", i + 1, mat[i]);
         }
     }
 }

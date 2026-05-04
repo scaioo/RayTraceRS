@@ -174,7 +174,7 @@ where
         let result = Normal::new(0.0, 0.0, 1.0);
         if ray.dir.z > 0.0 { -result } else { result }
     }
-    
+
     fn point_to_uv(&self, point: &Point) -> Vec2D {
         Vec2D {
             x: point.x - point.x.floor(),
@@ -200,29 +200,37 @@ pub struct Triangle<T: IsHomogeneousMatrix> {
     pub a: Point,
     pub b: Point,
     pub c: Point,
-    pub transformation: T
+    pub transformation: T,
 }
 
 impl<T> Shape for Triangle<T>
 where
     T: IsHomogeneousMatrix
-    + Mul<Ray, Output = Ray>
-    + Mul<Point, Output = Point>
-    + Mul<Normal, Output = Normal>
-    + Mul<Vector, Output = Vector>
-    + Copy,
+        + Mul<Ray, Output = Ray>
+        + Mul<Point, Output = Point>
+        + Mul<Normal, Output = Normal>
+        + Mul<Vector, Output = Vector>
+        + Copy,
 {
     fn ray_intersection(&self, ray: Ray) -> Option<HitRecord> {
         panic!("TO BE WRITTEN!")
     }
-    
+
     fn normal_at(&self, point: Point, ray: &Ray) -> Normal {
-        let result = (self.b - self.a).cross(&(self.c - self.a)) ;
-        let result = Normal{x: result.x, y: result.y, z: result.z};
-        
-        if ray.dir.dot(&result) > 0.0 { - result } else { result }
+        let result = (self.b - self.a).cross(&(self.c - self.a));
+        let result = Normal {
+            x: result.x,
+            y: result.y,
+            z: result.z,
+        };
+
+        if ray.dir.dot(&result) > 0.0 {
+            -result
+        } else {
+            result
+        }
     }
-    
+
     fn point_to_uv(&self, point: &Point) -> Vec2D {
         panic!("TO BE WRITTEN!")
     }

@@ -26,7 +26,7 @@
 //! - Extra trailing bytes are treated as an error.
 //! - Pixel data is stored in row-major order.
 use crate::color::Color;
-use crate::hdr_image::HDR;
+use crate::hdr_image::{hdr_to_ldr, HDR};
 use anyhow::anyhow;
 use std::fs::File;
 use std::io::{BufRead, BufReader, Read};
@@ -333,19 +333,19 @@ impl Parameter {
     ///
     /// let params = Parameter::new(args).unwrap();
     /// ```
-    pub fn new(args: Vec<String>) -> anyhow::Result<Parameter> {
-        if args.len() != 5 {
+    pub fn new(args: &Vec<String>) -> anyhow::Result<Parameter> {
+        if args.len() != 4 {
             return Err(anyhow!(
                 "wrong number of parameters: expected\n\
             <input_file_name> <factor_a> <gamma> <output_file_name>"
             ));
         }
 
-        let input_temp: &String = &args[1];
+        let input_temp: &String = &args[0];
         let input_pfm_file_name = input_temp.to_string();
-        let mut factor_a: f32 = args[2].parse::<f32>().expect("invalid factor_a value");
-        let mut gamma: f32 = args[3].parse::<f32>().expect("invalid gamma value");
-        let output_temp: &String = &args[4];
+        let mut factor_a: f32 = args[1].parse::<f32>().expect("invalid factor_a value");
+        let mut gamma: f32 = args[2].parse::<f32>().expect("invalid gamma value");
+        let output_temp: &String = &args[3];
         let output_file_name: String = output_temp.to_string();
         if factor_a <= 0.0 {
             println!("factor 'a' was automatically set to 0.18");
@@ -364,6 +364,21 @@ impl Parameter {
             output_file_name,
         })
     }
+}
+
+pub fn pfm_to_png(input_file: String, factor_a: f32, gamma: f32, output_file: String) -> anyhow::Result<()>{
+
+    let args    = vec![input_file, factor_a.to_string(), gamma.to_string(), output_file];
+
+    let mut params = Parameter::new(&args)?;
+
+    let file = File::open(&args[0]);
+    let mut reader: BufReader<File> = BufReader::new(file?);
+    let mut img = read_pfm(&mut reader)?;
+    img.normalization(Some(&factor_a))?;
+    img.sem_clamp_image()?;
+    hdr_to_ldr(&mut params)?;
+    Ok(())
 }
 
 #[cfg(test)]
@@ -474,7 +489,7 @@ mod test {
         let strings: Vec<String> = ["exe", "filename_in", "a", "2.2", "filename_out"]
             .map(String::from)
             .to_vec();
-        let _par = Parameter::new(strings);
+        let _par = Parameter::new(&strings);
     }
 
     #[test]
@@ -484,7 +499,7 @@ mod test {
         let strings: Vec<String> = ["exe", "filename_in", "0.18", "a", "filename_out"]
             .map(String::from)
             .to_vec();
-        let _par = Parameter::new(strings);
+        let _par = Parameter::new(&strings);
     }
 
     #[test]
@@ -493,7 +508,7 @@ mod test {
         let strings: Vec<String> = ["exe", "filename_in", "-1", "2.2", "filename_out"]
             .map(String::from)
             .to_vec();
-        let par = Parameter::new(strings).unwrap();
+        let par = Parameter::new(&strings).unwrap();
         assert_eq!(0.18, par.factor_a);
     }
 
@@ -503,7 +518,7 @@ mod test {
         let strings: Vec<String> = ["exe", "filename_in", "0.18", "-1", "filename_out"]
             .map(String::from)
             .to_vec();
-        let par = Parameter::new(strings).unwrap();
+        let par = Parameter::new(&strings).unwrap();
         assert_eq!(2.2, par.gamma);
     }
 
@@ -521,7 +536,7 @@ mod test {
         ]
         .map(String::from)
         .to_vec();
-        let _par = Parameter::new(strings).unwrap();
+        let _par = Parameter::new(&strings).unwrap();
     }
 
     #[test]

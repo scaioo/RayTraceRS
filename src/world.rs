@@ -37,10 +37,11 @@ impl World {
 
         if found_intersection {
             Some(ray.at(t))
-        } else { None }
+        } else {
+            None
+        }
     }
 }
-
 
 impl Add for World {
     type Output = World;
@@ -53,11 +54,11 @@ impl Add for World {
 
 #[cfg(test)]
 mod tests {
-    use crate::functions::{are_close, IDENTITY_4X4};
-    use crate::geometry::{is_close, Point, Vector};
+    use crate::functions::{IDENTITY_4X4, are_close};
+    use crate::geometry::{Point, Vector, is_close};
     use crate::ray::Ray;
     use crate::shapes::{Plane, Sphere};
-    use crate::transformations::{Translation, Scaling, Transformation};
+    use crate::transformations::{Scaling, Transformation, Translation};
     use crate::world::World;
 
     fn setup() -> World {
@@ -65,7 +66,9 @@ mod tests {
         let sphere2 = Sphere::new(Translation::new(Vector::new(0.0, 5.0, 0.0)));
         let bean = Sphere::new(Scaling::new([1.0, 1.0, 2.0]));
 
-        World{objects: vec![Box::new(sphere1), Box::new(sphere2), Box::new(bean)]}
+        World {
+            objects: vec![Box::new(sphere1), Box::new(sphere2), Box::new(bean)],
+        }
     }
 
     #[test]
@@ -81,9 +84,7 @@ mod tests {
             None => panic!("No intersection found."),
         };
         let implicit =
-            hit_point.x * hit_point.x
-            + hit_point.y * hit_point.y
-            + hit_point.z * hit_point.z / 4.0;
+            hit_point.x * hit_point.x + hit_point.y * hit_point.y + hit_point.z * hit_point.z / 4.0;
         assert!(are_close(implicit, 1.0));
     }
 
@@ -95,7 +96,7 @@ mod tests {
             Point::new(10.0, 1.0, 0.0),
             Point::new(10.0, 3.0, 0.0),
             Point::new(10.0, 5.0, 0.0),
-            Point::new(10.0, 10.0, 0.0)
+            Point::new(10.0, 10.0, 0.0),
         ];
         let rays = points
             .clone()
@@ -103,12 +104,12 @@ mod tests {
             .map(|point| Ray::new(point.clone(), Vector::new(-1.0, 0.0, 0.0)))
             .collect::<Vec<Ray>>();
 
-        let expected : [Option<Point>; 5] = [
+        let expected: [Option<Point>; 5] = [
             Some(Point::new(6.0, 0.0, 0.0)),
             None,
             None,
-            Some(Point::new(1.0,5.0,0.0)),
-            None
+            Some(Point::new(1.0, 5.0, 0.0)),
+            None,
         ];
 
         for i in 0..5 {
@@ -122,7 +123,7 @@ mod tests {
 
         let transformation = Transformation::new(IDENTITY_4X4);
         let plane = Plane::new(transformation);
-        let world_2 = World{
+        let world_2 = World {
             objects: vec![Box::new(plane), Box::new(plane), Box::new(plane)],
         };
 

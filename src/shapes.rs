@@ -201,7 +201,6 @@ pub struct Triangle {
     pub a: Point,
     pub b: Point,
     pub c: Point,
-    pub transformation: T,
 }
 
 //                           For triangle implementation

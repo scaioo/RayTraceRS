@@ -13,6 +13,7 @@ use rstrace::transformations::{Scaling, Transformation, Translation};
 use rstrace::world::World;
 use std::fs::File;
 use std::io::BufWriter;
+use std::time::Instant;
 /*=============================================================================
 PROGRAMMER NOTES:
 The `demo` command:
@@ -87,6 +88,7 @@ fn demo_world() -> World {
 }
 
 fn main() -> Result<()> {
+    let now = Instant::now();
     // Leave two lines between the execution and the printing of the
     println! {"\n------------------------------------------------------\n"};
 
@@ -135,13 +137,16 @@ fn main() -> Result<()> {
             // create a file
 
 
-
-
+            let duration = now.elapsed();
+            println!("Program finished in {:?}", duration);
             return Ok(());
         }
 
         Commands::Pfm2Png { input_file, output_file, factor_a, gamma } => {
             pfm_to_png(input_file, factor_a, gamma, output_file).expect("error converting file from pfm");
+            
+            let duration = now.elapsed();
+            println!("Program finished in {:?}", duration);
             return Ok(());
         }
     }

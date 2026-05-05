@@ -1,6 +1,6 @@
 use anyhow::Result;
 use clap::{Parser};
-use rstrace::camera::{OrthogonalCamera, PerspectiveCamera};
+use rstrace::camera::{Camera, OrthogonalCamera, PerspectiveCamera};
 use rstrace::color::Color;
 use rstrace::geometry::Point;
 use rstrace::geometry::Vector;
@@ -28,10 +28,10 @@ The `demo` command:
 #[derive(Parser)]
 
 struct Cli {
-    #[arg(long, default_value_t = 2000)]
+    #[arg(long, default_value_t = 1000)]
     width: usize,
 
-    #[arg(long, default_value_t = 1500)]
+    #[arg(long, default_value_t = 700)]
     height: usize,
 
     #[arg(long)]
@@ -104,8 +104,10 @@ fn main() -> Result<()> {
             let world = demo_world();
 
             if cli.orthogonal {
-                let o_cam = OrthogonalCamera::new(transl);
+                let mut o_cam = OrthogonalCamera::new(transl);
                 let img = HDR::new(cli.width, cli.height);
+                let aspectratio = (img.width as f32 / img.height as f32) ;
+                o_cam.set_aspect_ratio(aspectratio);
                 let mut imagetracer = ImageTracer::new(img, o_cam);
                 imagetracer
                     .fire_all_rays(&world, color_image)
@@ -114,11 +116,14 @@ fn main() -> Result<()> {
                 let file = File::create(&file_name)?;
                 let disk_writer = BufWriter::new(&file);
                 imagetracer.image.write_pfm(disk_writer, &Endianness::BigEndian).expect("error creating pfm file ");
-                pfm_to_png(file_name, 0.18, 2.2, "first_image.png".to_string()).expect("error converting file from pfm");
+                pfm_to_png(file_name, 0.18, 2.2, "third_image.png".to_string()).expect("error converting file from pfm");
 
             } else {
-                let p_cam = PerspectiveCamera::new(transl);
+                let mut p_cam = PerspectiveCamera::new(transl);
                 let img = HDR::new(cli.width, cli.height);
+
+                let aspectratio = (img.width as f32 / img.height as f32) ;
+                p_cam.set_aspect_ratio(aspectratio);
                 let mut imagetracer = ImageTracer::new(img, p_cam);
                 imagetracer
                     .fire_all_rays(

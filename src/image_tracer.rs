@@ -2,10 +2,11 @@ use crate::camera::Camera;
 use crate::color::Color;
 use crate::hdr_image::HDR;
 use crate::ray::Ray;
+use crate::world::World;
 use anyhow::Result;
 
 #[derive(Clone, Debug, PartialEq)]
-pub struct ImageTracer<C: Camera> {
+pub struct ImageTracer< C: Camera> {
     pub image: HDR,
     pub camera: C,
 }
@@ -19,17 +20,17 @@ impl<C: Camera> ImageTracer<C> {
         let v = 1.0 - ((row as f32 + v_pixel) / (self.image.height as f32));
         self.camera.fire_ray(u, v)
     }
-    pub fn fire_all_rays<F>(&mut self, func: F) -> Result<()>
+    pub fn fire_all_rays<F>(&mut self, world: &World, func: F) -> Result<()>
     where
         // `func` takes a Ray and returns a Color (adjust return type as needed)
-        F: Fn(Ray) -> Result<Color>,
+        F: Fn(Ray, &World) -> Result<Color>,
     {
         for row in 0..self.image.height {
             for col in 0..self.image.width {
                 // Using 0.5 as the default pixel offsets like in Python
                 let ray = self.fire_ray(col, row, 0.5, 0.5);
 
-                let color = func(ray)?;
+                let color = func(ray, world)?;
 
                 self.image
                     .set_pixel(col, row, color)
@@ -46,8 +47,9 @@ mod tests {
     use crate::camera::PerspectiveCamera;
     use crate::color::Color;
     use crate::functions::IDENTITY_4X4;
-    use crate::geometry::Point;
-    use crate::transformations::Transformation;
+    use crate::geometry::{Point, Vector};
+    use crate::shapes::{Shape, Sphere};
+    use crate::transformations::{Scaling, Transformation, Translation};
 
     #[test]
     fn test_image_tracer() -> Result<()> {
@@ -80,12 +82,40 @@ mod tests {
 
     #[test]
     fn test_image_coverage() -> Result<()> {
+        fn color_image(ray: Ray, world: &World) -> Result<Color> {
+            let inters = world.ray_intersection(ray);
+            match inters {
+                Some(x) => {
+                    let color = Color::new(1.0, 1.0, 1.0);
+                    Ok(color)
+                }
+                None => {
+                    let color = Color::new(0.0, 0.0, 0.0);
+                    Ok(color)
+                }
+            }
+        }
+
+        fn demo_world() -> World {
+            let sphere_scaling = Scaling::new([0.1, 0.1, 0.1]);
+
+            let central_spheres = vec![
+                Sphere::new(Translation::new(Vector::new(0.0, 0.0, -0.5)) * sphere_scaling),
+                Sphere::new(Translation::new(Vector::new(0.0, 0.5, 0.0)) * sphere_scaling),
+            ];
+
+            let objects: Vec<Box<dyn Shape>> = central_spheres
+                .into_iter()
+                .map(|s| Box::new(s) as Box<dyn Shape>)
+                .collect();
+
+            World { objects }
+        }
         let image = HDR::new(4, 2);
         let mut camera = PerspectiveCamera::new(Transformation::new(IDENTITY_4X4));
         camera.set_aspect_ratio(2.0);
         let mut tracer = ImageTracer::new(image, camera);
-
-        tracer.fire_all_rays(|_ray| Ok(Color::new(1.0, 2.0, 3.0)))?;
+        tracer.fire_all_rays(&demo_world(), color_image)?;
 
         // 2. Iterate through the tracer's image to verify the pixels
         let expected_color = Color::new(1.0, 2.0, 3.0);

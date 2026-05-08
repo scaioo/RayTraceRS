@@ -67,7 +67,7 @@ impl Within for f32 {
 
     /// Returns `true` if the value is between `min` and `max` (inclusive).
     ///
-    /// $$min <= x <= max$$
+    /// $$min \le x \le max$$
     ///
     /// # Examples
     /// ```rust
@@ -122,7 +122,7 @@ pub fn endianness_number(endianness: &Endianness) -> f32 {
 }
 
 /// Multiplies two row-major 4×4 matrices stored as `[f32; 16]`.
-pub fn fast_matrix_mul(a: &[f32; 16], b: &[f32; 16]) -> [f32; 16] {
+pub fn matrix_mul_4x4(a: &[f32; 16], b: &[f32; 16]) -> [f32; 16] {
     let mut result = [0.0; 16];
 
     // First row
@@ -153,8 +153,12 @@ pub fn fast_matrix_mul(a: &[f32; 16], b: &[f32; 16]) -> [f32; 16] {
     result
 }
 
-/// TODO: CHANGE TO RETURN TYPE the inverse of a 4x4 matrix or returns Err
-pub fn inverse_4x4(m: &[f32; 16]) -> [f32; 16] {
+/// This functions takes a 4x4 matrix stored as a `[f32; 16]` array and returns the inverse matrix.
+///
+/// # Errors
+///
+/// The function returns an error if no inverse matrix exists.
+pub fn inverse_4x4(m: &[f32; 16]) -> Result<[f32; 16]> {
     let mut inv = [0.0; 16];
 
     inv[0] = m[5] * m[10] * m[15] - m[5] * m[11] * m[14] - m[9] * m[6] * m[15]
@@ -240,19 +244,19 @@ pub fn inverse_4x4(m: &[f32; 16]) -> [f32; 16] {
     let det = m[0] * inv[0] + m[1] * inv[4] + m[2] * inv[8] + m[3] * inv[12];
 
     if det.abs() < 1e-6 {
-        panic!("det is 0.0!");
-    }
+        Err(anyhow!("There is no inverse matrix: det = 0!"))
+    } else {
+        let inv_det = 1.0 / det;
+        for item in &mut inv {
+            *item *= inv_det;
+        }
 
-    let inv_det = 1.0 / det;
-    for item in &mut inv {
-        *item *= inv_det;
+        Ok(inv)
     }
-
-    inv
 }
 
 
-/// This function gets a 4x4 matrix as `[f32; 16]` and returns the transposed matrix as `[f32; 16]`.
+/// This function takes a 4x4 matrix as `[f32; 16]` and returns the transposed matrix as `[f32; 16]`.
 pub fn transpose_matrix(m: &[f32; 16]) -> [f32; 16] {
     let mut result: [f32; 16] = [0.0; 16];
     for i in 0..4 {
@@ -374,7 +378,7 @@ mod tests {
         let mat1_inverse: [f32; 16] = [
             0.5, 0.0, 0.0, 0.0, 0.0, 0.2, 0.0, 0.0, 0.0, 0.0, 0.1, 0.0, 0.0, 0.0, 0.0, 1.0,
         ];
-        let result = fast_matrix_mul(&mat1, &mat1_inverse);
+        let result = matrix_mul_4x4(&mat1, &mat1_inverse);
         for i in 0..16 {
             assert_eq!(result[i], IDENTITY_4X4[i]);
         }
@@ -384,9 +388,9 @@ mod tests {
         let mat2_inverse: [f32; 16] = [
             1.0, 0.0, 0.0, -10.0, 0.0, 1.0, 0.0, 0.0, 0.0, 0.0, 1.0, 0.0, 0.0, 0.0, 0.0, 1.0,
         ];
-        let result1 = fast_matrix_mul(&mat2, &mat1_inverse);
-        let result2 = fast_matrix_mul(&mat1, &mat2_inverse);
-        let result = fast_matrix_mul(&result1, &result2);
+        let result1 = matrix_mul_4x4(&mat2, &mat1_inverse);
+        let result2 = matrix_mul_4x4(&mat1, &mat2_inverse);
+        let result = matrix_mul_4x4(&result1, &result2);
         for i in 0..16 {
             assert_eq!(result[i], IDENTITY_4X4[i]);
         }
@@ -400,7 +404,7 @@ mod tests {
         let mat1_inverse: [f32; 16] = [
             0.5, 0.0, 0.0, 0.0, 0.0, 0.2, 0.0, 0.0, 0.0, 0.0, 0.1, 0.0, 0.0, 0.0, 0.0, 1.0,
         ];
-        let result = inverse_4x4(&mat1);
+        let result = inverse_4x4(&mat1).unwrap();
         for i in 0..16 {
             assert!(are_close(result[i], mat1_inverse[i]));
         }
@@ -410,10 +414,22 @@ mod tests {
         let mat1_inverse: [f32; 16] = [
             1.0, 0.0, 0.0, -10.0, 0.0, 1.0, 0.0, 0.0, 0.0, 0.0, 1.0, 0.0, 0.0, 0.0, 0.0, 1.0,
         ];
-        let result = inverse_4x4(&mat1);
+        let result = inverse_4x4(&mat1).unwrap();
         for i in 0..16 {
             assert!(are_close(result[i], mat1_inverse[i]));
         }
+    }
+
+    #[test]
+    fn test_inverse_error() {
+        let mat:[f32; 16] = [
+            1.0, 0.0, 0.0, 0.0,
+            0.0, 1.0, 0.0, 0.0,
+            0.0, 0.0, 1.0, 0.0,
+            1.0, 1.0, 1.0, 0.0
+        ];
+        let result = inverse_4x4(&mat);
+        assert!(result.is_err());
     }
 
     #[test]
@@ -448,7 +464,7 @@ mod tests {
         let mat1_inverse: [f32; 16] = [
             1.0, 0.0, 0.0, -10.0, 0.0, 1.0, 0.0, 0.0, 0.0, 0.0, 1.0, 0.0, 0.0, 0.0, 0.0, 1.0,
         ];
-        let result = fast_matrix_mul(&mat1, &mat1_inverse);
+        let result = matrix_mul_4x4(&mat1, &mat1_inverse);
         assert!(equal_matrices(&result, &IDENTITY_4X4));
     }
 

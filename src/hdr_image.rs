@@ -38,7 +38,7 @@ use endianness::ByteOrder;
 use std::fs::File;
 use std::io::{BufReader, Write};
 
-use crate::pfm_func::{Parameter, read_pfm};
+use crate::pfm_func::{Parameter, read_pfm, Endianness};
 use image::{Rgb, RgbImage};
 
 /// Represents an HDR (High Dynamic Range) image.
@@ -173,7 +173,7 @@ impl HDR {
     /// - The scale factor encodes endianness:
     ///   - Negative = little endian
     ///   - Positive = big endian
-    pub fn write_pfm<W: Write>(&self, mut writer: W, endianness: &ByteOrder) -> Result<()> {
+    pub fn write_pfm<W: Write>(&self, mut writer: W, endianness: &Endianness) -> Result<()> {
         write!(
             writer,
             "PF\n{} {}\n{:.1}\n",
@@ -183,7 +183,7 @@ impl HDR {
         )?;
 
         match endianness {
-            ByteOrder::LittleEndian => {
+            Endianness::LittleEndian => {
                 for y in (0..self.height).rev() {
                     for x in 0..self.width {
                         let color = self.get_pixel(x, y)?;
@@ -193,7 +193,7 @@ impl HDR {
                     }
                 }
             }
-            ByteOrder::BigEndian => {
+            Endianness::BigEndian => {
                 for y in (0..self.height).rev() {
                     for x in 0..self.width {
                         let color = self.get_pixel(x, y)?;
@@ -496,11 +496,11 @@ mod test {
         img.set_pixel(2, 1, Color::new(7.0e2, 8.0e2, 9.0e2))
             .unwrap();
         let mut buffer: Vec<u8> = vec![];
-        img.write_pfm(&mut buffer, &ByteOrder::LittleEndian)
+        img.write_pfm(&mut buffer, &Endianness::LittleEndian)
             .unwrap();
         assert_eq!(buffer, reference_le_bytes);
         buffer = vec![];
-        img.write_pfm(&mut buffer, &ByteOrder::BigEndian).unwrap();
+        img.write_pfm(&mut buffer, &Endianness::BigEndian).unwrap();
         assert_eq!(buffer, reference_be_bytes);
     }
 

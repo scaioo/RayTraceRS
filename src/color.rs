@@ -38,6 +38,9 @@ pub struct Color {
 impl Color {
     /// Creates a new validated `Color`.
     ///
+    /// ## Notes
+    /// All the validations are intended to help during development. In the final
+    /// optimized renderer, these checks may be removed for performance.
     /// # Examples
     /// ```rust
     /// use rstrace::color::Color;
@@ -46,11 +49,7 @@ impl Color {
     /// assert_eq!(c.r, 0.2);
     /// ```
     pub fn new(red: f32, green: f32, blue: f32) -> Self {
-        Color {
-            r: red,
-            g: green,
-            b: blue,
-        }
+        Color { r: red, g: green, b: blue }
     }
 
     fn is_valid(&self) -> bool {
@@ -140,6 +139,10 @@ impl Default for Color {
         }
     }
 }
+
+// ====================
+// Trait implementation
+// ====================
 
 /// Component-wise addition of two colors.
 ///

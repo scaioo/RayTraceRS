@@ -15,12 +15,6 @@ use std::ops::{Add, Div, Mul};
 
 /// RGB color stored as three linear floating-point components.
 ///
-/// A physically valid color has finite, non-negative components.
-///
-/// During development, [`Color::new`] and [`Color::self_check`] enforce
-/// these constraints to help detect errors early. These checks may be
-/// relaxed in optimized builds.
-///
 /// Arithmetic operations do not enforce validity, so intermediate values
 /// may be outside the physically meaningful range.
 #[derive(Copy, Clone, Debug, PartialEq)]
@@ -38,9 +32,6 @@ pub struct Color {
 impl Color {
     /// Creates a new validated `Color`.
     ///
-    /// ## Notes
-    /// All the validations are intended to help during development. In the final
-    /// optimized renderer, these checks may be removed for performance.
     /// # Examples
     /// ```rust
     /// use rstrace::color::Color;
@@ -234,7 +225,7 @@ impl Div<f32> for Color {
 
     fn div(self, rhs: f32) -> Self::Output {
         if rhs == 0.0 {
-            panic!("Cannot divide by zero-valued `Color`!");
+            panic!("Cannot divide `Color` by zero-valued !");
         }
 
         Color {

@@ -83,7 +83,7 @@ mod tests {
     #[test]
     fn test_image_coverage() -> Result<()> {
         fn color_image(ray: Ray, world: &World) -> Result<Color> {
-            let inters = world.ray_intersection(ray);
+            let inters = world.ray_intersection(&ray);
             match inters {
                 Some(x) => {
                     let color = Color::new(1.0, 1.0, 1.0);

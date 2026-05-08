@@ -24,7 +24,7 @@ impl World {
     /// # Returns
     /// - `Some(Point)` if an intersection is found.
     /// - `None` if the ray misses all objects or intersections fall outside the valid range.
-    pub fn ray_intersection(&self, ray: Ray) -> Option<Point> {
+    pub fn ray_intersection(&self, ray: &Ray) -> Option<Point> {
         // Note: this returns the first intersection
 
         // I would try not to dump the world object
@@ -95,7 +95,7 @@ mod tests {
 
         // Only captures the bean
         let ray = Ray::new(point1, dir);
-        let hit_point = match world.ray_intersection(ray) {
+        let hit_point = match world.ray_intersection(&ray) {
             Some(a) => a,
             None => panic!("No intersection found."),
         };
@@ -129,7 +129,7 @@ mod tests {
         ];
 
         for i in 0..5 {
-            assert_eq!(expected[i], world.ray_intersection(rays[i]));
+            assert_eq!(expected[i], world.ray_intersection(&rays[i]));
         }
     }
 

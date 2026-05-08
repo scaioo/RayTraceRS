@@ -14,7 +14,7 @@ use std::ops::Mul;
 use anyhow::{ anyhow, Result};
 
 pub trait Shape {
-    fn ray_intersection(&self, ray: Ray) -> Option<HitRecord>;
+    fn ray_intersection(&self, ray: &Ray) -> Option<HitRecord>;
 
     fn normal_at(&self, point: Point, ray: &Ray) -> Normal;
 
@@ -54,9 +54,9 @@ where
         + Mul<Vector, Output = Vector>
         + Copy,
 {
-    fn ray_intersection(&self, ray: Ray) -> Option<HitRecord> {
+    fn ray_intersection(&self, ray: &Ray) -> Option<HitRecord> {
         let inverse_transformation = self.transformation.inverse_transformation();
-        let transformed_ray = inverse_transformation * ray;
+        let transformed_ray = inverse_transformation * (*ray);
 
         let origin = transformed_ray.origin - Point::new(0.0, 0.0, 0.0);
 
@@ -91,7 +91,7 @@ where
             normal: self.transformation * self.normal_at(hit_point, &transformed_ray),
             uv: self.point_to_uv(&hit_point),
             t,
-            ray,
+            ray: *ray,
         })
     }
 
@@ -149,9 +149,9 @@ where
         + Mul<Vector, Output = Vector>
         + Copy,
 {
-    fn ray_intersection(&self, ray: Ray) -> Option<HitRecord> {
+    fn ray_intersection(&self, ray: &Ray) -> Option<HitRecord> {
         let inverse_transformation = self.transformation.inverse_transformation();
-        let transformed_ray = inverse_transformation * ray;
+        let transformed_ray = inverse_transformation * (*ray);
 
         if are_close(transformed_ray.dir.z, 0.0) {
             return None;
@@ -167,7 +167,7 @@ where
             normal: self.transformation * self.normal_at(hit_point, &transformed_ray),
             uv: self.point_to_uv(&hit_point),
             t,
-            ray,
+            ray: *ray,
         })
     }
 
@@ -238,8 +238,8 @@ impl Triangle {
 }
 
 impl Shape for Triangle {
-    fn ray_intersection(&self, ray: Ray) -> Option<HitRecord> {
-        let (t, beta, gamma) = self._intersection(ray).ok()?;
+    fn ray_intersection(&self, ray: &Ray) -> Option<HitRecord> {
+        let (t, beta, gamma) = self._intersection(*ray).ok()?;
 
         if t.is_between_close(&ray.t_min,& ray.t_max) {
             let hit_point = ray.at(t);
@@ -249,7 +249,7 @@ impl Shape for Triangle {
                     normal: self.normal_at(hit_point, &ray),
                     uv : Vec2D::new(beta, gamma),
                     t,
-                    ray
+                    ray: *ray,
                 }
             )
         } else { None }
@@ -317,7 +317,7 @@ mod tests {
         ];
 
         for i in 0..3 {
-            let hit_record = match sphere.ray_intersection(rays[i]) {
+            let hit_record = match sphere.ray_intersection(&rays[i]) {
                 None => panic!("ray_intersection IS WRONG!"),
                 Some(h) => h,
             };
@@ -340,7 +340,7 @@ mod tests {
         ];
 
         for i in 0..3 {
-            let hit_record = match sphere.ray_intersection(rays[i]) {
+            let hit_record = match sphere.ray_intersection(&rays[i]) {
                 None => panic!("ray_intersection IS WRONG!"),
                 Some(h) => h,
             };
@@ -363,7 +363,7 @@ mod tests {
         ];
 
         for i in 0..3 {
-            let hit_record = match sphere.ray_intersection(rays[i]) {
+            let hit_record = match sphere.ray_intersection(&rays[i]) {
                 None => panic!("ray_intersection IS WRONG!"),
                 Some(h) => h,
             };
@@ -390,7 +390,7 @@ mod tests {
 
         let point = Point::new(10.0, 0.0, 1.0);
 
-        let hit_record = match sphere.ray_intersection(ray) {
+        let hit_record = match sphere.ray_intersection(&ray) {
             None => panic!("ray_intersection IS WRONG!"),
             Some(h) => h,
         };
@@ -404,7 +404,7 @@ mod tests {
 
         let point = Point::new(11.0, 0.0, 0.0);
 
-        let hit_record = match sphere.ray_intersection(ray2) {
+        let hit_record = match sphere.ray_intersection(&ray2) {
             None => panic!("ray_intersection IS WRONG!"),
             Some(h) => h,
         };
@@ -423,7 +423,7 @@ mod tests {
 
         let normal = Normal::new(0.0, 0.0, 1.0);
 
-        let hit_record = match sphere.ray_intersection(ray) {
+        let hit_record = match sphere.ray_intersection(&ray) {
             None => panic!("ray_intersection IS WRONG!"),
             Some(h) => h,
         };
@@ -437,7 +437,7 @@ mod tests {
 
         let normal = Normal::new(1.0, 0.0, 0.0);
 
-        let hit_record = match sphere.ray_intersection(ray2) {
+        let hit_record = match sphere.ray_intersection(&ray2) {
             None => panic!("ray_intersection IS WRONG!"),
             Some(h) => h,
         };
@@ -456,7 +456,7 @@ mod tests {
 
         let uv = Vec2D::new(0.0, 0.0);
 
-        let hit_record = match sphere.ray_intersection(ray) {
+        let hit_record = match sphere.ray_intersection(&ray) {
             None => panic!("ray_intersection IS WRONG!"),
             Some(h) => h,
         };
@@ -470,7 +470,7 @@ mod tests {
 
         let uv = Vec2D::new(0.0, 0.50);
 
-        let hit_record = match sphere.ray_intersection(ray2) {
+        let hit_record = match sphere.ray_intersection(&ray2) {
             None => panic!("ray_intersection IS WRONG!"),
             Some(h) => h,
         };
@@ -488,7 +488,7 @@ mod tests {
         let (sphere, _, _) = setup2();
         let ray = Ray::new(Point::new(0.0, 0.0, 2.0), Vector::new(0.0, 0.0, -1.0));
 
-        let hit_record = sphere.ray_intersection(ray);
+        let hit_record = sphere.ray_intersection(&ray);
         assert!(
             hit_record.is_none(),
             "Error occurred (1): there is intersection where shouldn't!\n{}",
@@ -497,7 +497,7 @@ mod tests {
 
         let ray = Ray::new(Point::new(-10.0, 0.0, 0.0), Vector::new(0.0, 0.0, -1.0));
 
-        let hit_record = sphere.ray_intersection(ray);
+        let hit_record = sphere.ray_intersection(&ray);
         assert!(
             hit_record.is_none(),
             "Error occurred (2): there is intersection where shouldn't!\n{}",
@@ -524,7 +524,7 @@ mod tests {
 
         // Test 1: Impact from top
         let hit_top = plane
-            .ray_intersection(ray_top)
+            .ray_intersection(&ray_top)
             .expect("Should hit the plane");
         assert!(are_close(hit_top.t, 5.0));
         assert!(is_close(hit_top.world_point, Point::new(0.0, 0.0, 0.0)));
@@ -533,7 +533,7 @@ mod tests {
 
         // Test 2: Impact from bottom (normal change sign)
         let hit_bottom = plane
-            .ray_intersection(ray_bottom)
+            .ray_intersection(&ray_bottom)
             .expect("Should hit the plane");
         assert!(are_close(hit_bottom.t, 5.0));
         assert!(is_close(hit_bottom.world_point, Point::new(0.0, 0.0, 0.0)));
@@ -541,7 +541,7 @@ mod tests {
         assert!(hit_bottom.uv.is_close(&Vec2D::new(0.0, 0.0)));
 
         // Test 3: parallel impact (no impact)
-        let hit_parallel = plane.ray_intersection(ray_parallel);
+        let hit_parallel = plane.ray_intersection(&ray_parallel);
         assert!(
             hit_parallel.is_none(),
             "Parallel ray should not hit the plane"
@@ -556,7 +556,7 @@ mod tests {
         // A ray hits the plane in x = 2.5, y = -1.3
         let ray = Ray::new(Point::new(2.5, -1.3, 5.0), Vector::new(0.0, 0.0, -1.0));
 
-        let hit = plane.ray_intersection(ray).expect("Should hit the plane");
+        let hit = plane.ray_intersection(&ray).expect("Should hit the plane");
 
         //  x = 2.5 -> 2.5 - 2.0 = 0.5
         //  y = -1.3 -> -1.3 - floor(-1.3) = -1.3 - (-2.0) = 0.7
@@ -605,7 +605,7 @@ mod tests {
         let triangle = setup_triangle1();
         let ray = Ray::new(Point::new(-1.0, 0.0, 2.0), Vector::new(1.0, 0.0, 0.0));
 
-        let hit_record = triangle.ray_intersection(ray).expect("Should hit the triangle");
+        let hit_record = triangle.ray_intersection(&ray).expect("Should hit the triangle");
 
         assert!(is_close(hit_record.world_point, Point::new(0.0, 0.0, 2.0)), "hit_record.world_point != hit_point");
         assert!(is_close(hit_record.normal, Normal::new(-20.0, 0.0, 0.0)), "normal != hit_record.normal");

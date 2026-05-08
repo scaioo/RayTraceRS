@@ -184,7 +184,7 @@ fn main() -> Result<()> {
 }
 
 fn color_image(ray: Ray, world: &World) -> Result<Color> {
-    let inters = world.ray_intersection(ray);
+    let inters = world.ray_intersection(&ray);
     match inters {
         Some(_x) => {
             let color = Color::new(1.0, 1.0, 1.0);

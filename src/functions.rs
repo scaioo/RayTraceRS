@@ -2,12 +2,10 @@
 //!
 //! This module provides small, reusable helpers that are not tied to a
 //! specific subsystem but are used throughout the codebase.
-
-use endianness::ByteOrder;
 use crate::pfm_func::Endianness;
 use anyhow::{anyhow, Result};
-//use crate::geometry::TDV;
 
+/// Row-major 4×4 identity matrix.
 pub static IDENTITY_4X4: [f32; 16] = [
     1.0, 0.0, 0.0, 0.0, 0.0, 1.0, 0.0, 0.0, 0.0, 0.0, 1.0, 0.0, 0.0, 0.0, 0.0, 1.0,
 ];
@@ -40,6 +38,17 @@ pub fn are_close(x: f32, y: f32) -> bool {
 /// A trait for checking whether a value falls within a specific numeric boundary.
 pub trait Within {
     /// Returns `true` if the value is strictly between `min` and `max` (exclusive).
+    fn is_between_open(&self, min: &Self, max: &Self) -> bool;
+
+    /// Returns `true` if the value is between `min` and `max` (inclusive).
+    fn is_between_close(&self, min: &Self, max: &Self) -> bool;
+
+    /// Returns `true` if the value is within the range including the lower bound,
+    fn is_between_half_open(&self, min: &Self, max: &Self) -> bool;
+}
+
+impl Within for f32 {
+    /// Returns `true` if the value is strictly between `min` and `max` (exclusive).
     ///
     /// $$min < x < max$$
     ///
@@ -51,9 +60,27 @@ pub trait Within {
     /// assert!(!0.0.is_between_open(&0.0, &10.0)); // Lower bound returns false
     /// assert!(!10.0.is_between_open(&0.0, &10.0)); // Upper bound returns false
     /// ```
-    fn is_between_open(&self, min: &Self, max: &Self) -> bool;
+    #[inline]
+    fn is_between_open(&self, min: &Self, max: &Self) -> bool {
+        self > min && self < max
+    }
 
-    fn is_between_close(&self, min: &Self, max: &Self) -> bool;
+    /// Returns `true` if the value is between `min` and `max` (inclusive).
+    ///
+    /// $$min <= x <= max$$
+    ///
+    /// # Examples
+    /// ```rust
+    /// use rstrace::Within;
+    ///
+    /// assert!(5.0.is_between_close(&0.0, &10.0));
+    /// assert!(0.0.is_between_close(&0.0, &10.0)); // Lower bound returns true
+    /// assert!(10.0.is_between_close(&0.0, &10.0)); // Upper bound returns true
+    /// ```
+    #[inline]
+    fn is_between_close(&self, min: &Self, max: &Self) -> bool {
+        self > min && self < max || are_close(*self, *max) || are_close(*self, *min)
+    }
 
     /// Returns `true` if the value is within the range including the lower bound,
     /// but excluding the upper bound.
@@ -67,22 +94,6 @@ pub trait Within {
     /// assert!(0.0.is_between_half_open(&0.0, &10.0)); // Lower bound returns true
     /// assert!(!10.0.is_between_half_open(&0.0, &10.0)); // Upper bound returns false
     /// ```
-    fn is_between_half_open(&self, min: &Self, max: &Self) -> bool;
-}
-
-impl Within for f32 {
-    /// Checks if the `f32` value is strictly greater than `min` and strictly less than `max`.
-    #[inline]
-    fn is_between_open(&self, min: &Self, max: &Self) -> bool {
-        self > min && self < max
-    }
-
-    #[inline]
-    fn is_between_close(&self, min: &Self, max: &Self) -> bool {
-        self > min && self < max || are_close(*self, *max) || are_close(*self, *min)
-    }
-
-    /// Checks if the `f32` value is greater than or equal to `min` and strictly less than `max`.
     #[inline]
     fn is_between_half_open(&self, min: &Self, max: &Self) -> bool {
         self > min && self < max || are_close(*self, *min)
@@ -110,7 +121,7 @@ pub fn endianness_number(endianness: &Endianness) -> f32 {
     }
 }
 
-/// Computationally fast multiplication between matrices written as [0.0f32;16] arrays
+/// Multiplies two row-major 4×4 matrices stored as `[f32; 16]`.
 pub fn fast_matrix_mul(a: &[f32; 16], b: &[f32; 16]) -> [f32; 16] {
     let mut result = [0.0; 16];
 
@@ -142,7 +153,7 @@ pub fn fast_matrix_mul(a: &[f32; 16], b: &[f32; 16]) -> [f32; 16] {
     result
 }
 
-/// Hopefully fast computing of the inverse of a 4x4 matrix or returns Err
+/// TODO: CHANGE TO RETURN TYPE the inverse of a 4x4 matrix or returns Err
 pub fn inverse_4x4(m: &[f32; 16]) -> [f32; 16] {
     let mut inv = [0.0; 16];
 
@@ -241,7 +252,7 @@ pub fn inverse_4x4(m: &[f32; 16]) -> [f32; 16] {
 }
 
 
-/// TODO
+/// This function gets a 4x4 matrix as `[f32; 16]` and returns the transposed matrix as `[f32; 16]`.
 pub fn transpose_matrix(m: &[f32; 16]) -> [f32; 16] {
     let mut result: [f32; 16] = [0.0; 16];
     for i in 0..4 {
@@ -252,68 +263,74 @@ pub fn transpose_matrix(m: &[f32; 16]) -> [f32; 16] {
     result
 }
 
-/// TODO
+/// Returns `true` if two matrices are approximately equal component-wise.
+///
+/// The equality is checked via `functions::are_close` function.
 pub fn equal_matrices(mat1: &[f32; 16], mat2: &[f32; 16]) -> bool {
-    let mut result = true;
-    for i in 0..16 {
-        result = result && are_close(mat1[i], mat2[i]);
-    }
-    result
+    (0..16).all(|i| are_close(mat1[i], mat2[i]))
 }
 
+/// Returns the determinant of a 3x3 matrix written as `[f32; 9]`.
 pub fn det_3x3(m: &[f32; 9]) -> f32 {
     let [a, b, c, d, e, f, g, h, i] = *m;
 
     a * (e * i - f * h) - b * (d * i - f * g) + c * (d * h - e * g)
 }
 
-
-
+/// This function solves a linear equation for 3x3 matrices and 3d vectors with the **Cramer algorithm**.
+///
+/// If `m` is a 3x3 matrix and `v` the 3d vector, the equation this function solves is:
+///
+/// $$ m\cdot x = v $$
+///
+/// where `x` is the 3D vector solution.
+///
+/// # Arguments
+/// - `m : &[f32; 9]` : a 3x3 matrix of the equation written as linear array.
+/// - `v: [f32; 3]` : the right-hand-side 3D vector.
+///
+/// # Errors
+///
+/// The function returns error if the equation doesn't have a solution.
 pub fn cramer(m: &[f32; 9], v: [f32; 3]) -> Result<[f32; 3]> {
     let det = det_3x3(m);
-    let mut result: [f32; 3] = [1.0 / det, 1.0 / det, 1.0 / det];
+
     if are_close(det, 0.0) {
-        Err(anyhow!("det is 0.0! No solution available!"))
-    } else {
-        let mut result : [f32; 3] = [1.0/det, 1.0/det, 1.0/det];
+        return Err(anyhow!("det is 0.0! No solution available!"));
+    }
+
+    let inv_det = 1.0 / det;
 
     let [a, b, c, d, e, f, g, h, i] = *m;
-    let mat: [f32; 9] = [v[0], b, c, v[1], e, f, v[2], h, i];
-    result[0] *= det_3x3(&mat);
-        let [a, b, c, d, e, f, g, h, i] = *m;
-        let mat: [f32; 9] = [
-            v[0], b, c,
-            v[1], e, f,
-            v[2], h, i
-        ];
-        result[0] *= det_3x3(&mat);
 
-    let mat: [f32; 9] = [a, v[0], c, d, v[1], f, g, v[2], i];
-    result[1] *= det_3x3(&mat);
-        let mat : [f32; 9] = [
-            a, v[0], c,
-            d, v[1], f,
-            g, v[2], i
-        ];
-        result[1] *= det_3x3(&mat);
+    let dx = det_3x3(&[
+        v[0], b, c,
+        v[1], e, f,
+        v[2], h, i,
+    ]);
 
-    let mat: [f32; 9] = [a, b, v[0], d, e, v[1], g, h, v[2]];
-    result[2] *= det_3x3(&mat);
-        let mat : [f32; 9] = [
-            a, b, v[0],
-            d, e, v[1],
-            g, h, v[2]
-        ];
-        result[2] *= det_3x3(&mat);
+    let dy = det_3x3(&[
+        a, v[0], c,
+        d, v[1], f,
+        g, v[2], i,
+    ]);
 
-        Ok(result)
-    }
+    let dz = det_3x3(&[
+        a, b, v[0],
+        d, e, v[1],
+        g, h, v[2],
+    ]);
+
+    Ok([
+        dx * inv_det,
+        dy * inv_det,
+        dz * inv_det,
+    ])
 }
+
 // tests
 #[cfg(test)]
 mod tests {
-    use image::ExtendedColorType::A8;
-    //use crate::geometry::{is_close, Vector};
     use super::*;
 
     static MAT: [f32; 16] = [

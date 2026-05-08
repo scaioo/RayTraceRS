@@ -1,4 +1,4 @@
-//! A scene is composed of many shapes.
+//! A scene is represented as a collection of geometric objects.
 //! This module implements a list of shapes: the `World` type.
 //!
 //! - It maintains a list of `Shape` objects.
@@ -10,16 +10,25 @@ use crate::ray::Ray;
 use crate::shapes::Shape;
 use std::ops::Add;
 
+/// A `World` is a collection of scene objects.
 pub struct World {
     pub objects: Vec<Box<dyn Shape>>,
 }
 
 impl World {
+    /// Finds the nearest intersection point between the ray and any object in the world.
+    ///
+    /// This method iterates through all objects and returns the point corresponding to
+    /// the smallest $t$ value that falls within the interval `(ray.t_min, ray.t_max)`.
+    ///
+    /// # Returns
+    /// - `Some(Point)` if an intersection is found.
+    /// - `None` if the ray misses all objects or intersections fall outside the valid range.
     pub fn ray_intersection(&self, ray: Ray) -> Option<Point> {
         // Note: this returns the first intersection
 
         // I would try not to dump the world object
-        let iter = self.objects.iter().clone();
+        let iter = self.objects.iter();
 
         let mut t = ray.t_max;
         let mut found_intersection = false;
@@ -43,8 +52,15 @@ impl World {
     }
 }
 
+
 impl Add for World {
     type Output = World;
+
+    /// Merges two [`World`] instances into one.
+    ///
+    /// This operation consumes both worlds and returns a new world containing
+    /// the combined collection of objects. The objects from `rhs` are appended
+    /// to the end of the existing object list.
     fn add(self, rhs: World) -> World {
         World {
             objects: self.objects.into_iter().chain(rhs.objects).collect(),

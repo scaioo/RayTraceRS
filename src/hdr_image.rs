@@ -18,8 +18,8 @@
 //! ## Example
 //!
 //! ```rust, no_run
-//! use crate::rstrace::color::Color;
-//! use crate::rstrace::hdr_image::HDR;
+//! use rstrace::rstrace::color::Color;
+//! use rstrace::rstrace::hdr_image::HDR;
 //!
 //! let mut img = HDR::new(512, 512);
 //!
@@ -31,7 +31,7 @@
 //!
 
 use crate::color::Color;
-use crate::functions::endianness_number;
+use crate::functions::{are_close, endianness_number};
 use anyhow::{Result, anyhow};
 use byteorder::{BigEndian, LittleEndian, WriteBytesExt};
 use endianness::ByteOrder;
@@ -145,7 +145,7 @@ impl HDR {
     /// # Examples
     ///
     /// ```rust,no_run
-    /// use crate::rstrace::hdr_image::HDR;
+    /// use rstrace::hdr_image::HDR;
     /// use std::fs::File;
     /// use std::io::BufWriter;
     /// use endianness::ByteOrder;
@@ -278,7 +278,7 @@ impl HDR {
         }
 
         let avr = self.average_luminosity()?;
-        if avr == 0.0 {
+        if are_close(avr, 0.0) {
             return Err(anyhow!(
                 "normalization():
             Average luminosity is zero, cannot normalize."
@@ -291,7 +291,7 @@ impl HDR {
         Ok(())
     }
 
-    /// Applies Tone mapping to all pixels.
+    /// Applies tone mapping to all pixels.
     ///
     /// # Errors
     /// Returns an error if the image is empty.
@@ -340,6 +340,7 @@ impl HDR {
 /// - Pixel values are assumed to be in row-major order
 /// - Gamma correction is applied as `x^(1/gamma)`
 /// - Output values are clamped to `[0, 1]` before conversion to `[0, 255]`
+/// - Negative values stored in HDR will produce `NaN`.
 ///
 /// # Example
 /// ```rust, no_run
@@ -407,7 +408,6 @@ pub fn hdr_to_ldr(argv: &mut Parameter) -> Result<()> {
 mod test {
     use super::*;
     use crate::functions::are_close;
-    // Test for
     #[test]
     fn test_new() {
         let hdr = HDR::new(10, 55);

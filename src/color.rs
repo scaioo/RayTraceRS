@@ -161,21 +161,21 @@ impl Add for Color {
 }
 
 /// Component-wise multiplication of two colors.
-/// 
+///
 /// # Examples
 /// ```rust
 /// use rstrace::color::Color;
-/// 
+///
 /// let first_color = Color::new(1.0, 2.0, 3.0);
 /// let second_color = Color::new(10.0, 20.0, 30.0);
-/// 
+///
 /// let mul = first_color * second_color;
-/// 
+///
 /// assert_eq!(mul.r, 10.0);
 /// assert_eq!(mul.g, 40.0);
 /// assert_eq!(mul.b, 90.0)
 /// ```
-/// 
+///
 impl Mul<Color> for Color {
     type Output = Color;
 
@@ -225,7 +225,7 @@ impl Div<f32> for Color {
 
     fn div(self, rhs: f32) -> Self::Output {
         if rhs == 0.0 {
-            panic!("Cannot divide `Color` by zero-valued !");
+            panic!("Cannot divide `Color` by zero-valued!");
         }
 
         Color {
@@ -384,7 +384,7 @@ mod tests {
     }
 
     #[test]
-    #[should_panic(expected = "Cannot divide by zero-valued `Color`!")]
+    #[should_panic(expected = "Cannot divide `Color` by zero-valued!")]
     fn divide_by_zero() {
         let col = Color {
             r: 1.0,

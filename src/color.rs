@@ -30,7 +30,7 @@ pub struct Color {
 // =================================================================
 
 impl Color {
-    /// Creates a new validated `Color`.
+    /// Creates a new `Color`.
     ///
     /// # Examples
     /// ```rust

@@ -1,4 +1,4 @@
-use crate::functions::{IDENTITY_4X4, are_close, fast_matrix_mul, inverse_4x4, transpose_matrix};
+use crate::functions::{IDENTITY_4X4, are_close, matrix_mul_4x4, inverse_4x4, transpose_matrix};
 use crate::geometry::{Normal, Point, Vector};
 use std::ops::Mul;
 
@@ -58,8 +58,8 @@ macro_rules! impl_matrix_operations {
             type Output = Transformation;
 
             fn mul(self, rhs: RHS) -> Transformation {
-                let array = fast_matrix_mul(&self.mat, rhs.mat());
-                let total_it = fast_matrix_mul(&self.it_mat(), &rhs.it_mat());
+                let array = matrix_mul_4x4(&self.mat, rhs.mat());
+                let total_it = matrix_mul_4x4(&self.it_mat(), &rhs.it_mat());
 
                 Transformation {
                     mat: array,
@@ -71,8 +71,8 @@ macro_rules! impl_matrix_operations {
         // option 2: no
         impl $t {
             pub fn times_transformation<H: IsHomogeneousMatrix>(&self, rhs: H) -> Transformation {
-                let array = fast_matrix_mul(&self.mat, rhs.mat());
-                let total_it = fast_matrix_mul(&self.it_mat(), &rhs.it_mat());
+                let array = matrix_mul_4x4(&self.mat, rhs.mat());
+                let total_it = matrix_mul_4x4(&self.it_mat(), &rhs.it_mat());
 
                 Transformation {
                     mat: array,
@@ -134,7 +134,7 @@ macro_rules! impl_mul_zrot {
 
 pub fn is_consistent<T: IsHomogeneousMatrix>(matrix: &T) -> bool {
     let it_mat: [f32; 16] = transpose_matrix(matrix.it_mat());
-    let mat = fast_matrix_mul(matrix.mat(), &it_mat);
+    let mat = matrix_mul_4x4(matrix.mat(), &it_mat);
     let mut result = true;
     for i in 0..16 {
         result = result && are_close(mat[i], IDENTITY_4X4[i]);
@@ -159,7 +159,7 @@ impl Transformation {
     /// Transformation constructor gets an array and stores it in a Transformation class.
     pub fn new(mat: [f32; 16]) -> Transformation {
         // Add a check if they have properties
-        let matrix = inverse_4x4(&mat);
+        let matrix = inverse_4x4(&mat).unwrap();
         Transformation {
             mat,
             it_mat: transpose_matrix(&matrix),
@@ -421,7 +421,7 @@ impl_mul_zrot!(Point, mat);
 mod test {
     #[allow(unused_imports)]
     use crate::functions::{
-        IDENTITY_4X4, are_close, equal_matrices, fast_matrix_mul, inverse_4x4, transpose_matrix,
+        IDENTITY_4X4, are_close, equal_matrices, matrix_mul_4x4, inverse_4x4, transpose_matrix,
     };
     use crate::geometry::{Normal, Point, Vector, is_close};
     use crate::transformations::{
@@ -465,9 +465,9 @@ mod test {
 
     #[test]
     fn test_constants() {
-        let result = fast_matrix_mul(&MAT1, &INVERSE_MAT1);
+        let result = matrix_mul_4x4(&MAT1, &INVERSE_MAT1);
         assert!(equal_matrices(&result, &IDENTITY_4X4));
-        let result = fast_matrix_mul(&MAT2, &INVERSE_MAT2);
+        let result = matrix_mul_4x4(&MAT2, &INVERSE_MAT2);
         assert!(equal_matrices(&result, &IDENTITY_4X4));
     }
 
@@ -503,7 +503,7 @@ mod test {
         let it_mat = transpose_matrix(&INVERSE_MAT1);
         assert!(equal_matrices(trans.it_mat(), &it_mat));
         let it_mat = transpose_matrix(&trans.it_mat);
-        let result = fast_matrix_mul(&it_mat, trans.mat());
+        let result = matrix_mul_4x4(&it_mat, trans.mat());
         assert!(equal_matrices(&result, &IDENTITY_4X4));
     }
 
@@ -591,7 +591,7 @@ mod test {
 
         assert!(equal_matrices(scale.it_mat(), &it_scaling_matrix));
         let it_mat = transpose_matrix(&scale.it_mat);
-        let result = fast_matrix_mul(&it_mat, scale.mat());
+        let result = matrix_mul_4x4(&it_mat, scale.mat());
         assert!(equal_matrices(&result, &IDENTITY_4X4));
 
         let _ = Scaling::new([0.0, 2.0, 3.0]);
@@ -668,7 +668,7 @@ mod test {
         assert!(equal_matrices(translation.it_mat(), &expected));
 
         let it_mat = transpose_matrix(&translation.it_mat);
-        let result = fast_matrix_mul(&it_mat, translation.mat());
+        let result = matrix_mul_4x4(&it_mat, translation.mat());
         assert!(equal_matrices(&result, &IDENTITY_4X4));
     }
 
@@ -729,7 +729,7 @@ mod test {
         assert!(equal_matrices(rotation.mat(), &matrix));
         assert!(equal_matrices(&rotation.it_mat, &matrix));
         let matrix = transpose_matrix(rotation.it_mat());
-        let result = fast_matrix_mul(rotation.mat(), &matrix);
+        let result = matrix_mul_4x4(rotation.mat(), &matrix);
         assert!(equal_matrices(&result, &IDENTITY_4X4));
     }
 
@@ -797,7 +797,7 @@ mod test {
         assert!(equal_matrices(rotation.mat(), &matrix));
         assert!(equal_matrices(&rotation.it_mat, &matrix));
         let matrix = transpose_matrix(rotation.it_mat());
-        let result = fast_matrix_mul(rotation.mat(), &matrix);
+        let result = matrix_mul_4x4(rotation.mat(), &matrix);
         assert!(equal_matrices(&result, &IDENTITY_4X4));
     }
 
@@ -867,7 +867,7 @@ mod test {
         assert!(equal_matrices(rotation.mat(), &matrix));
         assert!(equal_matrices(&rotation.it_mat, &matrix));
         let matrix = transpose_matrix(rotation.it_mat());
-        let result = fast_matrix_mul(rotation.mat(), &matrix);
+        let result = matrix_mul_4x4(rotation.mat(), &matrix);
         assert!(equal_matrices(&result, &IDENTITY_4X4));
     }
 

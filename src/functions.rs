@@ -13,16 +13,38 @@ pub static IDENTITY_4X4: [f32; 16] = [
 /// Returns `true` if two floating-point numbers are approximately equal.
 ///
 /// The comparison uses a fixed absolute tolerance:
-/// `|x - y| < 1e-5`.
+///
+/// ```text
+/// |x - y| < 1e-5
+/// ```
+///
 /// This method is best suited for values with small magnitude, as it does
 /// not perform a relative comparison.
 ///
+/// # Special Cases
+///
+/// - Two finite values are compared using an absolute tolerance.
+/// - `NaN` is considered equal to `NaN`.
+/// - Positive infinity compares equal only to positive infinity.
+/// - Negative infinity compares equal only to negative infinity.
+///
 /// # Examples
+///
 /// ```rust
 /// use rstrace::functions::are_close;
 ///
 /// assert!(are_close(0.1 + 0.2, 0.3));
 /// assert!(!are_close(1.0, 2.0));
+/// ```
+///
+/// Special floating-point values:
+///
+/// ```rust
+/// use rstrace::functions::are_close;
+///
+/// assert!(are_close(f32::NAN, f32::NAN));
+/// assert!(are_close(f32::INFINITY, f32::INFINITY));
+/// assert!(!are_close(f32::INFINITY, f32::NEG_INFINITY));
 /// ```
 pub fn are_close(x: f32, y: f32) -> bool {
     match (x.is_finite(), y.is_finite()) {

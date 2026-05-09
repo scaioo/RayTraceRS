@@ -6,7 +6,7 @@ use rstrace::geometry::Point;
 use rstrace::geometry::Vector;
 use rstrace::hdr_image::HDR;
 use rstrace::image_tracer::ImageTracer;
-use rstrace::pfm_func::{pfm_to_png, Endianness};
+use rstrace::pfm_func::{pfm_to_ldr, Endianness};
 use rstrace::ray::Ray;
 use rstrace::shapes::{Shape, Sphere};
 use rstrace::transformations::{Scaling, Transformation, Translation};
@@ -120,7 +120,7 @@ fn main() -> Result<()> {
                 let file = File::create(&filename)?;
                 let disk_writer = BufWriter::new(&file);
                 imagetracer.image.write_pfm(disk_writer, &Endianness::BigEndian).expect("error creating pfm file ");
-                pfm_to_png(file_name, 0.18, 2.2, "files/first_image.png".to_string()).expect("error converting file from pfm");
+                pfm_to_ldr(file_name, 0.18, 2.2, "files/first_image.png".to_string()).expect("error converting file from pfm");
 
             } else {
                 let mut p_cam = PerspectiveCamera::new(transl);
@@ -140,7 +140,7 @@ fn main() -> Result<()> {
                 let file = File::create(&filename)?;
                 let disk_writer = BufWriter::new(&file);
                 imagetracer.image.write_pfm(disk_writer, &Endianness::BigEndian).expect("error creating pfm file ");
-                pfm_to_png(filename, 0.18, 2.2, "files/second_image.png".to_string()).expect("error converting file from pfm");
+                pfm_to_ldr(filename, 0.18, 2.2, "files/second_image.png".to_string()).expect("error converting file from pfm");
 
             }
 
@@ -153,7 +153,7 @@ fn main() -> Result<()> {
         }
 
         Commands::Pfm2Png { input_file, output_file, factor_a, gamma } => {
-            pfm_to_png(input_file, factor_a, gamma, output_file).expect("error converting file from pfm");
+            pfm_to_ldr(input_file, factor_a, gamma, output_file).expect("error converting file from pfm");
             
             let duration = now.elapsed();
             println!("Program finished in {:?}", duration);
@@ -176,7 +176,7 @@ fn main() -> Result<()> {
             let disk_writer = BufWriter::new(&file);
             imagetracer.image.write_pfm(disk_writer, &Endianness::BigEndian).expect("error creating pfm file ");
             let output_filename = "files/".to_string() + &output_file;
-            pfm_to_png(filename, 0.18, 2.2, output_filename).expect("error converting file from pfm");
+            pfm_to_ldr(filename, 0.18, 2.2, output_filename).expect("error converting file from pfm");
 
             Ok(())
         }

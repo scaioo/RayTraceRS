@@ -45,7 +45,9 @@ pub enum EndiannessError {
     InvalidValue,
 }
 
-// reading and writing pfm files
+// =================================================================
+// Reading PFM file
+// =================================================================
 
 /// Validates the PFM magic number (`PF` or `Pf`).
 ///
@@ -283,6 +285,10 @@ pub fn read_pfm<R: BufRead>(mut reader: R) -> anyhow::Result<HDR> {
     Ok(hdr_img)
 }
 
+// =================================================================
+// Parameter struct
+// =================================================================
+
 /// converting from pfm to jpeg
 ///
 pub struct Parameter {
@@ -334,18 +340,20 @@ impl Parameter {
     /// let params = Parameter::new(args).unwrap();
     /// ```
     pub fn new(args: &Vec<String>) -> anyhow::Result<Parameter> {
-        if args.len() != 4 {
+        if args.len() != 5 {
             return Err(anyhow!(
                 "wrong number of parameters: expected\n\
             <input_file_name> <factor_a> <gamma> <output_file_name>"
             ));
         }
 
-        let input_temp: &String = &args[0];
+        let input_temp: &String = &args[1];
         let input_pfm_file_name = input_temp.to_string();
-        let mut factor_a: f32 = args[1].parse::<f32>().expect("invalid factor_a value");
-        let mut gamma: f32 = args[2].parse::<f32>().expect("invalid gamma value");
-        let output_temp: &String = &args[3];
+        let mut factor_a: f32 = args[2].parse::<f32>().expect("invalid factor_a value: expected\n\
+            <input_file_name> <factor_a> <gamma> <output_file_name>");
+        let mut gamma: f32 = args[3].parse::<f32>().expect("invalid gamma value: expected\n\
+            <input_file_name> <factor_a> <gamma> <output_file_name>");
+        let output_temp: &String = &args[4];
         let output_file_name: String = output_temp.to_string();
         if factor_a <= 0.0 {
             println!("factor 'a' was automatically set to 0.18");
@@ -366,7 +374,12 @@ impl Parameter {
     }
 }
 
-pub fn pfm_to_png(input_file: String, factor_a: f32, gamma: f32, output_file: String) -> anyhow::Result<()>{
+
+// =================================================================
+// Converting .pfm -> .png
+// =================================================================
+
+pub fn pfm_to_ldr(input_file: String, factor_a: f32, gamma: f32, output_file: String) -> anyhow::Result<()>{
 
     let args    = vec![input_file, factor_a.to_string(), gamma.to_string(), output_file];
 
@@ -483,23 +496,22 @@ mod test {
 
     // test for new created for Parameter
     #[test]
-    #[should_panic]
+    #[should_panic(expected = "invalid factor_a value")]
     //should panic if factor_a is not a number
     fn test_1_new_parameter() {
         let strings: Vec<String> = ["exe", "filename_in", "a", "2.2", "filename_out"]
-            .map(String::from)
-            .to_vec();
-        let _par = Parameter::new(&strings);
+            .iter().map(|s| s.to_string()).collect();
+        let _par = Parameter::new(&strings).unwrap();
     }
 
     #[test]
-    #[should_panic]
+    #[should_panic(expected = "invalid gamma value")]
     //should panic if gamma is not a number
     fn test_2_new_parameter() {
         let strings: Vec<String> = ["exe", "filename_in", "0.18", "a", "filename_out"]
             .map(String::from)
             .to_vec();
-        let _par = Parameter::new(&strings);
+        let _par = Parameter::new(&strings).unwrap();
     }
 
     #[test]

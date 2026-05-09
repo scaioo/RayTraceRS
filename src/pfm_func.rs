@@ -317,9 +317,6 @@ impl Parameter {
     /// # Errors
     /// Returns an error if:
     /// - The number of arguments is not exactly 5
-    ///
-    /// # Panics
-    /// This function will panic if:
     /// - `factor_a` or `gamma` cannot be parsed as `f32`
     ///
     /// # Notes
@@ -380,7 +377,51 @@ impl Parameter {
 // =================================================================
 // Converting .pfm -> .png
 // =================================================================
-
+/// Converts a `.pfm` HDR image into an LDR image file.
+///
+/// The function:
+/// - reads the input PFM image,
+/// - applies normalization and tone mapping,
+/// - converts the image to LDR using gamma correction,
+/// - saves the result to the specified output file.
+///
+/// # Arguments
+///
+/// * `input_file` - Path to the input `.pfm` image
+/// * `factor_a` - Exposure normalization factor
+/// * `gamma` - Gamma correction value
+/// * `output_file` - Path to the generated LDR image
+///
+/// # Errors
+///
+/// Returns `Err` if:
+/// - [`Parameter::new`] fails to validate the parameters
+/// - the input file cannot be opened
+/// - the PFM image cannot be parsed
+/// - normalization or tone mapping fails
+/// - the output image cannot be written to disk
+///
+/// # Notes
+///
+/// - Negative or zero values for `factor_a` and `gamma` are automatically
+///   replaced with default values inside [`Parameter::new`].
+/// - The output image format is inferred from the extension of `output_file`.
+///
+/// # Example
+///
+/// ```rust,no_run
+/// use rstrace::pfm_func::pfm_to_ldr;
+///
+/// # fn main() -> anyhow::Result<()> {
+/// pfm_to_ldr(
+///     "render.pfm".into(),
+///     0.18,
+///     2.2,
+///     "render.png".into(),
+/// )?;
+/// # Ok(())
+/// # }
+/// ```
 pub fn pfm_to_ldr(input_file: String, factor_a: f32, gamma: f32, output_file: String) -> anyhow::Result<()>{
 
     let args    = vec![input_file, factor_a.to_string(), gamma.to_string(), output_file];

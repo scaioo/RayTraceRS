@@ -15,6 +15,7 @@ pub trait IsHomogeneousMatrix {
     /// It returns the inverse-transposed matrix of the transformation
     fn it_mat(&self) -> &[f32; 16];
 
+    /// It returns the inverse Transformation
     fn inverse_transformation(&self) -> Transformation;
 }
 
@@ -22,6 +23,7 @@ pub trait IsHomogeneousMatrix {
 // MACRO DEFINITIONS
 // =======================================================================
 
+/// Macro to implement the IsHomogeousMatrix trait.
 #[macro_export]
 macro_rules! impl_matrix_operations {
     ($t: ident) => {
@@ -51,9 +53,14 @@ macro_rules! impl_matrix_operations {
         // option 1: yes
         /// Creates a Transformation that Operates the two input-Transformation in the given order:
         ///
-        /// Let `A`, `B` homogeneous transformations.
-        /// `A*B` returns the combined transformation
-        /// resulting of first `A` applied on `B*v`, where `v` is a vector.
+        /// Let `A` and `B` be homogeneous transformations.
+        ///
+        /// `A * B` returns the composition of the two transformations,
+        /// meaning that `B` is applied first and `A` second.
+        ///
+        /// For a vector `v`:
+        ///
+        /// `(A * B) * v == A * (B * v)`
         impl<RHS: IsHomogeneousMatrix> Mul<RHS> for $t {
             type Output = Transformation;
 
@@ -83,6 +90,8 @@ macro_rules! impl_matrix_operations {
     };
 }
 
+/// Macro to implement `Mul` trait for XRotation as the LHS.
+/// The RHS is specified as the second input of the macro.
 macro_rules! impl_mul_xrot {
     ($name:ident, $matrix: ident) => {
         impl Mul<$name> for XRotation {
@@ -98,6 +107,8 @@ macro_rules! impl_mul_xrot {
     };
 }
 
+/// Macro to implement `Mul` trait for YRotation as the LHS.
+/// The RHS is specified as the second input of the macro.
 macro_rules! impl_mul_yrot {
     ($name:ident, $matrix: ident) => {
         impl Mul<$name> for YRotation {
@@ -113,6 +124,8 @@ macro_rules! impl_mul_yrot {
     };
 }
 
+/// Macro to implement `Mul` trait for ZRotation as the LHS.
+/// The RHS is specified as the second input of the macro.
 macro_rules! impl_mul_zrot {
     ($name:ident, $matrix: ident) => {
         impl Mul<$name> for ZRotation {
@@ -132,6 +145,8 @@ macro_rules! impl_mul_zrot {
 // FUNCTIONS DEFINITIONS
 // =======================================================================
 
+/// This function validates an object that implements the trait `IsHomogeneousMatrix`
+/// by verifying the stored matrices are correctly one the inverse-transposed of the other
 pub fn is_consistent<T: IsHomogeneousMatrix>(matrix: &T) -> bool {
     let it_mat: [f32; 16] = transpose_matrix(matrix.it_mat());
     let mat = matrix_mul_4x4(matrix.mat(), &it_mat);
@@ -168,6 +183,8 @@ impl Transformation {
 }
 
 impl_matrix_operations!(Transformation);
+
+// Implements Transformation * Vector mul operator
 impl Mul<Vector> for Transformation {
     type Output = Vector;
     fn mul(self, rhs: Vector) -> Vector {
@@ -188,6 +205,8 @@ impl Mul<Vector> for Transformation {
         vec
     }
 }
+
+// Implements Transformation * Point mul operator
 impl Mul<Point> for Transformation {
     type Output = Point;
     fn mul(self, rhs: Point) -> Point {
@@ -208,6 +227,7 @@ impl Mul<Point> for Transformation {
         point
     }
 }
+// Implements Transformation * Normal mul operator
 impl Mul<Normal> for Transformation {
     type Output = Normal;
     fn mul(self, rhs: Normal) -> Normal {
@@ -244,7 +264,7 @@ impl Scaling {
         if diagonal.iter().any(|a| are_close(*a, 0.0)) {
             panic!(
                 "Wrong inputs in Scaling Matrix definition\
-            {:?}",
+            {:?}\nScaling matrix is a diagonal matrix!",
                 diagonal
             );
         }
@@ -260,6 +280,8 @@ impl Scaling {
         Scaling { mat: array, it_mat }
     }
 }
+
+// Implements Scaling * Vector mul operator
 impl Mul<Vector> for Scaling {
     type Output = Vector;
     fn mul(self, rhs: Vector) -> Vector {
@@ -270,6 +292,7 @@ impl Mul<Vector> for Scaling {
         }
     }
 }
+// Implements Scaling * Point mul operator
 impl Mul<Point> for Scaling {
     type Output = Point;
     fn mul(self, rhs: Point) -> Point {
@@ -280,6 +303,7 @@ impl Mul<Point> for Scaling {
         }
     }
 }
+// Implements Scaling * Normal mul operator
 impl Mul<Normal> for Scaling {
     type Output = Normal;
     fn mul(self, rhs: Normal) -> Normal {
@@ -293,6 +317,9 @@ impl Mul<Normal> for Scaling {
 // =======================================================================
 // TRANSLATION
 // =======================================================================
+/// Translation contains the transformation matrix
+/// and its inverse-transposed matrix as unrolled `[f32; 16]` arrays
+/// for **translation operators**.
 #[derive(Copy, Clone, Debug, PartialEq)]
 pub struct Translation {
     pub mat: [f32; 16],
@@ -316,18 +343,24 @@ impl Translation {
         }
     }
 }
+
+// Implements Translation * Vector mul operator
 impl Mul<Vector> for Translation {
     type Output = Vector;
     fn mul(self, rhs: Vector) -> Vector {
         rhs
     }
 }
+
+// Implements Translation * Normal mul operator
 impl Mul<Normal> for Translation {
     type Output = Normal;
     fn mul(self, rhs: Normal) -> Normal {
         rhs
     }
 }
+
+// Implements Translation * Point mul operator
 impl Mul<Point> for Translation {
     type Output = Point;
     fn mul(self, rhs: Point) -> Point {
@@ -342,6 +375,9 @@ impl Mul<Point> for Translation {
 // =======================================================================
 // ROTATION AROUND X-AXIS
 // =======================================================================
+/// XRotation contains the transformation matrix
+/// and its inverse-transposed matrix as unrolled `[f32; 16]` arrays
+/// for **rotation operators around the X-axis**.
 #[derive(Copy, Clone, Debug, PartialEq)]
 pub struct XRotation {
     pub mat: [f32; 16],
@@ -349,9 +385,9 @@ pub struct XRotation {
 }
 
 impl XRotation {
-    /// Returns a rotation around the x-axis.
+    /// Returns a rotation around the X-axis.
     ///
-    /// The input must be considered in ste-radiants
+    ///The input angle is expressed in radians.
     pub fn new(theta: f32) -> Self {
         let cos = theta.cos();
         let sin = theta.sin();
@@ -369,6 +405,9 @@ impl_mul_xrot!(Point, mat);
 // =======================================================================
 // ROTATION AROUND Y-AXIS
 // =======================================================================
+/// YRotation contains the transformation matrix
+/// and its inverse-transposed matrix as unrolled `[f32; 16]` arrays
+/// for **rotation operators around the Y-axis**.
 #[derive(Copy, Clone, Debug, PartialEq)]
 pub struct YRotation {
     pub mat: [f32; 16],
@@ -376,6 +415,9 @@ pub struct YRotation {
 }
 
 impl YRotation {
+    /// Returns a rotation around the Y-axis.
+    ///
+    /// The input angle is expressed in radians.
     pub fn new(theta: f32) -> Self {
         let cos = theta.cos();
         let sin = theta.sin();
@@ -393,6 +435,9 @@ impl_mul_yrot!(Point, mat);
 // =======================================================================
 // ROTATION AROUND Z-AXIS
 // =======================================================================
+/// ZRotation contains the transformation matrix
+/// and its inverse-transposed matrix as unrolled `[f32; 16]` arrays
+/// for **rotation operators around the Z-axis**.
 #[derive(Copy, Clone, Debug, PartialEq)]
 pub struct ZRotation {
     pub mat: [f32; 16],
@@ -400,6 +445,9 @@ pub struct ZRotation {
 }
 
 impl ZRotation {
+    /// Returns a rotation around the Z-axis.
+    ///
+    /// The input angle is expressed in radians.
     pub fn new(theta: f32) -> Self {
         let cos = theta.cos();
         let sin = theta.sin();

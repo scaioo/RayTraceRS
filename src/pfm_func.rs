@@ -159,11 +159,11 @@ fn _read_hdr<R: Read>(
     // Color the empty image
     for i in (0..height).rev() {
         for j in 0..width {
-            reader.read_exact(&mut buffer).expect("unexpected eof");
+            reader.read_exact(&mut buffer)?;
             let r = bytes_to_f32(buffer);
-            reader.read_exact(&mut buffer).expect("unexpected eof");
+            reader.read_exact(&mut buffer)?;
             let g = bytes_to_f32(buffer);
-            reader.read_exact(&mut buffer).expect("unexpected eof");
+            reader.read_exact(&mut buffer)?;
             let b = bytes_to_f32(buffer);
             hdr_img.pixels[width * i + j] = Color::new(r, g, b);
         }
@@ -349,10 +349,12 @@ impl Parameter {
 
         let input_temp: &String = &args[1];
         let input_pfm_file_name = input_temp.to_string();
-        let mut factor_a: f32 = args[2].parse::<f32>().expect("invalid factor_a value: expected\n\
-            <input_file_name> <factor_a> <gamma> <output_file_name>");
-        let mut gamma: f32 = args[3].parse::<f32>().expect("invalid gamma value: expected\n\
-            <input_file_name> <factor_a> <gamma> <output_file_name>");
+        let mut factor_a: f32 = args[2].parse::<f32>()
+            .map_err(|_|anyhow!("invalid factor_a value: expected\n\
+            <input_file_name> <factor_a> <gamma> <output_file_name>"))?;
+        let mut gamma: f32 = args[3].parse::<f32>()
+            .map_err(|_| anyhow!("invalid gamma value: expected\n\
+            <input_file_name> <factor_a> <gamma> <output_file_name>"))?;
         let output_temp: &String = &args[4];
         let output_file_name: String = output_temp.to_string();
         if factor_a <= 0.0 {

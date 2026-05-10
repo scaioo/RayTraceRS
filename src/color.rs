@@ -47,6 +47,7 @@ impl Color {
         }
     }
 
+    /// Return false if any stored color is not a positive real number.
     fn is_valid(&self) -> bool {
         // Has this color all correct values?
         // Must be a Real, positive number!

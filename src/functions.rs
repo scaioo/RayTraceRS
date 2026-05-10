@@ -2,8 +2,9 @@
 //!
 //! This module provides small, reusable helpers that are not tied to a
 //! specific subsystem but are used throughout the codebase.
+
 use crate::pfm_func::Endianness;
-use anyhow::{anyhow, Result};
+use anyhow::{Result, anyhow};
 
 /// Row-major 4×4 identity matrix.
 pub static IDENTITY_4X4: [f32; 16] = [
@@ -277,7 +278,6 @@ pub fn inverse_4x4(m: &[f32; 16]) -> Result<[f32; 16]> {
     }
 }
 
-
 /// This function takes a 4x4 matrix as `[f32; 16]` and returns the transposed matrix as `[f32; 16]`.
 pub fn transpose_matrix(m: &[f32; 16]) -> [f32; 16] {
     let mut result: [f32; 16] = [0.0; 16];
@@ -322,36 +322,21 @@ pub fn cramer(m: &[f32; 9], v: [f32; 3]) -> Result<[f32; 3]> {
     let det = det_3x3(m);
 
     if are_close(det, 0.0) {
-        return Err(anyhow!("det is 0.0! No solution available!"));
+        Err(anyhow!("det is 0.0! No solution available!"))
+    } else {
+        let mut result: [f32; 3] = [1.0 / det, 1.0 / det, 1.0 / det];
+        let [a, b, c, d, e, f, g, h, i] = *m;
+        let mat: [f32; 9] = [v[0], b, c, v[1], e, f, v[2], h, i];
+        result[0] *= det_3x3(&mat);
+
+        let mat: [f32; 9] = [a, v[0], c, d, v[1], f, g, v[2], i];
+        result[1] *= det_3x3(&mat);
+
+        let mat: [f32; 9] = [a, b, v[0], d, e, v[1], g, h, v[2]];
+        result[2] *= det_3x3(&mat);
+
+        Ok(result)
     }
-
-    let inv_det = 1.0 / det;
-
-    let [a, b, c, d, e, f, g, h, i] = *m;
-
-    let dx = det_3x3(&[
-        v[0], b, c,
-        v[1], e, f,
-        v[2], h, i,
-    ]);
-
-    let dy = det_3x3(&[
-        a, v[0], c,
-        d, v[1], f,
-        g, v[2], i,
-    ]);
-
-    let dz = det_3x3(&[
-        a, b, v[0],
-        d, e, v[1],
-        g, h, v[2],
-    ]);
-
-    Ok([
-        dx * inv_det,
-        dy * inv_det,
-        dz * inv_det,
-    ])
 }
 
 // tests
@@ -444,11 +429,8 @@ mod tests {
 
     #[test]
     fn test_inverse_error() {
-        let mat:[f32; 16] = [
-            1.0, 0.0, 0.0, 0.0,
-            0.0, 1.0, 0.0, 0.0,
-            0.0, 0.0, 1.0, 0.0,
-            1.0, 1.0, 1.0, 0.0
+        let mat: [f32; 16] = [
+            1.0, 0.0, 0.0, 0.0, 0.0, 1.0, 0.0, 0.0, 0.0, 0.0, 1.0, 0.0, 1.0, 1.0, 1.0, 0.0,
         ];
         let result = inverse_4x4(&mat);
         assert!(result.is_err());
@@ -508,16 +490,16 @@ mod tests {
 
     #[test]
     fn test_cramer() {
-        let mat:[f32; 9] = [1.0, 0.0, 0.0, 0.0, 1.0, 0.0, 0.0, 0.0, 1.0];
-        let v : [f32; 3] = [1.0, 2.0, 3.0];
-        let result = cramer(&mat,v).unwrap();
+        let mat: [f32; 9] = [1.0, 0.0, 0.0, 0.0, 1.0, 0.0, 0.0, 0.0, 1.0];
+        let v: [f32; 3] = [1.0, 2.0, 3.0];
+        let result = cramer(&mat, v).unwrap();
         for i in 0..3 {
             assert!(are_close(result[i], v[i]), "{:?}", mat[i]);
         }
 
-        let mat:[f32; 9] = [2.0, 5.0, -3.0, 2.0, -5.0, 3.0, 0.0, -5.0, 2.0];
-        let v : [f32; 3] = [1.0, 3.0, 0.0];
-        let result = cramer(&mat,v).unwrap();
+        let mat: [f32; 9] = [2.0, 5.0, -3.0, 2.0, -5.0, 3.0, 0.0, -5.0, 2.0];
+        let v: [f32; 3] = [1.0, 3.0, 0.0];
+        let result = cramer(&mat, v).unwrap();
         let expected: [f32; 3] = [1.0, 0.4, 1.0];
         for i in 0..3 {
             assert!(are_close(result[i], expected[i]), "{}: {:?}", i + 1, mat[i]);
@@ -527,8 +509,8 @@ mod tests {
     #[test]
     #[should_panic(expected = "det is 0.0!")]
     fn test_zero_determinant_cramer() {
-        let mat:[f32; 9] = [1.0, 0.0, 1.0, 0.0, 1.0, 0.0, 1.0, 0.0, 1.0];
-        let v : [f32; 3] = [1.0, 1.0, 0.0];
-        let _ = cramer(&mat,v).unwrap();
+        let mat: [f32; 9] = [1.0, 0.0, 1.0, 0.0, 1.0, 0.0, 1.0, 0.0, 1.0];
+        let v: [f32; 3] = [1.0, 1.0, 0.0];
+        let _ = cramer(&mat, v).unwrap();
     }
 }

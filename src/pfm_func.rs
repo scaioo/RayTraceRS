@@ -26,7 +26,7 @@
 //! - Extra trailing bytes are treated as an error.
 //! - Pixel data is stored in row-major order.
 use crate::color::Color;
-use crate::hdr_image::{hdr_to_ldr, HDR};
+use crate::hdr_image::{HDR, hdr_to_ldr};
 use anyhow::anyhow;
 use std::fs::File;
 use std::io::{BufRead, BufReader, Read};
@@ -366,9 +366,18 @@ impl Parameter {
     }
 }
 
-pub fn pfm_to_png(input_file: String, factor_a: f32, gamma: f32, output_file: String) -> anyhow::Result<()>{
-
-    let args    = vec![input_file, factor_a.to_string(), gamma.to_string(), output_file];
+pub fn pfm_to_png(
+    input_file: String,
+    factor_a: f32,
+    gamma: f32,
+    output_file: String,
+) -> anyhow::Result<()> {
+    let args = vec![
+        input_file,
+        factor_a.to_string(),
+        gamma.to_string(),
+        output_file,
+    ];
 
     let mut params = Parameter::new(&args)?;
 

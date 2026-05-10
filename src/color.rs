@@ -40,7 +40,11 @@ impl Color {
     /// assert_eq!(c.r, 0.2);
     /// ```
     pub fn new(red: f32, green: f32, blue: f32) -> Self {
-        Color { r: red, g: green, b: blue }
+        Color {
+            r: red,
+            g: green,
+            b: blue,
+        }
     }
 
     fn is_valid(&self) -> bool {

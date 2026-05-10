@@ -54,7 +54,6 @@ where
     }
 
     fn fire_ray(&self, u: f32, v: f32) -> Ray {
-
         // "Ugly but I hope fast" ~ Isacco.
         let point = Point {
             x: -1.0,
@@ -63,7 +62,7 @@ where
         };
         let ray = Ray {
             origin: point,
-            dir: X_AXIS,
+            dir: X_AXIS.normalize(),
             t_max: f32::INFINITY,
             t_min: 1e-5,
             depth: 0,

@@ -6,7 +6,7 @@ use crate::world::World;
 use anyhow::Result;
 
 #[derive(Clone, Debug, PartialEq)]
-pub struct ImageTracer< C: Camera> {
+pub struct ImageTracer<C: Camera> {
     pub image: HDR,
     pub camera: C,
 }
@@ -85,7 +85,7 @@ mod tests {
         fn color_image(ray: Ray, world: &World) -> Result<Color> {
             let inters = world.ray_intersection(&ray);
             match inters {
-                Some(x) => {
+                Some(_) => {
                     let color = Color::new(1.0, 1.0, 1.0);
                     Ok(color)
                 }

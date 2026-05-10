@@ -3,7 +3,7 @@
 //!
 //! - It maintains a list of `Shape` objects.
 //! - It implements a `ray_intersection` method that iterates over the shapes,
-//! searches for intersections, and returns the one closest to the ray origin.
+//!   searches for intersections, and returns the one closest to the ray origin.
 
 use crate::geometry::Point;
 use crate::ray::Ray;
@@ -52,7 +52,6 @@ impl World {
     }
 }
 
-
 impl Add for World {
     type Output = World;
 
@@ -71,7 +70,7 @@ impl Add for World {
 #[cfg(test)]
 mod tests {
     use crate::functions::{IDENTITY_4X4, are_close};
-    use crate::geometry::{Point, Vector, is_close};
+    use crate::geometry::{Point, Vector};
     use crate::ray::Ray;
     use crate::shapes::{Plane, Sphere};
     use crate::transformations::{Scaling, Transformation, Translation};

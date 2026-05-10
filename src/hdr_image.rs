@@ -34,11 +34,10 @@ use crate::color::Color;
 use crate::functions::{are_close, endianness_number};
 use anyhow::{Result, anyhow};
 use byteorder::{BigEndian, LittleEndian, WriteBytesExt};
-use endianness::ByteOrder;
 use std::fs::File;
 use std::io::{BufReader, Write};
 
-use crate::pfm_func::{Parameter, read_pfm, Endianness};
+use crate::pfm_func::{Endianness, Parameter, read_pfm};
 use image::{Rgb, RgbImage};
 
 /// Represents an HDR (High Dynamic Range) image.
@@ -398,7 +397,6 @@ pub fn hdr_to_ldr(argv: &mut Parameter) -> Result<()> {
 
     Ok(())
 }
-
 
 // =================================================================
 // Tests

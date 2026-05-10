@@ -26,7 +26,7 @@
 //! - Extra trailing bytes are treated as an error.
 //! - Pixel data is stored in row-major order.
 use crate::color::Color;
-use crate::hdr_image::{hdr_to_ldr, HDR};
+use crate::hdr_image::{HDR, hdr_to_ldr};
 use anyhow::anyhow;
 use std::fs::File;
 use std::io::{BufRead, BufReader, Read};
@@ -336,7 +336,7 @@ impl Parameter {
     ///
     /// let params = Parameter::new(args).unwrap();
     /// ```
-    pub fn new(args: &Vec<String>) -> anyhow::Result<Parameter> {
+    pub fn new(args: &[String]) -> anyhow::Result<Parameter> {
         if args.len() != 5 {
             return Err(anyhow!(
                 "wrong number of parameters: expected\n\
@@ -346,12 +346,18 @@ impl Parameter {
 
         let input_temp: &String = &args[1];
         let input_pfm_file_name = input_temp.to_string();
-        let mut factor_a: f32 = args[2].parse::<f32>()
-            .map_err(|_|anyhow!("invalid factor_a value: expected\n\
-            <input_file_name> <factor_a> <gamma> <output_file_name>"))?;
-        let mut gamma: f32 = args[3].parse::<f32>()
-            .map_err(|_| anyhow!("invalid gamma value: expected\n\
-            <input_file_name> <factor_a> <gamma> <output_file_name>"))?;
+        let mut factor_a: f32 = args[2].parse::<f32>().map_err(|_| {
+            anyhow!(
+                "invalid factor_a value: expected\n\
+            <input_file_name> <factor_a> <gamma> <output_file_name>"
+            )
+        })?;
+        let mut gamma: f32 = args[3].parse::<f32>().map_err(|_| {
+            anyhow!(
+                "invalid gamma value: expected\n\
+            <input_file_name> <factor_a> <gamma> <output_file_name>"
+            )
+        })?;
         let output_temp: &String = &args[4];
         let output_file_name: String = output_temp.to_string();
         if factor_a <= 0.0 {
@@ -372,7 +378,6 @@ impl Parameter {
         })
     }
 }
-
 
 // =================================================================
 // Converting .pfm -> .png
@@ -422,9 +427,18 @@ impl Parameter {
 /// # Ok(())
 /// # }
 /// ```
-pub fn pfm_to_ldr(input_file: String, factor_a: f32, gamma: f32, output_file: String) -> anyhow::Result<()>{
-
-    let args    = vec![input_file, factor_a.to_string(), gamma.to_string(), output_file];
+pub fn pfm_to_ldr(
+    input_file: String,
+    factor_a: f32,
+    gamma: f32,
+    output_file: String,
+) -> anyhow::Result<()> {
+    let args = vec![
+        input_file,
+        factor_a.to_string(),
+        gamma.to_string(),
+        output_file,
+    ];
 
     let mut params = Parameter::new(&args)?;
 
@@ -504,11 +518,10 @@ mod test {
 
     // test read_hdr
     #[test]
-    #[should_panic]
     // tests that _read_hdr correctly panics when buffer is too short
     fn test_1_read_hdr() {
-        let file = File::open("reference_be.pfm");
-        let mut reader = BufReader::new(file.unwrap());
+        let file = File::open("reference_be.pfm").expect("The file MUST exists");
+        let mut reader = BufReader::new(file);
         let mut line: String = String::new();
         reader.read_line(&mut line).unwrap();
         line.clear();
@@ -518,6 +531,14 @@ mod test {
         line.clear();
 
         let _hdr = _read_hdr(&mut reader, 2, 4, Endianness::BigEndian);
+        // verify there is an error
+        assert!(
+            _hdr.is_err(),
+            "function MUST fail because the buffer is too short!"
+        );
+        // verify error message
+        let err_msg = format!("{}", _hdr.unwrap_err());
+        assert!(err_msg.contains("failed to fill whole buffer"));
     }
 
     #[test]
@@ -543,7 +564,9 @@ mod test {
     //should panic if factor_a is not a number
     fn test_1_new_parameter() {
         let strings: Vec<String> = ["exe", "filename_in", "a", "2.2", "filename_out"]
-            .iter().map(|s| s.to_string()).collect();
+            .iter()
+            .map(|s| s.to_string())
+            .collect();
         let _par = Parameter::new(&strings).unwrap();
     }
 

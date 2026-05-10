@@ -1,9 +1,20 @@
-//! The Ray module allows to represent light rays.
+//! Ray representation utilities.
 //!
-//! The `Ray` object stores:
-//! - `origin : Point` (origin of the light ray)
-//! - `dir : Vector` (direction of the light ray)
-//! - `t_min : f32` ... TODO DOCKING
+//! A [`Ray`] represents a parametrized half-line in 3D space:
+//!
+//! `P(t) = O + tD`
+//!
+//! where:
+//! - `O` is the origin point
+//! - `D` is the direction vector
+//! - `t` is the ray parameter
+//!
+//! Rays also store:
+//! - a valid parameter interval `[t_min, t_max]`
+//! - a recursion depth used for recursive ray tracing
+//!
+//! Rays can be transformed through homogeneous transformations
+//! such as translations, rotations, and scalings.
 
 use crate::functions::are_close;
 use crate::geometry::{Point, Vector, is_close};
@@ -24,7 +35,7 @@ use std::ops::Mul;
 /// - `dir`: the direction of the light
 /// - `t_max`: the maximum distance-parameter value
 /// - `t_min`: the minimum distance-parameter value
-/// - `depth`: the maximum number of reflection the ray can do
+/// - `depth`: number of recursive bounces already performed
 #[derive(Copy, Clone, Debug, PartialEq)]
 pub struct Ray {
     pub origin: Point,
@@ -39,14 +50,15 @@ pub struct Ray {
 //================================================================
 
 impl Ray {
-    /// Creates a new Ray type.
+    /// Creates a new ray with default traversal parameters.
     ///
-    /// Border values `t_max`, `t_min` and `depth`
-    /// are set by default to `f32::INFINITY`, `1.Oe-5` and `0`.
+    /// Default values:
+    /// - `t_min = 1.0e-5`
+    /// - `t_max = f32::INFINITY`
+    /// - `depth = 0`
     ///
-    /// # Arguments
-    /// * `origin` - the originating point source
-    /// * `dir` - ray direction
+    /// The small positive `t_min` helps avoid self-intersections
+    /// caused by floating-point inaccuracies.
     pub fn new(origin: Point, dir: Vector) -> Ray {
         Ray {
             origin,
@@ -122,6 +134,10 @@ impl Ray {
         self.t_min = t_min;
     }
 
+    /// Performs an approximate equality comparison field by field.
+    ///
+    /// Each comparison utilize the [`are_close`] architecture
+    /// which includes special handling for infinities and `NaN`.
     pub fn is_close(self, other: Ray) -> bool {
         is_close(self.origin, other.origin)
             && is_close(self.dir, other.dir)
@@ -130,6 +146,14 @@ impl Ray {
             && self.depth == other.depth
     }
 
+    /// Evaluates the ray equation at parameter `t`.
+    ///
+    /// Rays are parametrized as:
+    ///
+    /// `P(t) = origin + t * dir`
+    ///
+    /// This function returns the point corresponding to the
+    /// given parameter value.
     pub fn at(&self, t: f32) -> Point {
         self.origin + t * self.dir
     }
@@ -138,7 +162,14 @@ impl Ray {
 //================================================================
 //                   Transformation operator
 //================================================================
-
+/// Implements geometric transformation of a [`Ray`].
+///
+/// The transformation is applied to:
+/// - the ray origin as a point
+/// - the ray direction as a vector
+///
+/// Ray traversal parameters (`t_min`, `t_max`, `depth`)
+/// are preserved.
 macro_rules! impl_mul_ray {
     ($name :ident) => {
         impl Mul<Ray> for $name {
@@ -247,8 +278,9 @@ mod tests {
         println!("{}", result);
         assert!(is_close(result.origin, Point::new(11.0, 22.0, 103.0)));
         assert_eq!(result.dir, ray.dir);
-        assert!(ray.t_max.is_infinite());
-        assert!(are_close(ray.t_min, 1e-5));
+        assert!(result.t_max.is_infinite());
+        assert!(are_close(result.t_min, 1e-5));
+        assert_eq!(result.depth, ray.depth);
     }
 
     #[test]
@@ -258,8 +290,9 @@ mod tests {
         let result = scaling * ray;
         assert_eq!(result.origin, Point::new(1.0 * 6.0, 2.0 * 7.0, 3.0 * 8.0));
         assert_eq!(result.dir, Vector::new(4.0 * 6.0, 5.0 * 7.0, 6.0 * 8.0));
-        assert!(ray.t_max.is_infinite());
-        assert!(are_close(ray.t_min, 1e-5));
+        assert!(result.t_max.is_infinite());
+        assert!(are_close(result.t_min, 1e-5));
+        assert_eq!(result.depth, ray.depth);
     }
 
     #[test]
@@ -278,24 +311,27 @@ mod tests {
         let expected_vector = rotation_x * vector;
         assert_eq!(result.origin, expected_point);
         assert_eq!(result.dir, expected_vector);
-        assert!(ray.t_max.is_infinite());
-        assert!(are_close(ray.t_min, 1e-5));
+        assert!(result.t_max.is_infinite());
+        assert!(are_close(result.t_min, 1e-5));
+        assert_eq!(result.depth, ray.depth);
 
         let result = rotation_y * ray;
         let expected_point = rotation_y * point;
         let expected_vector = rotation_y * vector;
         assert_eq!(result.origin, expected_point);
         assert_eq!(result.dir, expected_vector);
-        assert!(ray.t_max.is_infinite());
-        assert!(are_close(ray.t_min, 1e-5));
+        assert!(result.t_max.is_infinite());
+        assert!(are_close(result.t_min, 1e-5));
+        assert_eq!(result.depth, ray.depth);
 
         let result = rotation_z * ray;
         let expected_point = rotation_z * point;
         let expected_vector = rotation_z * vector;
         assert_eq!(result.origin, expected_point);
         assert_eq!(result.dir, expected_vector);
-        assert!(ray.t_max.is_infinite());
-        assert!(are_close(ray.t_min, 1e-5));
+        assert!(result.t_max.is_infinite());
+        assert!(are_close(result.t_min, 1e-5));
+        assert_eq!(result.depth, ray.depth);
     }
 
     #[test]
@@ -310,5 +346,6 @@ mod tests {
         let expected_vector = transformation * vector;
         assert_eq!(result.origin, expected_point);
         assert_eq!(result.dir, expected_vector);
+        assert_eq!(result.depth, ray.depth);
     }
 }

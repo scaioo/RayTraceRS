@@ -96,6 +96,8 @@ macro_rules! impl_matrix_operations {
     };
 }
 
+/// Macro to implement `Mul` trait for XRotation as the LHS.
+/// The RHS is specified as the second input of the macro.
 macro_rules! impl_mul_xrot {
     ($name:ident, $matrix: ident) => {
         impl Mul<$name> for XRotation {
@@ -111,6 +113,8 @@ macro_rules! impl_mul_xrot {
     };
 }
 
+/// Macro to implement `Mul` trait for YRotation as the LHS.
+/// The RHS is specified as the second input of the macro.
 macro_rules! impl_mul_yrot {
     ($name:ident, $matrix: ident) => {
         impl Mul<$name> for YRotation {
@@ -126,6 +130,8 @@ macro_rules! impl_mul_yrot {
     };
 }
 
+/// Macro to implement `Mul` trait for ZRotation as the LHS.
+/// The RHS is specified as the second input of the macro.
 macro_rules! impl_mul_zrot {
     ($name:ident, $matrix: ident) => {
         impl Mul<$name> for ZRotation {
@@ -209,6 +215,8 @@ impl Transformation {
 }
 
 impl_matrix_operations!(Transformation);
+
+// Implements Transformation * Vector mul operator
 impl Mul<Vector> for Transformation {
     type Output = Vector;
     fn mul(self, rhs: Vector) -> Vector {
@@ -229,6 +237,8 @@ impl Mul<Vector> for Transformation {
         vec
     }
 }
+
+// Implements Transformation * Point mul operator
 impl Mul<Point> for Transformation {
     type Output = Point;
     fn mul(self, rhs: Point) -> Point {
@@ -249,6 +259,7 @@ impl Mul<Point> for Transformation {
         point
     }
 }
+// Implements Transformation * Normal mul operator
 impl Mul<Normal> for Transformation {
     type Output = Normal;
     fn mul(self, rhs: Normal) -> Normal {
@@ -322,6 +333,8 @@ impl Scaling {
         Scaling { mat: array, it_mat }
     }
 }
+
+// Implements Scaling * Vector mul operator
 impl Mul<Vector> for Scaling {
     type Output = Vector;
     fn mul(self, rhs: Vector) -> Vector {
@@ -332,6 +345,7 @@ impl Mul<Vector> for Scaling {
         }
     }
 }
+// Implements Scaling * Point mul operator
 impl Mul<Point> for Scaling {
     type Output = Point;
     fn mul(self, rhs: Point) -> Point {
@@ -342,6 +356,7 @@ impl Mul<Point> for Scaling {
         }
     }
 }
+// Implements Scaling * Normal mul operator
 impl Mul<Normal> for Scaling {
     type Output = Normal;
     fn mul(self, rhs: Normal) -> Normal {
@@ -398,18 +413,24 @@ impl Translation {
         }
     }
 }
+
+// Implements Translation * Vector mul operator
 impl Mul<Vector> for Translation {
     type Output = Vector;
     fn mul(self, rhs: Vector) -> Vector {
         rhs
     }
 }
+
+// Implements Translation * Normal mul operator
 impl Mul<Normal> for Translation {
     type Output = Normal;
     fn mul(self, rhs: Normal) -> Normal {
         rhs
     }
 }
+
+// Implements Translation * Point mul operator
 impl Mul<Point> for Translation {
     type Output = Point;
     fn mul(self, rhs: Point) -> Point {

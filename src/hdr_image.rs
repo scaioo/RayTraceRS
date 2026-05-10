@@ -34,7 +34,6 @@ use crate::color::Color;
 use crate::functions::{are_close, endianness_number};
 use anyhow::{Result, anyhow};
 use byteorder::{BigEndian, LittleEndian, WriteBytesExt};
-use endianness::ByteOrder;
 use std::fs::File;
 use std::io::{BufReader, Write};
 

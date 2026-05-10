@@ -4,10 +4,10 @@
 //! - It maintains a list of `Shape` objects.
 //! - It implements a `ray_intersection` method that iterates over the shapes,
 //!   searches for intersections, and returns the one closest to the ray origin.
+use crate::hit_record::HitRecord;
 use crate::ray::Ray;
 use crate::shapes::Shape;
 use std::ops::Add;
-use crate::hit_record::HitRecord;
 
 /// A `World` is a collection of scene objects.
 pub struct World {
@@ -31,11 +31,12 @@ impl World {
             // We use the Option returned by the shape.
             // If the shape had an internal Result error (like in point_to_uv),
             // it already returned None via .ok()?, so the world stays safe.
-            if let Some(hit) = object.ray_intersection(ray) {
-                if hit.t < closest_t && hit.t > ray.t_min {
-                    closest_t = hit.t;
-                    closest_hit = Some(hit);
-                }
+            if let Some(hit) = object.ray_intersection(ray)
+                && hit.t < closest_t
+                && hit.t > ray.t_min
+            {
+                closest_t = hit.t;
+                closest_hit = Some(hit);
             }
         }
 
@@ -59,7 +60,7 @@ impl Add for World {
 #[cfg(test)]
 mod tests {
     use crate::functions::{IDENTITY_4X4, are_close};
-    use crate::geometry::{is_close, Point, Vector};
+    use crate::geometry::{Point, Vector, is_close};
     use crate::ray::Ray;
     use crate::shapes::{Plane, Sphere};
     use crate::transformations::{Scaling, Transformation, Translation};
@@ -84,11 +85,13 @@ mod tests {
         let ray = Ray::new(point1, dir);
 
         // Clean error handling in tests: no match/panic, just expect or ?
-        let hit = world.ray_intersection(&ray)
+        let hit = world
+            .ray_intersection(&ray)
             .expect("Expected an intersection with the 'bean' sphere");
 
         let hit_point = hit.world_point;
-        let implicit = hit_point.x * hit_point.x + hit_point.y * hit_point.y + hit_point.z * hit_point.z / 4.0;
+        let implicit =
+            hit_point.x * hit_point.x + hit_point.y * hit_point.y + hit_point.z * hit_point.z / 4.0;
 
         assert!(are_close(implicit, 1.0));
         Ok(())
@@ -111,7 +114,7 @@ mod tests {
 
             match (hit, expected_point) {
                 (Some(h), Some(p)) => assert!(is_close(h.world_point, p)),
-                (None, None) => {},
+                (None, None) => {}
                 _ => panic!("Intersection mismatch for origin {:?}", origin),
             }
         }

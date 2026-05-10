@@ -16,7 +16,7 @@ use crate::geometry::X_AXIS;
 use crate::ray::Ray;
 use crate::transformations::IsHomogeneousMatrix;
 use std::ops::Mul;
-
+use anyhow::{bail, Result};
 // =======================================================================
 // CAMERA TRAIT
 // =======================================================================
@@ -27,7 +27,7 @@ pub trait Camera {
     ///
     /// # Panics
     /// Panics if the `aspect_ratio` is zero or negative.
-    fn set_aspect_ratio(&mut self, aspect_ratio: f32);
+    fn set_aspect_ratio(&mut self, aspect_ratio: f32) -> Result<()>;
 
     /// Fires a ray through the virtual screen at the normalized coordinates `(u, v)`.
     ///
@@ -83,11 +83,12 @@ impl<T> Camera for OrthogonalCamera<T>
 where
     T: IsHomogeneousMatrix + Mul<Ray, Output = Ray> + Copy,
 {
-    fn set_aspect_ratio(&mut self, aspect_ratio: f32) {
+    fn set_aspect_ratio(&mut self, aspect_ratio: f32) -> Result<()> {
         if aspect_ratio < 0.0 || are_close(aspect_ratio, 0.0) {
-            panic!("invalid aspect ratio {}", aspect_ratio);
+            bail!("Invalid aspect ratio: {}. Must be strictly positive.", aspect_ratio);
         }
         self.aspect_ratio = aspect_ratio;
+        Ok(())
     }
     /// Fires an orthogonal ray through the virtual screen.
     ///
@@ -177,11 +178,12 @@ impl<T> Camera for PerspectiveCamera<T>
 where
     T: IsHomogeneousMatrix + Mul<Ray, Output = Ray> + Copy,
 {
-    fn set_aspect_ratio(&mut self, aspect_ratio: f32) {
+    fn set_aspect_ratio(&mut self, aspect_ratio: f32) -> Result<()> {
         if aspect_ratio < 0.0 || are_close(aspect_ratio, 0.0) {
-            panic!("invalid aspect ratio {}", aspect_ratio);
+            bail!("Invalid aspect ratio: {}. Must be strictly positive.", aspect_ratio);
         }
-        self.aspect_ratio = aspect_ratio
+        self.aspect_ratio = aspect_ratio;
+        Ok(())
     }
     /// Fires a perspective ray through the virtual screen.
     ///
@@ -256,21 +258,24 @@ mod tests {
     }
 
     #[test]
-    #[should_panic(expected = "invalid aspect ratio")]
     fn test_oc_set_ar() {
         let mut orthogonal_camera = OrthogonalCamera::new(Transformation::new(IDENTITY_4X4));
         assert_eq!(orthogonal_camera.aspect_ratio, 1.0);
-        orthogonal_camera.set_aspect_ratio(16.0 / 9.0);
-        println!("not exploded\n");
+
+        // Must work (is_ok)
+        assert!(orthogonal_camera.set_aspect_ratio(16.0 / 9.0).is_ok());
         assert_eq!(orthogonal_camera.aspect_ratio, 16.0 / 9.0);
-        orthogonal_camera.set_aspect_ratio(-9.0);
+
+        // Must be Error (is_err)
+        assert!(orthogonal_camera.set_aspect_ratio(-9.0).is_err());
+        assert!(orthogonal_camera.set_aspect_ratio(0.0).is_err());
     }
 
     #[test]
     fn test_oc_fire_ray() {
         let mut orthogonal_camera = OrthogonalCamera::new(Transformation::new(IDENTITY_4X4));
         let aspect_ratio = 16.0 / 9.0;
-        orthogonal_camera.set_aspect_ratio(aspect_ratio);
+        orthogonal_camera.set_aspect_ratio(aspect_ratio).unwrap();
         let ray1 = orthogonal_camera.fire_ray(0.0, 0.0);
         let ray2 = orthogonal_camera.fire_ray(0.0, 1.0);
         let ray3 = orthogonal_camera.fire_ray(1.0, 0.0);
@@ -327,19 +332,22 @@ mod tests {
     }
 
     #[test]
-    #[should_panic(expected = "invalid aspect ratio")]
     fn test_pc_set_ar() {
         let mut perspective_camera = PerspectiveCamera::new(Transformation::new(IDENTITY_4X4));
-        perspective_camera.set_aspect_ratio(19.0);
+
+        assert!(perspective_camera.set_aspect_ratio(19.0).is_ok());
         assert_eq!(perspective_camera.aspect_ratio, 19.0);
-        println!("not exploded\n");
-        perspective_camera.set_aspect_ratio(0.0000001);
+
+        // Value very close to zero will give an Error
+        assert!(perspective_camera.set_aspect_ratio(0.00000001).is_err());
+        assert!(perspective_camera.set_aspect_ratio(0.0).is_err());
+        assert!(perspective_camera.set_aspect_ratio(-5.0).is_err());
     }
 
     #[test]
     fn test_pc_fire_ray() {
         let mut perspective_camera = PerspectiveCamera::new(Transformation::new(IDENTITY_4X4));
-        perspective_camera.set_aspect_ratio(2.0);
+        perspective_camera.set_aspect_ratio(2.0).unwrap();
         perspective_camera.set_distance(1.0);
 
         let angles = vec![[0.0, 0.0], [0.0, 1.0], [1.0, 0.0], [1.0, 1.0]];

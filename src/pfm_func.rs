@@ -291,6 +291,7 @@ pub fn read_pfm<R: BufRead>(mut reader: R) -> anyhow::Result<HDR> {
 
 /// converting from pfm to jpeg
 ///
+#[derive(Debug)]
 pub struct Parameter {
     pub input_pfm_file_name: String,
     pub factor_a: f32,
@@ -518,56 +519,46 @@ mod test {
 
     // test read_hdr
     #[test]
-    // tests that _read_hdr correctly panics when buffer is too short
     fn test_1_read_hdr() {
-        let file = File::open("reference_be.pfm").expect("The file MUST exists");
-        let mut reader = BufReader::new(file);
+        let mut stream = Cursor::new(BE_ARRAY);
         let mut line: String = String::new();
-        reader.read_line(&mut line).unwrap();
-        line.clear();
-        reader.read_line(&mut line).unwrap();
-        line.clear();
-        reader.read_line(&mut line).unwrap();
-        line.clear();
+        stream.read_line(&mut line).unwrap(); line.clear();
+        stream.read_line(&mut line).unwrap(); line.clear();
+        stream.read_line(&mut line).unwrap(); line.clear();
 
-        let _hdr = _read_hdr(&mut reader, 2, 4, Endianness::BigEndian);
-        // verify there is an error
-        assert!(
-            _hdr.is_err(),
-            "function MUST fail because the buffer is too short!"
-        );
-        // verify error message
-        let err_msg = format!("{}", _hdr.unwrap_err());
-        assert!(err_msg.contains("failed to fill whole buffer"));
+        // We require 4 row but the image has only two so it will fail!
+        let _hdr = _read_hdr(&mut stream, 2, 4, Endianness::BigEndian);
+
+        assert!(_hdr.is_err(), "function MUST fail because the buffer is too short!");
+        let err_msg = _hdr.unwrap_err().to_string();
+        assert!(err_msg.contains("failed to fill whole buffer"), "Unexpected error: {}", err_msg);
     }
 
     #[test]
-    #[should_panic]
-    // tests that _read_hdr correctly panics when buffer is too long
     fn test_2_read_hdr() {
-        let file = File::open("reference_be.pfm");
-        let mut reader = BufReader::new(file.unwrap());
+        let mut stream = Cursor::new(BE_ARRAY);
         let mut line: String = String::new();
-        reader.read_line(&mut line).unwrap();
-        line.clear();
-        reader.read_line(&mut line).unwrap();
-        line.clear();
-        reader.read_line(&mut line).unwrap();
-        line.clear();
+        stream.read_line(&mut line).unwrap(); line.clear();
+        stream.read_line(&mut line).unwrap(); line.clear();
+        stream.read_line(&mut line).unwrap(); line.clear();
 
-        let _hdr = _read_hdr(&mut reader, 2, 2, Endianness::BigEndian).unwrap();
+        // We require 2x2, but the image in the RAM è 3x2, so we will have extra byte in the end
+        let _hdr = _read_hdr(&mut stream, 2, 2, Endianness::BigEndian);
+
+        assert!(_hdr.is_err());
+        assert!(_hdr.unwrap_err().to_string().contains("extra bytes at end of file"));
     }
 
     // test for new created for Parameter
     #[test]
-    #[should_panic(expected = "invalid factor_a value")]
-    //should panic if factor_a is not a number
     fn test_1_new_parameter() {
         let strings: Vec<String> = ["exe", "filename_in", "a", "2.2", "filename_out"]
             .iter()
             .map(|s| s.to_string())
             .collect();
-        let _par = Parameter::new(&strings).unwrap();
+        let par = Parameter::new(&strings);
+        assert!(par.is_err());
+        assert!(par.unwrap_err().to_string().contains("invalid factor_a value"));
     }
 
     #[test]
@@ -582,12 +573,13 @@ mod test {
 
     #[test]
     //sets factor_a to 0.18 when a < 0
-    fn test_3_new_parameter() {
+    fn test_3_new_parameter() -> anyhow::Result<()> {
         let strings: Vec<String> = ["exe", "filename_in", "-1", "2.2", "filename_out"]
             .map(String::from)
             .to_vec();
-        let par = Parameter::new(&strings).unwrap();
+        let par = Parameter::new(&strings)?;
         assert_eq!(0.18, par.factor_a);
+        Ok(())
     }
 
     #[test]

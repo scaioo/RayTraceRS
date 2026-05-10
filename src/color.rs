@@ -62,7 +62,7 @@ impl Color {
     /// Verifies that the color satisfies the validity invariants.
     ///
     /// # Errors
-    /// Returns an error if any component is negative or not finite.
+    /// Returns an error if any component is negative, `NaN`, or infinite (`INFINITY`).
     pub fn self_check(&self) -> Result<()> {
         if self.is_valid() {
             Ok(())

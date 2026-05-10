@@ -24,7 +24,7 @@ use crate::transformations::{
 use std::f32;
 use std::fmt::{Display, Formatter};
 use std::ops::Mul;
-
+use anyhow::{bail, Result};
 //================================================================
 //                    Struct definition
 //================================================================
@@ -110,28 +110,40 @@ impl Ray {
         self.depth = depth;
     }
 
-    /// Sets t-parameter extremes
+    /// Sets t-parameter extremes for the ray's valid interval.
+    ///
+    /// # Errors
+    /// Returns an error if `t_min` is greater than or equal to `t_max`.
     ///
     /// # Example
     /// ```rust
     /// use rstrace::ray::Ray;
     /// use rstrace::geometry::{Point, Vector};
     ///
+    /// # fn main() -> anyhow::Result<()> {
     /// let mut ray = Ray::new(
     ///     Point {x: 0.0, y: 0.0, z: 0.0},
     ///     Vector {x: 1.0, y: 0.0, z: 0.0}
     /// );
     ///
     /// // input: (t_max, t_min)
-    /// ray.set_borders(1e9, 0.0);
+    /// ray.set_borders(1e9, 0.0)?;
     ///
     /// assert_eq!(ray.t_max, 1e9);
     /// assert_eq!(ray.t_min, 0.0);
+    /// # Ok(())
+    /// # }
     /// ```
-    ///
-    pub fn set_borders(&mut self, t_max: f32, t_min: f32) {
+        pub fn set_borders(&mut self, t_max: f32, t_min: f32) -> Result<()> {
+        if t_min >= t_max {
+            bail!(
+                "Invalid ray borders: t_min ({}) must be strictly less than t_max ({}).",
+                t_min, t_max
+            );
+        }
         self.t_max = t_max;
         self.t_min = t_min;
+        Ok(())
     }
 
     /// Performs an approximate equality comparison field by field.
@@ -251,15 +263,26 @@ mod tests {
     }
 
     #[test]
-    fn test_ray_set_borders() {
+    fn test_ray_set_borders() -> Result<()> {
         let mut ray = Ray::new(Point::new(1.0, 2.0, 3.0), Vector::new(4.0, 5.0, 6.0));
         assert_eq!(ray.t_max, f32::INFINITY);
         assert_eq!(ray.t_min, 1e-5);
-        ray.set_borders(10000.0, 2.0);
+
+        // Correct case
+        ray.set_borders(10000.0, 2.0)?;
         assert_eq!(ray.t_max, 10000.0);
         assert_eq!(ray.t_min, 2.0);
-    }
 
+        // Error case: inverted parameters
+        let err_inverted = ray.set_borders(2.0, 10000.0);
+        assert!(err_inverted.is_err());
+
+        // Error case: null interval
+        let err_zero_interval = ray.set_borders(5.0, 5.0);
+        assert!(err_zero_interval.is_err());
+
+        Ok(())
+    }
     #[test]
     fn test_ray_at() {
         let ray = Ray::new(Point::new(1.0, 2.0, 3.0), Vector::new(4.0, 5.0, 6.0));

@@ -18,7 +18,7 @@ pub trait Shape {
 
     fn normal_at(&self, point: Point, ray: &Ray) -> Normal;
 
-    fn point_to_uv(&self, point: &Point) -> Vec2D;
+    fn point_to_uv(&self, point: &Point) -> Result<Vec2D>;
 }
 // =================================================================================
 /// The class Sphere adds the possibility to represent spherical objects in images
@@ -85,11 +85,12 @@ where
         };
 
         let hit_point = transformed_ray.at(t);
+        let uv = self.point_to_uv(&hit_point).ok()?;
 
         Some(HitRecord {
             world_point: self.transformation * hit_point,
             normal: self.transformation * self.normal_at(hit_point, &transformed_ray),
-            uv: self.point_to_uv(&hit_point),
+            uv,
             t,
             ray: *ray,
         })
@@ -105,7 +106,7 @@ where
         }
     }
 
-    fn point_to_uv(&self, point: &Point) -> Vec2D {
+    fn point_to_uv(&self, point: &Point) -> Result<Vec2D> {
         let pi = std::f32::consts::PI;
         let mut u = point.y.atan2(point.x) / (2.0 * pi);
         if u < 0.0 {
@@ -114,7 +115,7 @@ where
 
         let v = point.z.acos() / pi;
 
-        Vec2D { x: u, y: v }
+        Ok(Vec2D { x: u, y: v })
     }
 }
 // =================================================================================
@@ -162,10 +163,12 @@ where
             return None;
         }
         let hit_point = transformed_ray.at(t);
+        let uv = self.point_to_uv(&hit_point).ok()?;
+
         Some(HitRecord {
             world_point: self.transformation * hit_point,
             normal: self.transformation * self.normal_at(hit_point, &transformed_ray),
-            uv: self.point_to_uv(&hit_point),
+            uv,
             t,
             ray: *ray,
         })
@@ -176,11 +179,11 @@ where
         if ray.dir.z > 0.0 { -result } else { result }
     }
 
-    fn point_to_uv(&self, point: &Point) -> Vec2D {
-        Vec2D {
+    fn point_to_uv(&self, point: &Point) -> Result<Vec2D> {
+        Ok(Vec2D {
             x: point.x - point.x.floor(),
             y: point.y - point.y.floor(),
-        }
+        })
     }
 }
 // =================================================================================
@@ -280,15 +283,15 @@ impl Shape for Triangle {
         }
     }
 
-    fn point_to_uv(&self, point: &Point) -> Vec2D {
-        // double check this:
+    fn point_to_uv(&self, point: &Point) -> Result<Vec2D> {
         let normal = (self.b - self.a).cross(&(self.c - self.a));
         let origin = *point - normal;
         let ray = Ray::new(origin, normal);
-        let (_, beta, gamma) = self
-            ._intersection(ray)
-            .expect("Error in Triangle::point_to_uv: point is invalid");
-        Vec2D { x: beta, y: gamma }
+
+        // Se l'intersezione fallisce, l'errore viene restituito in automatico! Niente panic, niente fallback.
+        let (_, beta, gamma) = self._intersection(ray)?;
+
+        Ok(Vec2D { x: beta, y: gamma })
     }
 }
 
@@ -330,10 +333,9 @@ mod tests {
         ];
 
         for i in 0..3 {
-            let hit_record = match sphere.ray_intersection(&rays[i]) {
-                None => panic!("ray_intersection IS WRONG!"),
-                Some(h) => h,
-            };
+            let hit_record = sphere
+                .ray_intersection(&rays[i])
+                .expect("ray_intersection IS WRONG! (Expected a hit)");
             assert!(
                 is_close(hit_record.world_point, points[i]),
                 "Error occurred: index {} is responsible.\n",
@@ -353,10 +355,9 @@ mod tests {
         ];
 
         for i in 0..3 {
-            let hit_record = match sphere.ray_intersection(&rays[i]) {
-                None => panic!("ray_intersection IS WRONG!"),
-                Some(h) => h,
-            };
+            let hit_record = sphere
+                .ray_intersection(&rays[i])
+                .expect("ray_intersection IS WRONG! (Expected a hit)");
             assert!(
                 hit_record.uv.is_close(&uv_points[i]),
                 "Error occurred: index {} is responsible.\n",
@@ -376,10 +377,9 @@ mod tests {
         ];
 
         for i in 0..3 {
-            let hit_record = match sphere.ray_intersection(&rays[i]) {
-                None => panic!("ray_intersection IS WRONG!"),
-                Some(h) => h,
-            };
+            let hit_record = sphere
+                .ray_intersection(&rays[i])
+                .expect("ray_intersection IS WRONG! (Expected a hit)");
             assert!(
                 is_close(hit_record.normal, normals[i]),
                 "Error occurred: index {} is responsible.\n",
@@ -599,17 +599,12 @@ mod tests {
     #[test]
     fn test_triangle_intersection_none() {
         let triangle = setup_triangle1();
+
         let ray = Ray::new(Point::new(-1.0, 0.0, 4.0), Vector::new(1.0, 0.0, 0.0));
-        match triangle._intersection(ray) {
-            Err(e) => println!("{}", e),
-            _ => panic!("TEST SHOULD FAIL!"),
-        }
+        assert!(triangle._intersection(ray).is_err(), "The ray out of the scope must return Err");
 
         let ray = Ray::new(Point::new(-1.0, 0.0, 10.0), Vector::new(1.0, 0.0, 0.0));
-        match triangle._intersection(ray) {
-            Err(e) => println!("{}", e),
-            _ => panic!("TEST SHOULD FAIL!"),
-        }
+        assert!(triangle._intersection(ray).is_err(), "The ray out of the scope must return Err");
     }
 
     #[test]
@@ -638,12 +633,21 @@ mod tests {
     }
 
     #[test]
-    #[should_panic(expected = "Error in Triangle::point_to_uv")]
-    fn test_triangle_point_to_uv() {
+    fn test_triangle_point_to_uv() -> Result<()> {
         let triangle = setup_triangle1();
-        let uv = triangle.point_to_uv(&Point::new(0.0, 0.0, 2.0));
+
+        // Success case: return Ok with the correct value of the object
+        let uv = triangle.point_to_uv(&Point::new(0.0, 0.0, 2.0))?;
         assert!(uv.is_close(&Vec2D::new(0.4, 0.5)));
 
-        let _ = triangle.point_to_uv(&Point::new(10.0, 0.0, 0.0));
+        // Error case: return error
+        // We use assert!(res.is_err()) for confirming the bug in not invinsible.
+        let invalid_point = Point::new(10.0, 0.0, 0.0);
+        let result = triangle.point_to_uv(&invalid_point);
+
+        assert!(result.is_err(), "Should fail for point out of the triangle");
+        println!("Error correctly intercepted: {}", result.unwrap_err());
+
+        Ok(())
     }
 }

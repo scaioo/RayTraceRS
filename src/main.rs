@@ -113,7 +113,7 @@ fn main() -> Result<()> {
                 let mut o_cam = OrthogonalCamera::new(transl);
                 let img = HDR::new(cli.width, cli.height);
                 let aspectratio = img.width as f32 / img.height as f32;
-                o_cam.set_aspect_ratio(aspectratio);
+                o_cam.set_aspect_ratio(aspectratio)?;
                 let mut imagetracer = ImageTracer::new(img, o_cam);
                 imagetracer
                     .fire_all_rays(&world, color_image)
@@ -133,7 +133,7 @@ fn main() -> Result<()> {
                 let img = HDR::new(cli.width, cli.height);
 
                 let aspectratio = img.width as f32 / img.height as f32;
-                p_cam.set_aspect_ratio(aspectratio);
+                p_cam.set_aspect_ratio(aspectratio)?;
                 let mut imagetracer = ImageTracer::new(img, p_cam);
                 imagetracer
                     .fire_all_rays(&world, color_image)

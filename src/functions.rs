@@ -401,27 +401,30 @@ mod tests {
     }
 
     #[test]
-    fn test_matrix_inverse() {
+    fn test_matrix_inverse() -> Result<()> {
         let mat1: [f32; 16] = [
             2.0, 0.0, 0.0, 0.0, 0.0, 5.0, 0.0, 0.0, 0.0, 0.0, 10.0, 0.0, 0.0, 0.0, 0.0, 1.0,
         ];
         let mat1_inverse: [f32; 16] = [
             0.5, 0.0, 0.0, 0.0, 0.0, 0.2, 0.0, 0.0, 0.0, 0.0, 0.1, 0.0, 0.0, 0.0, 0.0, 1.0,
         ];
-        let result = inverse_4x4(&mat1).unwrap();
+        let result = inverse_4x4(&mat1)?; // Usa ? invece di unwrap()
         for i in 0..16 {
             assert!(are_close(result[i], mat1_inverse[i]));
         }
+
         let mat1: [f32; 16] = [
             1.0, 0.0, 0.0, 10.0, 0.0, 1.0, 0.0, 0.0, 0.0, 0.0, 1.0, 0.0, 0.0, 0.0, 0.0, 1.0,
         ];
         let mat1_inverse: [f32; 16] = [
             1.0, 0.0, 0.0, -10.0, 0.0, 1.0, 0.0, 0.0, 0.0, 0.0, 1.0, 0.0, 0.0, 0.0, 0.0, 1.0,
         ];
-        let result = inverse_4x4(&mat1).unwrap();
+        let result = inverse_4x4(&mat1)?; // Usa ?
         for i in 0..16 {
             assert!(are_close(result[i], mat1_inverse[i]));
         }
+
+        Ok(())
     }
 
     #[test]
@@ -431,6 +434,7 @@ mod tests {
         ];
         let result = inverse_4x4(&mat);
         assert!(result.is_err());
+        assert_eq!(result.unwrap_err().to_string(), "There is no inverse matrix: det = 0!");
     }
 
     #[test]
@@ -486,28 +490,32 @@ mod tests {
     }
 
     #[test]
-    fn test_cramer() {
+    fn test_cramer() -> Result<()> {
         let mat: [f32; 9] = [1.0, 0.0, 0.0, 0.0, 1.0, 0.0, 0.0, 0.0, 1.0];
         let v: [f32; 3] = [1.0, 2.0, 3.0];
-        let result = cramer(&mat, v).unwrap();
+        let result = cramer(&mat, v)?;
         for i in 0..3 {
             assert!(are_close(result[i], v[i]), "{:?}", mat[i]);
         }
 
         let mat: [f32; 9] = [2.0, 5.0, -3.0, 2.0, -5.0, 3.0, 0.0, -5.0, 2.0];
         let v: [f32; 3] = [1.0, 3.0, 0.0];
-        let result = cramer(&mat, v).unwrap();
+        let result = cramer(&mat, v)?;
         let expected: [f32; 3] = [1.0, 0.4, 1.0];
         for i in 0..3 {
             assert!(are_close(result[i], expected[i]), "{}: {:?}", i + 1, mat[i]);
         }
+
+        Ok(())
     }
 
     #[test]
-    #[should_panic(expected = "det is 0.0!")]
     fn test_zero_determinant_cramer() {
         let mat: [f32; 9] = [1.0, 0.0, 1.0, 0.0, 1.0, 0.0, 1.0, 0.0, 1.0];
         let v: [f32; 3] = [1.0, 1.0, 0.0];
-        let _ = cramer(&mat, v).unwrap();
+        let result = cramer(&mat, v);
+
+        assert!(result.is_err());
+        assert_eq!(result.unwrap_err().to_string(), "det is 0.0! No solution available!");
     }
 }

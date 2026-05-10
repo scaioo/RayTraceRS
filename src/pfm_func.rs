@@ -323,7 +323,7 @@ impl Parameter {
     /// # Example
     /// ```rust, no_run
     /// use rstrace::pfm_func::Parameter;
-    /// let args = vec![
+    /// let args: Vec<String> = vec![
     ///     "program".into(),
     ///     "input.pfm".into(),
     ///     "0.18".into(),
@@ -331,7 +331,7 @@ impl Parameter {
     ///     "output.png".into(),
     /// ];
     ///
-    /// let params = Parameter::new(args).unwrap();
+    /// let params = Parameter::new(&args).unwrap();
     /// ```
     pub fn new(args: &Vec<String>) -> anyhow::Result<Parameter> {
         if args.len() != 4 {

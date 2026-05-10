@@ -77,11 +77,11 @@ impl Within for f32 {
     ///
     /// # Examples
     /// ```rust
-    /// use rstrace::Within;
+    /// use crate::functions::Within;
     ///
-    /// assert!(5.0.is_between_open(&0.0, &10.0));
-    /// assert!(!0.0.is_between_open(&0.0, &10.0)); // Lower bound returns false
-    /// assert!(!10.0.is_between_open(&0.0, &10.0)); // Upper bound returns false
+    /// assert!(5.0_f32.is_between_open(&0.0, &10.0));
+    /// assert!(!0.0_f32.is_between_open(&0.0, &10.0)); // Lower bound returns false
+    /// assert!(!10.0_f32.is_between_open(&0.0, &10.0)); // Upper bound returns false
     /// ```
     #[inline]
     fn is_between_open(&self, min: &Self, max: &Self) -> bool {
@@ -94,11 +94,11 @@ impl Within for f32 {
     ///
     /// # Examples
     /// ```rust
-    /// use rstrace::Within;
+    /// use rstrace::functions::Within;
     ///
-    /// assert!(5.0.is_between_close(&0.0, &10.0));
-    /// assert!(0.0.is_between_close(&0.0, &10.0)); // Lower bound returns true
-    /// assert!(10.0.is_between_close(&0.0, &10.0)); // Upper bound returns true
+    /// assert!(5.0_f32.is_between_close(&0.0, &10.0));
+    /// assert!(0.0_f32.is_between_close(&0.0, &10.0)); // Lower bound returns true
+    /// assert!(10.0_f32.is_between_close(&0.0, &10.0)); // Upper bound returns true
     /// ```
     #[inline]
     fn is_between_close(&self, min: &Self, max: &Self) -> bool {
@@ -112,10 +112,10 @@ impl Within for f32 {
     ///
     /// # Examples
     /// ```rust
-    /// use rstrace::Within;
+    /// use rstrace::functons::Within;
     ///
-    /// assert!(0.0.is_between_half_open(&0.0, &10.0)); // Lower bound returns true
-    /// assert!(!10.0.is_between_half_open(&0.0, &10.0)); // Upper bound returns false
+    /// assert!(0.0_f32.is_between_half_open(&0.0, &10.0)); // Lower bound returns true
+    /// assert!(!10.0_f32.is_between_half_open(&0.0, &10.0)); // Upper bound returns false
     /// ```
     #[inline]
     fn is_between_half_open(&self, min: &Self, max: &Self) -> bool {
@@ -126,13 +126,12 @@ impl Within for f32 {
 /// Converts an endianness value into a numeric representation.
 ///
 /// Returns:
-/// - `-1.0` for [`ByteOrder::LittleEndian`]
-/// - `+1.0` for [`ByteOrder::BigEndian`]
+/// - `-1.0` for [`Endianness::LittleEndian`]
+/// - `+1.0` for [`Endianness::BigEndian`]
 ///
 /// # Examples
 /// ```rust
 /// use rstrace::functions::endianness_number;
-/// use endianness::Endianness;
 /// use rstrace::pfm_func::Endianness;
 /// assert_eq!(-1.0, endianness_number(&Endianness::LittleEndian));
 /// assert_eq!(1.0, endianness_number(&Endianness::BigEndian));

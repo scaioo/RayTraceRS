@@ -1,6 +1,6 @@
 //! Geometry module providing the spatial primitives used by the renderer.
-use std::fmt;
 use crate::functions::are_close;
+use std::fmt;
 use std::ops::{Add, Div, Mul, Neg, Sub};
 
 // =======================================================================
@@ -683,6 +683,9 @@ mod tests {
     fn test_normalization_nan() {
         let v = Vector::new(1.0, 2.0, f32::NAN);
         let expected = Vector::new(f32::NAN, f32::NAN, f32::NAN);
-        assert!(v.normalize().is_close(&expected), "Normalized vector length is not NaN!");
+        assert!(
+            v.normalize().is_close(&expected),
+            "Normalized vector length is not NaN!"
+        );
     }
 }

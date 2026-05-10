@@ -5,13 +5,13 @@
 //!
 //! All the documentation is a WIP - draft!
 
-use crate::functions::{are_close, cramer, Within};
+use crate::functions::{Within, are_close, cramer};
 use crate::geometry::{Cross, Dot, Normal, Point, Vec2D, Vector};
 use crate::hit_record::HitRecord;
 use crate::ray::Ray;
-use crate::transformations::{IsHomogeneousMatrix};
+use crate::transformations::IsHomogeneousMatrix;
+use anyhow::{Result, anyhow};
 use std::ops::Mul;
-use anyhow::{ anyhow, Result};
 
 pub trait Shape {
     fn ray_intersection(&self, ray: &Ray) -> Option<HitRecord>;
@@ -26,7 +26,7 @@ pub trait Shape {
 /// Draft:
 /// Sphere implements:
 /// 1. `RayIntersection` trait that determines the point of intersection between
-/// the ray and the sphere
+///    the ray and the sphere
 /// 2. A method that returns the normal of the sphere
 /// 3. A method that returns the $(u,v)$ coordinates given the point of intersection
 ///
@@ -123,7 +123,7 @@ where
 /// Draft:
 /// Plane implements:
 /// 1. `RayIntersection` trait that determines the point of intersection between
-/// the ray and the plane
+///    the ray and the plane
 /// 2. A method that returns the normal of the plane
 /// 3. A method that returns the $(u,v)$ coordinates given the point of intersection
 ///
@@ -189,7 +189,7 @@ where
 /// Draft:
 /// Triangle implements:
 /// 1. `RayIntersection` trait that determines the point of intersection between
-/// the ray and the triangle
+///    the ray and the triangle
 /// 2. A method that returns the normal of the triangle
 /// 3. A method that returns the $(u,v)$ coordinates given the point of intersection
 ///
@@ -207,15 +207,21 @@ pub struct Triangle {
 
 impl Triangle {
     pub fn _intersection(&self, ray: Ray) -> Result<(f32, f32, f32)> {
-        let mat : [f32; 9] = [
-            self.b.x - self.a.x, self.c.x - self.a.x, -ray.dir.x,
-            self.b.y - self.a.y, self.c.y - self.a.y, -ray.dir.y,
-            self.b.z - self.a.z, self.c.z - self.a.z, -ray.dir.z,
+        let mat: [f32; 9] = [
+            self.b.x - self.a.x,
+            self.c.x - self.a.x,
+            -ray.dir.x,
+            self.b.y - self.a.y,
+            self.c.y - self.a.y,
+            -ray.dir.y,
+            self.b.z - self.a.z,
+            self.c.z - self.a.z,
+            -ray.dir.z,
         ];
         let right_member = [
             ray.origin.x - self.a.x,
             ray.origin.y - self.a.y,
-            ray.origin.z - self.a.z
+            ray.origin.z - self.a.z,
         ];
 
         let result = cramer(&mat, right_member)?;
@@ -232,7 +238,11 @@ impl Triangle {
         {
             Ok((t, beta, gamma))
         } else {
-            Err(anyhow!("No Ray-Triangle intersection!!\nBeta: {}\nGamma: {}", beta, gamma))
+            Err(anyhow!(
+                "No Ray-Triangle intersection!!\nBeta: {}\nGamma: {}",
+                beta,
+                gamma
+            ))
         }
     }
 }
@@ -241,43 +251,46 @@ impl Shape for Triangle {
     fn ray_intersection(&self, ray: &Ray) -> Option<HitRecord> {
         let (t, beta, gamma) = self._intersection(*ray).ok()?;
 
-        if t.is_between_close(&ray.t_min,& ray.t_max) {
+        if t.is_between_close(&ray.t_min, &ray.t_max) {
             let hit_point = ray.at(t);
-            Some(
-                HitRecord{
-                    world_point: hit_point,
-                    normal: self.normal_at(hit_point, &ray),
-                    uv : Vec2D::new(beta, gamma),
-                    t,
-                    ray: *ray,
-                }
-            )
-        } else { None }
+            Some(HitRecord {
+                world_point: hit_point,
+                normal: self.normal_at(hit_point, ray),
+                uv: Vec2D::new(beta, gamma),
+                t,
+                ray: *ray,
+            })
+        } else {
+            None
+        }
     }
-    
+
     fn normal_at(&self, _point: Point, ray: &Ray) -> Normal {
+        let result = (self.b - self.a).cross(&(self.c - self.a));
+        let result = Normal {
+            x: result.x,
+            y: result.y,
+            z: result.z,
+        };
 
-        let result = (self.b - self.a).cross(&(self.c - self.a)) ;
-        let result = Normal{x: result.x, y: result.y, z: result.z};
-
-        if ray.dir.dot(&result) > 0.0 { - result } else { result }
+        if ray.dir.dot(&result) > 0.0 {
+            -result
+        } else {
+            result
+        }
     }
-    
+
     fn point_to_uv(&self, point: &Point) -> Vec2D {
         // double check this:
         let normal = (self.b - self.a).cross(&(self.c - self.a));
         let origin = *point - normal;
         let ray = Ray::new(origin, normal);
-        let (_, beta, gamma) = self._intersection(ray)
+        let (_, beta, gamma) = self
+            ._intersection(ray)
             .expect("Error in Triangle::point_to_uv: point is invalid");
         Vec2D { x: beta, y: gamma }
     }
 }
-
-
-
-
-
 
 // =================================================================================
 
@@ -563,9 +576,8 @@ mod tests {
         assert!(hit.uv.is_close(&Vec2D::new(0.5, 0.7)));
     }
 
-
     fn setup_triangle1() -> Triangle {
-        Triangle{
+        Triangle {
             a: Point::new(0.0, 4.0, 0.0),
             b: Point::new(0.0, -1.0, 0.0),
             c: Point::new(0.0, 0.0, 4.0),
@@ -590,13 +602,13 @@ mod tests {
         let ray = Ray::new(Point::new(-1.0, 0.0, 4.0), Vector::new(1.0, 0.0, 0.0));
         match triangle._intersection(ray) {
             Err(e) => println!("{}", e),
-            _ => panic!("TEST SHOULD FAIL!")
+            _ => panic!("TEST SHOULD FAIL!"),
         }
 
         let ray = Ray::new(Point::new(-1.0, 0.0, 10.0), Vector::new(1.0, 0.0, 0.0));
         match triangle._intersection(ray) {
             Err(e) => println!("{}", e),
-            _ => panic!("TEST SHOULD FAIL!")
+            _ => panic!("TEST SHOULD FAIL!"),
         }
     }
 
@@ -605,11 +617,22 @@ mod tests {
         let triangle = setup_triangle1();
         let ray = Ray::new(Point::new(-1.0, 0.0, 2.0), Vector::new(1.0, 0.0, 0.0));
 
-        let hit_record = triangle.ray_intersection(&ray).expect("Should hit the triangle");
+        let hit_record = triangle
+            .ray_intersection(&ray)
+            .expect("Should hit the triangle");
 
-        assert!(is_close(hit_record.world_point, Point::new(0.0, 0.0, 2.0)), "hit_record.world_point != hit_point");
-        assert!(is_close(hit_record.normal, Normal::new(-20.0, 0.0, 0.0)), "normal != hit_record.normal");
-        assert!(hit_record.uv.is_close( &Vec2D::new(0.4, 0.5)), "uv != hit_record.uv");
+        assert!(
+            is_close(hit_record.world_point, Point::new(0.0, 0.0, 2.0)),
+            "hit_record.world_point != hit_point"
+        );
+        assert!(
+            is_close(hit_record.normal, Normal::new(-20.0, 0.0, 0.0)),
+            "normal != hit_record.normal"
+        );
+        assert!(
+            hit_record.uv.is_close(&Vec2D::new(0.4, 0.5)),
+            "uv != hit_record.uv"
+        );
         assert!(are_close(hit_record.t, 1.0), "t != hit_record.t");
         assert!(ray.is_close(hit_record.ray), "world_point != hit_point");
     }

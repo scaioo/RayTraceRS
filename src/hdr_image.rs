@@ -37,7 +37,7 @@ use byteorder::{BigEndian, LittleEndian, WriteBytesExt};
 use std::fs::File;
 use std::io::{BufReader, Write};
 
-use crate::pfm_func::{Parameter, read_pfm, Endianness};
+use crate::pfm_func::{Endianness, Parameter, read_pfm};
 use image::{Rgb, RgbImage};
 
 /// Represents an HDR (High Dynamic Range) image.
@@ -397,7 +397,6 @@ pub fn hdr_to_ldr(argv: &mut Parameter) -> Result<()> {
 
     Ok(())
 }
-
 
 // =================================================================
 // Tests

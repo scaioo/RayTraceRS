@@ -6,7 +6,7 @@ use crate::world::World;
 use anyhow::Result;
 
 #[derive(Clone, Debug, PartialEq)]
-pub struct ImageTracer< C: Camera> {
+pub struct ImageTracer<C: Camera> {
     pub image: HDR,
     pub camera: C,
 }

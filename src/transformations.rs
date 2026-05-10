@@ -7,7 +7,7 @@
 //! To maximize efficiency, transformations are split into a generic [`Transformation`]
 //! and highly optimized specific structs ([`Translation`], [`Scaling`], [`XRotation`], etc.)
 //! that bypass unnecessary floating-point operations.
-use crate::functions::{IDENTITY_4X4, are_close, matrix_mul_4x4, inverse_4x4, transpose_matrix};
+use crate::functions::{IDENTITY_4X4, are_close, inverse_4x4, matrix_mul_4x4, transpose_matrix};
 use crate::geometry::{Normal, Point, Vector};
 use std::ops::Mul;
 
@@ -542,7 +542,7 @@ impl_mul_zrot!(Point, mat);
 mod test {
     #[allow(unused_imports)]
     use crate::functions::{
-        IDENTITY_4X4, are_close, equal_matrices, matrix_mul_4x4, inverse_4x4, transpose_matrix,
+        IDENTITY_4X4, are_close, equal_matrices, inverse_4x4, matrix_mul_4x4, transpose_matrix,
     };
     use crate::geometry::{Normal, Point, Vector, is_close};
     use crate::transformations::{

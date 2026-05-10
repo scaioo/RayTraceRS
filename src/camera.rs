@@ -54,7 +54,6 @@ where
     }
 
     fn fire_ray(&self, u: f32, v: f32) -> Ray {
-
         // "Ugly but I hope fast" ~ Isacco.
         let point = Point {
             x: -1.0,

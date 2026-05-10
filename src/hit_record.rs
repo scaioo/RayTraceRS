@@ -19,7 +19,7 @@ use crate::ray::Ray;
 /// # Examples
 ///
 /// ```rust,no_run
-/// # use rstrace::hit_records::HitRecord;
+/// # use rstrace::hit_record::HitRecord;
 /// # use rstrace::geometry::{Point, Normal, Vec2D, Vector};
 /// # use rstrace::ray::Ray;
 /// let incident_ray = Ray::new(Point::new(0.0, 0.0, 0.0), Vector::new(0.0, 0.0, 1.0));

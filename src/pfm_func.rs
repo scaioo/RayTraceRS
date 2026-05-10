@@ -334,7 +334,7 @@ impl Parameter {
     ///     "output.png".into(),
     /// ];
     ///
-    /// let params = Parameter::new(args).unwrap();
+    /// let params = Parameter::new(&args).unwrap();
     /// ```
     pub fn new(args: &[String]) -> anyhow::Result<Parameter> {
         if args.len() != 5 {

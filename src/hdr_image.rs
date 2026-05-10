@@ -18,8 +18,8 @@
 //! ## Example
 //!
 //! ```rust, no_run
-//! use rstrace::rstrace::color::Color;
-//! use rstrace::rstrace::hdr_image::HDR;
+//! use rstrace::color::Color;
+//! use rstrace::hdr_image::HDR;
 //!
 //! let mut img = HDR::new(512, 512);
 //!
@@ -147,12 +147,12 @@ impl HDR {
     /// use rstrace::hdr_image::HDR;
     /// use std::fs::File;
     /// use std::io::BufWriter;
-    /// use endianness::ByteOrder;
     ///
     ///
     /// # fn main() -> anyhow::Result<()> {
+    /// use rstrace::pfm_func::Endianness;
     /// let img = HDR::new(1920, 1080);
-    /// let endianness = ByteOrder::LittleEndian;
+    /// let endianness = Endianness::LittleEndian;
     ///
     /// // Example 1: Writing to a physical file on disk (using BufWriter for optimal performance)
     /// let file = File::create("render.pfm")?;

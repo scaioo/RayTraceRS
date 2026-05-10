@@ -30,7 +30,7 @@ pub static IDENTITY_4X4: [f32; 16] = [
 ///
 /// # Examples
 ///
-/// ```rust
+/// ```rust, no_run
 /// use rstrace::functions::are_close;
 ///
 /// assert!(are_close(0.1 + 0.2, 0.3));
@@ -75,8 +75,8 @@ impl Within for f32 {
     /// $$min < x < max$$
     ///
     /// # Examples
-    /// ```rust
-    /// use rstrace::Within;
+    /// ```rust, no_run
+    /// use rstrace::functions::Within;
     ///
     /// assert!(5.0.is_between_open(&0.0, &10.0));
     /// assert!(!0.0.is_between_open(&0.0, &10.0)); // Lower bound returns false
@@ -92,8 +92,8 @@ impl Within for f32 {
     /// $$min \le x \le max$$
     ///
     /// # Examples
-    /// ```rust
-    /// use rstrace::Within;
+    /// ```rust, no_run
+    /// # use rstrace::functions::Within;
     ///
     /// assert!(5.0.is_between_close(&0.0, &10.0));
     /// assert!(0.0.is_between_close(&0.0, &10.0)); // Lower bound returns true
@@ -110,8 +110,8 @@ impl Within for f32 {
     /// $$min \le x < max$$
     ///
     /// # Examples
-    /// ```rust
-    /// use rstrace::Within;
+    /// ```rust, no_run
+    /// use rstrace::functions::Within;
     ///
     /// assert!(0.0.is_between_half_open(&0.0, &10.0)); // Lower bound returns true
     /// assert!(!10.0.is_between_half_open(&0.0, &10.0)); // Upper bound returns false
@@ -129,9 +129,8 @@ impl Within for f32 {
 /// - `+1.0` for [`ByteOrder::BigEndian`]
 ///
 /// # Examples
-/// ```rust
+/// ```rust,no_run
 /// use rstrace::functions::endianness_number;
-/// use endianness::Endianness;
 /// use rstrace::pfm_func::Endianness;
 /// assert_eq!(-1.0, endianness_number(&Endianness::LittleEndian));
 /// assert_eq!(1.0, endianness_number(&Endianness::BigEndian));

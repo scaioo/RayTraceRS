@@ -495,7 +495,7 @@ mod test {
     #[should_panic]
     //should panic if factor_a is not a number
     fn test_1_new_parameter() {
-        let strings: Vec<String> = ["exe", "filename_in", "a", "2.2", "filename_out"]
+        let strings: Vec<String> = ["filename_in", "a", "2.2", "filename_out"]
             .map(String::from)
             .to_vec();
         let _par = Parameter::new(&strings);
@@ -505,7 +505,7 @@ mod test {
     #[should_panic]
     //should panic if gamma is not a number
     fn test_2_new_parameter() {
-        let strings: Vec<String> = ["exe", "filename_in", "0.18", "a", "filename_out"]
+        let strings: Vec<String> = ["filename_in", "0.18", "a", "filename_out"]
             .map(String::from)
             .to_vec();
         let _par = Parameter::new(&strings);
@@ -514,7 +514,7 @@ mod test {
     #[test]
     //sets factor_a to 0.18 when a < 0
     fn test_3_new_parameter() {
-        let strings: Vec<String> = ["exe", "filename_in", "-1", "2.2", "filename_out"]
+        let strings: Vec<String> = ["filename_in", "-1", "2.2", "filename_out"]
             .map(String::from)
             .to_vec();
         let par = Parameter::new(&strings).unwrap();
@@ -524,7 +524,7 @@ mod test {
     #[test]
     //sets gamma to 2.2 when gamma < 0
     fn test_4_new_parameter() {
-        let strings: Vec<String> = ["exe", "filename_in", "0.18", "-1", "filename_out"]
+        let strings: Vec<String> = ["filename_in", "0.18", "-1", "filename_out"]
             .map(String::from)
             .to_vec();
         let par = Parameter::new(&strings).unwrap();
@@ -535,16 +535,9 @@ mod test {
     #[should_panic]
     //should panic if incorrect number of input parameters
     fn test_5_new_parameter() {
-        let strings: Vec<String> = [
-            "added string",
-            "exe",
-            "filename_in",
-            "0.18",
-            "a",
-            "filename_out",
-        ]
-        .map(String::from)
-        .to_vec();
+        let strings: Vec<String> = ["added string", "filename_in", "0.18", "a", "filename_out"]
+            .map(String::from)
+            .to_vec();
         let _par = Parameter::new(&strings).unwrap();
     }
 

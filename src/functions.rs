@@ -77,7 +77,7 @@ impl Within for f32 {
     ///
     /// # Examples
     /// ```rust
-    /// use crate::functions::Within;
+    /// use rstrace::functions::Within;
     ///
     /// assert!(5.0_f32.is_between_open(&0.0, &10.0));
     /// assert!(!0.0_f32.is_between_open(&0.0, &10.0)); // Lower bound returns false
@@ -112,7 +112,7 @@ impl Within for f32 {
     ///
     /// # Examples
     /// ```rust
-    /// use rstrace::functons::Within;
+    /// use rstrace::functions::Within;
     ///
     /// assert!(0.0_f32.is_between_half_open(&0.0, &10.0)); // Lower bound returns true
     /// assert!(!10.0_f32.is_between_half_open(&0.0, &10.0)); // Upper bound returns false

@@ -1,23 +1,57 @@
-//! Geometry modules founding spacial description of the image
-
-use std::fmt;
-//use std::fmt::Display;
+//! Geometry module providing the spatial primitives used by the renderer.
 use crate::functions::are_close;
+use std::fmt;
 use std::ops::{Add, Div, Mul, Neg, Sub};
+
+// =======================================================================
+// VEC2D
+// =======================================================================
+/// Vec2D struct describes 2-dimensional vectors storing the coordinates as `f32`.
+#[derive(Copy, Clone, Debug, PartialEq)]
+pub struct Vec2D {
+    pub x: f32,
+    pub y: f32,
+}
+
+impl Vec2D {
+    pub fn new(x: f32, y: f32) -> Vec2D {
+        Vec2D { x, y }
+    }
+
+    /// Performs a component-wise approximate equality check.
+    ///
+    /// Returns `true` if both the `x` and `y` fields of the two vectors are
+    /// close, as defined by the absolute tolerance in [`are_close`].
+    ///
+    /// # Examples
+    /// ```rust
+    /// use rstrace::geometry::Vec2D;
+    ///
+    /// let v1 = Vec2D::new(0.1 + 0.2, 1.0);
+    /// let v2 = Vec2D::new(0.3, 1.0);
+    /// assert!(v1.is_close(&v2));
+    /// ```
+    pub fn is_close(&self, other: &Vec2D) -> bool {
+        are_close(self.x, other.x) && are_close(self.y, other.y)
+    }
+}
 
 // =======================================================================
 // CONSTANTS DEFINITIONS
 // =======================================================================
+/// A unit vector pointing along the positive X-axis.
 pub static X_AXIS: Vector = Vector {
     x: 1.0,
     y: 0.0,
     z: 0.0,
 };
+/// A unit vector pointing along the Y-axis.
 pub static Y_AXIS: Vector = Vector {
     x: 0.0,
     y: 1.0,
     z: 0.0,
 };
+/// A unit vector pointing along the positive Z-axes.
 pub static Z_AXIS: Vector = Vector {
     x: 0.0,
     y: 0.0,
@@ -28,7 +62,19 @@ pub static Z_AXIS: Vector = Vector {
 // FUNCTIONS DEFINITIONS
 // =======================================================================
 
-// We could make it a trait through all the project!
+/// Performs a component-wise approximate equality check for structs implementing [`TDV`].
+///
+/// Returns `true` if all the fields of the two structs are
+/// close, as defined by the absolute tolerance in [`are_close`].
+///
+/// # Examples
+/// ```rust
+/// use rstrace::geometry::Point;
+///
+/// let p1 = Point::new(0.1 + 0.2, 1.0, 0.0);
+/// let p2 = Point::new(0.3, 1.0, 0.0);
+/// assert!(p1.is_close(&p2));
+/// ```
 pub fn is_close<T: TDV>(a: T, b: T) -> bool {
     are_close(a.x(), b.x()) && are_close(a.y(), b.y()) && are_close(a.z(), b.z())
 }
@@ -100,9 +146,11 @@ pub struct Normal {
 // ==========================================
 // Dot and Cross Trait
 // ==========================================
+/// Dot trait implements the dot product.
 pub trait Dot<Rhs> {
     fn dot(&self, rhs: &Rhs) -> f32;
 }
+/// Cross trait implements the cross product.
 pub trait Cross<Rhs> {
     type Output;
     fn cross(&self, rhs: &Rhs) -> Self::Output;
@@ -111,7 +159,10 @@ pub trait Cross<Rhs> {
 // ==========================================
 // MACRO DEFINITION
 // ==========================================
-/// Macro to implement the `is_close` method for 3D structs.
+/// Performs a component-wise approximate equality comparison.
+///
+/// Each coordinate is compared using [`are_close`],
+/// which includes special handling for infinities and `NaN`.
 macro_rules! impl_is_close {
     ($type_name:ident) => {
         impl $type_name {
@@ -428,6 +479,15 @@ impl_from!(Vector, Point);
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn test_vec2d_is_close() {
+        let v1 = Vec2D::new(1.0, 2.0);
+        let v2 = Vec2D::new(1.000001, 2.0);
+        assert!(v1.is_close(&v2));
+        assert!(!v1.is_close(&Vec2D::new(1.00001, 2.0)));
+    }
+
     #[test]
     fn test_is_close_method() {
         // Create a base vector
@@ -616,6 +676,16 @@ mod tests {
         assert!(
             are_close(n_norm.norm(), 1.0),
             "Normalized normal length is not 1.0!"
+        );
+    }
+
+    #[test]
+    fn test_normalization_nan() {
+        let v = Vector::new(1.0, 2.0, f32::NAN);
+        let expected = Vector::new(f32::NAN, f32::NAN, f32::NAN);
+        assert!(
+            v.normalize().is_close(&expected),
+            "Normalized vector length is not NaN!"
         );
     }
 }

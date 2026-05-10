@@ -12,6 +12,8 @@ and added comprehensive unit tests for floating-point edge cases ([PR #10](https
 - Introduced `ImageTracer` abstraction for per-pixel ray generation
 - Added pixel-to-NDC mapping for ray generation in `ImageTracer`
 - Added camera-based ray generation via `fire_ray(u, v)`
+- Added shapes: Sphere, Plane and Triangle
+- implement demo command to generate images from a scene and fmg2png command to convert pfm files
 
 ### Changed
 - Refactored `geometry::are_close` to provide robust handling of non-finite values ([PR #10](https://github.com/scaioo/RayTraceRS/pull/10)).

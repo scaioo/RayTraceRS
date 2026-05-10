@@ -17,7 +17,14 @@ use std::ops::Mul;
 //================================================================
 //                    Struct definition
 //================================================================
-// TODO DOCUMENTATION
+/// Represent a light ray
+///
+/// # Fields
+/// - `origin`: the point where the light originates
+/// - `dir`: the direction of the light
+/// - `t_max`: the maximum distance-parameter value
+/// - `t_min`: the minimum distance-parameter value
+/// - `depth`: the maximum number of reflection the ray can do
 #[derive(Copy, Clone, Debug, PartialEq)]
 pub struct Ray {
     pub origin: Point,
@@ -32,6 +39,14 @@ pub struct Ray {
 //================================================================
 
 impl Ray {
+    /// Creates a new Ray type.
+    ///
+    /// Border values `t_max`, `t_min` and `depth`
+    /// are set by default to `f32::INFINITY`, `1.Oe-5` and `0`.
+    ///
+    /// # Arguments
+    /// * `origin` - the originating point source
+    /// * `dir` - ray direction
     pub fn new(origin: Point, dir: Vector) -> Ray {
         Ray {
             origin,
@@ -47,6 +62,7 @@ impl Ray {
 //                         Display
 //================================================================
 
+/// Implements Display for Ray struct.
 impl Display for Ray {
     fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
         write!(
@@ -62,10 +78,45 @@ impl Display for Ray {
 //================================================================
 
 impl Ray {
+    /// Sets the depth value in Ray struct.
+    ///
+    /// # Example
+    /// ```rust
+    /// use rstrace::ray::Ray;
+    /// use rstrace::geometry::{Point, Vector};
+    ///
+    /// let mut ray = Ray::new(
+    ///     Point {x: 0.0, y: 0.0, z: 0.0},
+    ///     Vector {x: 1.0, y: 0.0, z: 0.0}
+    /// );
+    ///
+    /// ray.set_depth(5);
+    ///
+    /// assert_eq!(ray.depth, 5);
+    /// ```
     pub fn set_depth(&mut self, depth: usize) {
         self.depth = depth;
     }
 
+    /// Sets t-parameter extremes
+    ///
+    /// # Example
+    /// ```rust
+    /// use rstrace::ray::Ray;
+    /// use rstrace::geometry::{Point, Vector};
+    ///
+    /// let mut ray = Ray::new(
+    ///     Point {x: 0.0, y: 0.0, z: 0.0},
+    ///     Vector {x: 1.0, y: 0.0, z: 0.0}
+    /// );
+    ///
+    /// // input: (t_max, t_min)
+    /// ray.set_borders(1e9, 0.0);
+    ///
+    /// assert_eq!(ray.t_max, 1e9);
+    /// assert_eq!(ray.t_min, 0.0);
+    /// ```
+    ///
     pub fn set_borders(&mut self, t_max: f32, t_min: f32) {
         self.t_max = t_max;
         self.t_min = t_min;

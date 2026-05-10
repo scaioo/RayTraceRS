@@ -62,7 +62,7 @@ where
         };
         let ray = Ray {
             origin: point,
-            dir: X_AXIS,
+            dir: X_AXIS.normalize(),
             t_max: f32::INFINITY,
             t_min: 1e-5,
             depth: 0,
@@ -112,7 +112,7 @@ where
     fn fire_ray(&self, u: f32, v: f32) -> Ray {
         let point = Point {
             x: 0.0,
-            y: -self.aspect_ratio * (2.0 * u - 1.0),
+            y: self.aspect_ratio * (1.0 - 2.0 * u),
             z: 2.0 * v - 1.0,
         };
 

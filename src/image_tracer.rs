@@ -85,7 +85,7 @@ mod tests {
         fn color_image(ray: Ray, world: &World) -> Result<Color> {
             let inters = world.ray_intersection(&ray);
             match inters {
-                Some(_) => {
+                Some(_x) => {
                     let color = Color::new(1.0, 1.0, 1.0);
                     Ok(color)
                 }
@@ -97,12 +97,11 @@ mod tests {
         }
 
         fn demo_world() -> World {
-            let sphere_scaling = Scaling::new([0.1, 0.1, 0.1]);
+            let sphere_scaling = Scaling::new([1.0, 1.0, 1.0]);
 
-            let central_spheres = vec![
-                Sphere::new(Translation::new(Vector::new(0.0, 0.0, -0.5)) * sphere_scaling),
-                Sphere::new(Translation::new(Vector::new(0.0, 0.5, 0.0)) * sphere_scaling),
-            ];
+            let central_spheres = vec![Sphere::new(
+                Translation::new(Vector::new(0.0, 0.0, -0.0)) * sphere_scaling,
+            )];
 
             let objects: Vec<Box<dyn Shape>> = central_spheres
                 .into_iter()
@@ -118,7 +117,7 @@ mod tests {
         tracer.fire_all_rays(&demo_world(), color_image)?;
 
         // 2. Iterate through the tracer's image to verify the pixels
-        let expected_color = Color::new(1.0, 2.0, 3.0);
+        let expected_color = Color::new(1.0, 1.0, 1.0);
         for row in 0..tracer.image.height {
             for col in 0..tracer.image.width {
                 // Assuming you have a get_pixel method and Color implements PartialEq

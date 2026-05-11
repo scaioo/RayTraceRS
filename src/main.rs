@@ -196,6 +196,8 @@ fn main() -> Result<()> {
             pfm_to_ldr(filename, 0.18, 2.2, output_filename)
                 .expect("error converting file from pfm");
 
+            let duration = now.elapsed();
+            println!("Program finished in {:?}", duration);
             Ok(())
         }
     }

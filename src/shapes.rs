@@ -601,10 +601,16 @@ mod tests {
         let triangle = setup_triangle1();
 
         let ray = Ray::new(Point::new(-1.0, 0.0, 4.0), Vector::new(1.0, 0.0, 0.0));
-        assert!(triangle._intersection(ray).is_err(), "The ray out of the scope must return Err");
+        assert!(
+            triangle._intersection(ray).is_err(),
+            "The ray out of the scope must return Err"
+        );
 
         let ray = Ray::new(Point::new(-1.0, 0.0, 10.0), Vector::new(1.0, 0.0, 0.0));
-        assert!(triangle._intersection(ray).is_err(), "The ray out of the scope must return Err");
+        assert!(
+            triangle._intersection(ray).is_err(),
+            "The ray out of the scope must return Err"
+        );
     }
 
     #[test]

@@ -522,31 +522,48 @@ mod test {
     fn test_1_read_hdr() {
         let mut stream = Cursor::new(BE_ARRAY);
         let mut line: String = String::new();
-        stream.read_line(&mut line).unwrap(); line.clear();
-        stream.read_line(&mut line).unwrap(); line.clear();
-        stream.read_line(&mut line).unwrap(); line.clear();
+        stream.read_line(&mut line).unwrap();
+        line.clear();
+        stream.read_line(&mut line).unwrap();
+        line.clear();
+        stream.read_line(&mut line).unwrap();
+        line.clear();
 
         // We require 4 row but the image has only two so it will fail!
         let _hdr = _read_hdr(&mut stream, 2, 4, Endianness::BigEndian);
 
-        assert!(_hdr.is_err(), "function MUST fail because the buffer is too short!");
+        assert!(
+            _hdr.is_err(),
+            "function MUST fail because the buffer is too short!"
+        );
         let err_msg = _hdr.unwrap_err().to_string();
-        assert!(err_msg.contains("failed to fill whole buffer"), "Unexpected error: {}", err_msg);
+        assert!(
+            err_msg.contains("failed to fill whole buffer"),
+            "Unexpected error: {}",
+            err_msg
+        );
     }
 
     #[test]
     fn test_2_read_hdr() {
         let mut stream = Cursor::new(BE_ARRAY);
         let mut line: String = String::new();
-        stream.read_line(&mut line).unwrap(); line.clear();
-        stream.read_line(&mut line).unwrap(); line.clear();
-        stream.read_line(&mut line).unwrap(); line.clear();
+        stream.read_line(&mut line).unwrap();
+        line.clear();
+        stream.read_line(&mut line).unwrap();
+        line.clear();
+        stream.read_line(&mut line).unwrap();
+        line.clear();
 
         // We require 2x2, but the image in the RAM è 3x2, so we will have extra byte in the end
         let _hdr = _read_hdr(&mut stream, 2, 2, Endianness::BigEndian);
 
         assert!(_hdr.is_err());
-        assert!(_hdr.unwrap_err().to_string().contains("extra bytes at end of file"));
+        assert!(
+            _hdr.unwrap_err()
+                .to_string()
+                .contains("extra bytes at end of file")
+        );
     }
 
     // test for new created for Parameter
@@ -558,7 +575,11 @@ mod test {
             .collect();
         let par = Parameter::new(&strings);
         assert!(par.is_err());
-        assert!(par.unwrap_err().to_string().contains("invalid factor_a value"));
+        assert!(
+            par.unwrap_err()
+                .to_string()
+                .contains("invalid factor_a value")
+        );
     }
 
     #[test]

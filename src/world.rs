@@ -60,7 +60,7 @@ impl Add for World {
 #[cfg(test)]
 mod tests {
     use crate::functions::{IDENTITY_4X4, are_close};
-    use crate::geometry::{is_close, Point, Vector};
+    use crate::geometry::{Point, Vector, is_close};
     use crate::ray::Ray;
     use crate::shapes::{Plane, Sphere};
     use crate::transformations::{Scaling, Transformation, Translation};

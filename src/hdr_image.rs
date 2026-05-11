@@ -483,21 +483,14 @@ mod test {
         ];
         let mut img = HDR::new(3, 2);
 
-        img.set_pixel(0, 0, Color::new(1.0e1, 2.0e1, 3.0e1))
-            ?;
-        img.set_pixel(1, 0, Color::new(4.0e1, 5.0e1, 6.0e1))
-            ?;
-        img.set_pixel(2, 0, Color::new(7.0e1, 8.0e1, 9.0e1))
-            ?;
-        img.set_pixel(0, 1, Color::new(1.0e2, 2.0e2, 3.0e2))
-            ?;
-        img.set_pixel(1, 1, Color::new(4.0e2, 5.0e2, 6.0e2))
-            ?;
-        img.set_pixel(2, 1, Color::new(7.0e2, 8.0e2, 9.0e2))
-            ?;
+        img.set_pixel(0, 0, Color::new(1.0e1, 2.0e1, 3.0e1))?;
+        img.set_pixel(1, 0, Color::new(4.0e1, 5.0e1, 6.0e1))?;
+        img.set_pixel(2, 0, Color::new(7.0e1, 8.0e1, 9.0e1))?;
+        img.set_pixel(0, 1, Color::new(1.0e2, 2.0e2, 3.0e2))?;
+        img.set_pixel(1, 1, Color::new(4.0e2, 5.0e2, 6.0e2))?;
+        img.set_pixel(2, 1, Color::new(7.0e2, 8.0e2, 9.0e2))?;
         let mut buffer: Vec<u8> = vec![];
-        img.write_pfm(&mut buffer, &Endianness::LittleEndian)
-            ?;
+        img.write_pfm(&mut buffer, &Endianness::LittleEndian)?;
         assert_eq!(buffer, reference_le_bytes);
         buffer = vec![];
         img.write_pfm(&mut buffer, &Endianness::BigEndian)?;

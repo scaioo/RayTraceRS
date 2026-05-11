@@ -434,7 +434,10 @@ mod tests {
         ];
         let result = inverse_4x4(&mat);
         assert!(result.is_err());
-        assert_eq!(result.unwrap_err().to_string(), "There is no inverse matrix: det = 0!");
+        assert_eq!(
+            result.unwrap_err().to_string(),
+            "There is no inverse matrix: det = 0!"
+        );
     }
 
     #[test]
@@ -516,6 +519,9 @@ mod tests {
         let result = cramer(&mat, v);
 
         assert!(result.is_err());
-        assert_eq!(result.unwrap_err().to_string(), "det is 0.0! No solution available!");
+        assert_eq!(
+            result.unwrap_err().to_string(),
+            "det is 0.0! No solution available!"
+        );
     }
 }

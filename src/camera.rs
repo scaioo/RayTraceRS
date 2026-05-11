@@ -15,8 +15,8 @@ use crate::geometry::Point;
 use crate::geometry::X_AXIS;
 use crate::ray::Ray;
 use crate::transformations::IsHomogeneousMatrix;
+use anyhow::{Result, bail};
 use std::ops::Mul;
-use anyhow::{bail, Result};
 // =======================================================================
 // CAMERA TRAIT
 // =======================================================================
@@ -85,7 +85,10 @@ where
 {
     fn set_aspect_ratio(&mut self, aspect_ratio: f32) -> Result<()> {
         if aspect_ratio < 0.0 || are_close(aspect_ratio, 0.0) {
-            bail!("Invalid aspect ratio: {}. Must be strictly positive.", aspect_ratio);
+            bail!(
+                "Invalid aspect ratio: {}. Must be strictly positive.",
+                aspect_ratio
+            );
         }
         self.aspect_ratio = aspect_ratio;
         Ok(())
@@ -180,7 +183,10 @@ where
 {
     fn set_aspect_ratio(&mut self, aspect_ratio: f32) -> Result<()> {
         if aspect_ratio < 0.0 || are_close(aspect_ratio, 0.0) {
-            bail!("Invalid aspect ratio: {}. Must be strictly positive.", aspect_ratio);
+            bail!(
+                "Invalid aspect ratio: {}. Must be strictly positive.",
+                aspect_ratio
+            );
         }
         self.aspect_ratio = aspect_ratio;
         Ok(())

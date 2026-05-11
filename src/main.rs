@@ -42,7 +42,9 @@ struct Cli {
 
 #[derive(Parser, Clone)]
 enum Commands {
-    Demo { file_name: String },
+    Demo {
+        file_name: String,
+    },
 
     Pfm2Png {
         input_file: String,

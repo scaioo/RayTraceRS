@@ -21,10 +21,10 @@ use crate::geometry::{Point, Vector, is_close};
 use crate::transformations::{
     Scaling, Transformation, Translation, XRotation, YRotation, ZRotation,
 };
+use anyhow::{Result, bail};
 use std::f32;
 use std::fmt::{Display, Formatter};
 use std::ops::Mul;
-use anyhow::{bail, Result};
 //================================================================
 //                    Struct definition
 //================================================================
@@ -134,11 +134,12 @@ impl Ray {
     /// # Ok(())
     /// # }
     /// ```
-        pub fn set_borders(&mut self, t_max: f32, t_min: f32) -> Result<()> {
+    pub fn set_borders(&mut self, t_max: f32, t_min: f32) -> Result<()> {
         if t_min >= t_max {
             bail!(
                 "Invalid ray borders: t_min ({}) must be strictly less than t_max ({}).",
-                t_min, t_max
+                t_min,
+                t_max
             );
         }
         self.t_max = t_max;

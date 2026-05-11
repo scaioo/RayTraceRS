@@ -25,8 +25,8 @@ use anyhow::{bail, Result};
 pub trait Camera {
     /// Sets the aspect ratio of the camera (width / height).
     ///
-    /// # Panics
-    /// Panics if the `aspect_ratio` is zero or negative.
+    /// # Errors
+    /// Returns Err if the `aspect_ratio` is zero or negative.
     fn set_aspect_ratio(&mut self, aspect_ratio: f32) -> Result<()>;
 
     /// Fires a ray through the virtual screen at the normalized coordinates `(u, v)`.

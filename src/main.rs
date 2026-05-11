@@ -30,7 +30,7 @@ struct Cli {
     #[arg(long, default_value_t = 1000)]
     width: usize,
 
-    #[arg(long, default_value_t = 700)]
+    #[arg(long, default_value_t = 750)]
     height: usize,
 
     #[arg(long)]
@@ -42,9 +42,7 @@ struct Cli {
 
 #[derive(Parser, Clone)]
 enum Commands {
-    Demo {
-        file_name: String,
-    },
+    Demo { file_name: String },
 
     Pfm2Png {
         input_file: String,

@@ -15,9 +15,11 @@ impl PCG {
         self
     }
 
-    pub fn random(&mut self)-> u64 {
+    pub fn random(&mut self)-> u32 {
         let oldstate = self.state;
-        self.state =
-
+        self.state = oldstate.wrapping_mul(6364136223846793005).wrapping_add(self.inc);
+        let xorshifted = (((oldstate >> 18)^oldstate) >> 27) as u32;
+        let rot = (oldstate >> 59) as u32;
+        xorshifted.rotate_right(rot)
     }
 }

@@ -35,3 +35,4 @@ pub mod image_tracer;
 pub mod pfm_func;
 pub mod ray;
 pub mod transformations;
+mod     PCG;

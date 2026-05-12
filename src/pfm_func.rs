@@ -1,6 +1,6 @@
 //! PFM (Portable Float Map) image reading utilities.
 //!
-//! This module provides functions to parse and load `.pfm` files into the
+//! This module provides functions to parse and load `.pfm` outputs into the
 //! [`HDR`] structure used by the raytracer.
 //!
 //! ## Supported features
@@ -22,7 +22,7 @@
 //! - Negative scale → little endian
 //!
 //! ## Notes
-//! - This implementation expects well-formed files.
+//! - This implementation expects well-formed outputs.
 //! - Extra trailing bytes are treated as an error.
 //! - Pixel data is stored in row-major order.
 use crate::color::Color;
@@ -45,7 +45,9 @@ pub enum EndiannessError {
     InvalidValue,
 }
 
-// reading and writing pfm files
+// =================================================================
+// Reading PFM file
+// =================================================================
 
 /// Validates the PFM magic number (`PF` or `Pf`).
 ///
@@ -157,11 +159,11 @@ fn _read_hdr<R: Read>(
     // Color the empty image
     for i in (0..height).rev() {
         for j in 0..width {
-            reader.read_exact(&mut buffer).expect("unexpected eof");
+            reader.read_exact(&mut buffer)?;
             let r = bytes_to_f32(buffer);
-            reader.read_exact(&mut buffer).expect("unexpected eof");
+            reader.read_exact(&mut buffer)?;
             let g = bytes_to_f32(buffer);
-            reader.read_exact(&mut buffer).expect("unexpected eof");
+            reader.read_exact(&mut buffer)?;
             let b = bytes_to_f32(buffer);
             hdr_img.pixels[width * i + j] = Color::new(r, g, b);
         }
@@ -283,8 +285,13 @@ pub fn read_pfm<R: BufRead>(mut reader: R) -> anyhow::Result<HDR> {
     Ok(hdr_img)
 }
 
+// =================================================================
+// Parameter struct
+// =================================================================
+
 /// converting from pfm to jpeg
 ///
+#[derive(Debug)]
 pub struct Parameter {
     pub input_pfm_file_name: String,
     pub factor_a: f32,
@@ -311,9 +318,6 @@ impl Parameter {
     /// # Errors
     /// Returns an error if:
     /// - The number of arguments is not exactly 5
-    ///
-    /// # Panics
-    /// This function will panic if:
     /// - `factor_a` or `gamma` cannot be parsed as `f32`
     ///
     /// # Notes
@@ -323,7 +327,7 @@ impl Parameter {
     /// # Example
     /// ```rust, no_run
     /// use rstrace::pfm_func::Parameter;
-    /// let args: Vec<String> = vec![
+    /// let args = vec![
     ///     "program".into(),
     ///     "input.pfm".into(),
     ///     "0.18".into(),
@@ -333,19 +337,29 @@ impl Parameter {
     ///
     /// let params = Parameter::new(&args).unwrap();
     /// ```
-    pub fn new(args: &Vec<String>) -> anyhow::Result<Parameter> {
-        if args.len() != 4 {
+    pub fn new(args: &[String]) -> anyhow::Result<Parameter> {
+        if args.len() != 5 {
             return Err(anyhow!(
                 "wrong number of parameters: expected\n\
             <input_file_name> <factor_a> <gamma> <output_file_name>"
             ));
         }
 
-        let input_temp: &String = &args[0];
+        let input_temp: &String = &args[1];
         let input_pfm_file_name = input_temp.to_string();
-        let mut factor_a: f32 = args[1].parse::<f32>().expect("invalid factor_a value");
-        let mut gamma: f32 = args[2].parse::<f32>().expect("invalid gamma value");
-        let output_temp: &String = &args[3];
+        let mut factor_a: f32 = args[2].parse::<f32>().map_err(|_| {
+            anyhow!(
+                "invalid factor_a value: expected\n\
+            <input_file_name> <factor_a> <gamma> <output_file_name>"
+            )
+        })?;
+        let mut gamma: f32 = args[3].parse::<f32>().map_err(|_| {
+            anyhow!(
+                "invalid gamma value: expected\n\
+            <input_file_name> <factor_a> <gamma> <output_file_name>"
+            )
+        })?;
+        let output_temp: &String = &args[4];
         let output_file_name: String = output_temp.to_string();
         if factor_a <= 0.0 {
             println!("factor 'a' was automatically set to 0.18");
@@ -366,7 +380,55 @@ impl Parameter {
     }
 }
 
-pub fn pfm_to_png(
+// =================================================================
+// Converting .pfm -> .png
+// =================================================================
+/// Converts a `.pfm` HDR image into an LDR image file.
+///
+/// The function:
+/// - reads the input PFM image,
+/// - applies normalization and tone mapping,
+/// - converts the image to LDR using gamma correction,
+/// - saves the result to the specified output file.
+///
+/// # Arguments
+///
+/// * `input_file` - Path to the input `.pfm` image
+/// * `factor_a` - Exposure normalization factor
+/// * `gamma` - Gamma correction value
+/// * `output_file` - Path to the generated LDR image
+///
+/// # Errors
+///
+/// Returns `Err` if:
+/// - [`Parameter::new`] fails to validate the parameters
+/// - the input file cannot be opened
+/// - the PFM image cannot be parsed
+/// - normalization or tone mapping fails
+/// - the output image cannot be written to disk
+///
+/// # Notes
+///
+/// - Negative or zero values for `factor_a` and `gamma` are automatically
+///   replaced with default values inside [`Parameter::new`].
+/// - The output image format is inferred from the extension of `output_file`.
+///
+/// # Example
+///
+/// ```rust,no_run
+/// use rstrace::pfm_func::pfm_to_ldr;
+///
+/// # fn main() -> anyhow::Result<()> {
+/// pfm_to_ldr(
+///     "render.pfm".into(),
+///     0.18,
+///     2.2,
+///     "render.png".into(),
+/// )?;
+/// # Ok(())
+/// # }
+/// ```
+pub fn pfm_to_ldr(
     input_file: String,
     factor_a: f32,
     gamma: f32,
@@ -457,74 +519,94 @@ mod test {
 
     // test read_hdr
     #[test]
-    #[should_panic]
-    // tests that _read_hdr correctly panics when buffer is too short
     fn test_1_read_hdr() {
-        let file = File::open("reference_be.pfm");
-        let mut reader = BufReader::new(file.unwrap());
+        let mut stream = Cursor::new(BE_ARRAY);
         let mut line: String = String::new();
-        reader.read_line(&mut line).unwrap();
+        stream.read_line(&mut line).unwrap();
         line.clear();
-        reader.read_line(&mut line).unwrap();
+        stream.read_line(&mut line).unwrap();
         line.clear();
-        reader.read_line(&mut line).unwrap();
+        stream.read_line(&mut line).unwrap();
         line.clear();
 
-        let _hdr = _read_hdr(&mut reader, 2, 4, Endianness::BigEndian);
+        // We require 4 row but the image has only two so it will fail!
+        let _hdr = _read_hdr(&mut stream, 2, 4, Endianness::BigEndian);
+
+        assert!(
+            _hdr.is_err(),
+            "function MUST fail because the buffer is too short!"
+        );
+        let err_msg = _hdr.unwrap_err().to_string();
+        assert!(
+            err_msg.contains("failed to fill whole buffer"),
+            "Unexpected error: {}",
+            err_msg
+        );
     }
 
     #[test]
-    #[should_panic]
-    // tests that _read_hdr correctly panics when buffer is too long
     fn test_2_read_hdr() {
-        let file = File::open("reference_be.pfm");
-        let mut reader = BufReader::new(file.unwrap());
+        let mut stream = Cursor::new(BE_ARRAY);
         let mut line: String = String::new();
-        reader.read_line(&mut line).unwrap();
+        stream.read_line(&mut line).unwrap();
         line.clear();
-        reader.read_line(&mut line).unwrap();
+        stream.read_line(&mut line).unwrap();
         line.clear();
-        reader.read_line(&mut line).unwrap();
+        stream.read_line(&mut line).unwrap();
         line.clear();
 
-        let _hdr = _read_hdr(&mut reader, 2, 2, Endianness::BigEndian).unwrap();
+        // We require 2x2, but the image in the RAM è 3x2, so we will have extra byte in the end
+        let _hdr = _read_hdr(&mut stream, 2, 2, Endianness::BigEndian);
+
+        assert!(_hdr.is_err());
+        assert!(
+            _hdr.unwrap_err()
+                .to_string()
+                .contains("extra bytes at end of file")
+        );
     }
 
     // test for new created for Parameter
     #[test]
-    #[should_panic]
-    //should panic if factor_a is not a number
     fn test_1_new_parameter() {
-        let strings: Vec<String> = ["filename_in", "a", "2.2", "filename_out"]
-            .map(String::from)
-            .to_vec();
-        let _par = Parameter::new(&strings);
+        let strings: Vec<String> = ["exe", "filename_in", "a", "2.2", "filename_out"]
+            .iter()
+            .map(|s| s.to_string())
+            .collect();
+        let par = Parameter::new(&strings);
+        assert!(par.is_err());
+        assert!(
+            par.unwrap_err()
+                .to_string()
+                .contains("invalid factor_a value")
+        );
     }
 
     #[test]
-    #[should_panic]
+    #[should_panic(expected = "invalid gamma value")]
     //should panic if gamma is not a number
     fn test_2_new_parameter() {
-        let strings: Vec<String> = ["filename_in", "0.18", "a", "filename_out"]
+        let strings: Vec<String> = ["exe", "filename_in", "0.18", "a", "filename_out"]
             .map(String::from)
             .to_vec();
-        let _par = Parameter::new(&strings);
+        let _par = Parameter::new(&strings).unwrap();
     }
 
     #[test]
     //sets factor_a to 0.18 when a < 0
-    fn test_3_new_parameter() {
-        let strings: Vec<String> = ["filename_in", "-1", "2.2", "filename_out"]
+    fn test_3_new_parameter() -> anyhow::Result<()> {
+        let strings: Vec<String> = ["exe", "filename_in", "-1", "2.2", "filename_out"]
             .map(String::from)
             .to_vec();
-        let par = Parameter::new(&strings).unwrap();
+        let par = Parameter::new(&strings)?;
         assert_eq!(0.18, par.factor_a);
+        Ok(())
     }
 
     #[test]
     //sets gamma to 2.2 when gamma < 0
     fn test_4_new_parameter() {
-        let strings: Vec<String> = ["filename_in", "0.18", "-1", "filename_out"]
+        let strings: Vec<String> = ["exe", "filename_in", "0.18", "-1", "filename_out"]
             .map(String::from)
             .to_vec();
         let par = Parameter::new(&strings).unwrap();
@@ -535,9 +617,16 @@ mod test {
     #[should_panic]
     //should panic if incorrect number of input parameters
     fn test_5_new_parameter() {
-        let strings: Vec<String> = ["added string", "filename_in", "0.18", "a", "filename_out"]
-            .map(String::from)
-            .to_vec();
+        let strings: Vec<String> = [
+            "added string",
+            "exe",
+            "filename_in",
+            "0.18",
+            "a",
+            "filename_out",
+        ]
+        .map(String::from)
+        .to_vec();
         let _par = Parameter::new(&strings).unwrap();
     }
 

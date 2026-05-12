@@ -2,7 +2,6 @@
 //!
 //! This module provides small, reusable helpers that are not tied to a
 //! specific subsystem but are used throughout the codebase.
-
 use crate::pfm_func::Endianness;
 use anyhow::{Result, anyhow};
 
@@ -31,7 +30,7 @@ pub static IDENTITY_4X4: [f32; 16] = [
 ///
 /// # Examples
 ///
-/// ```rust
+/// ```rust, no_run
 /// use rstrace::functions::are_close;
 ///
 /// assert!(are_close(0.1 + 0.2, 0.3));
@@ -76,12 +75,12 @@ impl Within for f32 {
     /// $$min < x < max$$
     ///
     /// # Examples
-    /// ```rust
+    /// ```rust, no_run
     /// use rstrace::functions::Within;
     ///
-    /// assert!(5.0_f32.is_between_open(&0.0, &10.0));
-    /// assert!(!0.0_f32.is_between_open(&0.0, &10.0)); // Lower bound returns false
-    /// assert!(!10.0_f32.is_between_open(&0.0, &10.0)); // Upper bound returns false
+    /// assert!(5.0.is_between_open(&0.0, &10.0));
+    /// assert!(!0.0.is_between_open(&0.0, &10.0)); // Lower bound returns false
+    /// assert!(!10.0.is_between_open(&0.0, &10.0)); // Upper bound returns false
     /// ```
     #[inline]
     fn is_between_open(&self, min: &Self, max: &Self) -> bool {
@@ -93,12 +92,12 @@ impl Within for f32 {
     /// $$min \le x \le max$$
     ///
     /// # Examples
-    /// ```rust
-    /// use rstrace::functions::Within;
+    /// ```rust, no_run
+    /// # use rstrace::functions::Within;
     ///
-    /// assert!(5.0_f32.is_between_close(&0.0, &10.0));
-    /// assert!(0.0_f32.is_between_close(&0.0, &10.0)); // Lower bound returns true
-    /// assert!(10.0_f32.is_between_close(&0.0, &10.0)); // Upper bound returns true
+    /// assert!(5.0.is_between_close(&0.0, &10.0));
+    /// assert!(0.0.is_between_close(&0.0, &10.0)); // Lower bound returns true
+    /// assert!(10.0.is_between_close(&0.0, &10.0)); // Upper bound returns true
     /// ```
     #[inline]
     fn is_between_close(&self, min: &Self, max: &Self) -> bool {
@@ -111,11 +110,11 @@ impl Within for f32 {
     /// $$min \le x < max$$
     ///
     /// # Examples
-    /// ```rust
+    /// ```rust, no_run
     /// use rstrace::functions::Within;
     ///
-    /// assert!(0.0_f32.is_between_half_open(&0.0, &10.0)); // Lower bound returns true
-    /// assert!(!10.0_f32.is_between_half_open(&0.0, &10.0)); // Upper bound returns false
+    /// assert!(0.0.is_between_half_open(&0.0, &10.0)); // Lower bound returns true
+    /// assert!(!10.0.is_between_half_open(&0.0, &10.0)); // Upper bound returns false
     /// ```
     #[inline]
     fn is_between_half_open(&self, min: &Self, max: &Self) -> bool {
@@ -126,11 +125,11 @@ impl Within for f32 {
 /// Converts an endianness value into a numeric representation.
 ///
 /// Returns:
-/// - `-1.0` for [`Endianness::LittleEndian`]
-/// - `+1.0` for [`Endianness::BigEndian`]
+/// - `-1.0` for [`ByteOrder::LittleEndian`]
+/// - `+1.0` for [`ByteOrder::BigEndian`]
 ///
 /// # Examples
-/// ```rust
+/// ```rust,no_run
 /// use rstrace::functions::endianness_number;
 /// use rstrace::pfm_func::Endianness;
 /// assert_eq!(-1.0, endianness_number(&Endianness::LittleEndian));
@@ -321,21 +320,20 @@ pub fn cramer(m: &[f32; 9], v: [f32; 3]) -> Result<[f32; 3]> {
     let det = det_3x3(m);
 
     if are_close(det, 0.0) {
-        Err(anyhow!("det is 0.0! No solution available!"))
-    } else {
-        let mut result: [f32; 3] = [1.0 / det, 1.0 / det, 1.0 / det];
-        let [a, b, c, d, e, f, g, h, i] = *m;
-        let mat: [f32; 9] = [v[0], b, c, v[1], e, f, v[2], h, i];
-        result[0] *= det_3x3(&mat);
-
-        let mat: [f32; 9] = [a, v[0], c, d, v[1], f, g, v[2], i];
-        result[1] *= det_3x3(&mat);
-
-        let mat: [f32; 9] = [a, b, v[0], d, e, v[1], g, h, v[2]];
-        result[2] *= det_3x3(&mat);
-
-        Ok(result)
+        return Err(anyhow!("det is 0.0! No solution available!"));
     }
+
+    let inv_det = 1.0 / det;
+
+    let [a, b, c, d, e, f, g, h, i] = *m;
+
+    let dx = det_3x3(&[v[0], b, c, v[1], e, f, v[2], h, i]);
+
+    let dy = det_3x3(&[a, v[0], c, d, v[1], f, g, v[2], i]);
+
+    let dz = det_3x3(&[a, b, v[0], d, e, v[1], g, h, v[2]]);
+
+    Ok([dx * inv_det, dy * inv_det, dz * inv_det])
 }
 
 // tests
@@ -403,27 +401,30 @@ mod tests {
     }
 
     #[test]
-    fn test_matrix_inverse() {
+    fn test_matrix_inverse() -> Result<()> {
         let mat1: [f32; 16] = [
             2.0, 0.0, 0.0, 0.0, 0.0, 5.0, 0.0, 0.0, 0.0, 0.0, 10.0, 0.0, 0.0, 0.0, 0.0, 1.0,
         ];
         let mat1_inverse: [f32; 16] = [
             0.5, 0.0, 0.0, 0.0, 0.0, 0.2, 0.0, 0.0, 0.0, 0.0, 0.1, 0.0, 0.0, 0.0, 0.0, 1.0,
         ];
-        let result = inverse_4x4(&mat1).unwrap();
+        let result = inverse_4x4(&mat1)?; // Usa ? invece di unwrap()
         for i in 0..16 {
             assert!(are_close(result[i], mat1_inverse[i]));
         }
+
         let mat1: [f32; 16] = [
             1.0, 0.0, 0.0, 10.0, 0.0, 1.0, 0.0, 0.0, 0.0, 0.0, 1.0, 0.0, 0.0, 0.0, 0.0, 1.0,
         ];
         let mat1_inverse: [f32; 16] = [
             1.0, 0.0, 0.0, -10.0, 0.0, 1.0, 0.0, 0.0, 0.0, 0.0, 1.0, 0.0, 0.0, 0.0, 0.0, 1.0,
         ];
-        let result = inverse_4x4(&mat1).unwrap();
+        let result = inverse_4x4(&mat1)?; // Usa ?
         for i in 0..16 {
             assert!(are_close(result[i], mat1_inverse[i]));
         }
+
+        Ok(())
     }
 
     #[test]
@@ -433,6 +434,10 @@ mod tests {
         ];
         let result = inverse_4x4(&mat);
         assert!(result.is_err());
+        assert_eq!(
+            result.unwrap_err().to_string(),
+            "There is no inverse matrix: det = 0!"
+        );
     }
 
     #[test]
@@ -488,28 +493,35 @@ mod tests {
     }
 
     #[test]
-    fn test_cramer() {
+    fn test_cramer() -> Result<()> {
         let mat: [f32; 9] = [1.0, 0.0, 0.0, 0.0, 1.0, 0.0, 0.0, 0.0, 1.0];
         let v: [f32; 3] = [1.0, 2.0, 3.0];
-        let result = cramer(&mat, v).unwrap();
+        let result = cramer(&mat, v)?;
         for i in 0..3 {
             assert!(are_close(result[i], v[i]), "{:?}", mat[i]);
         }
 
         let mat: [f32; 9] = [2.0, 5.0, -3.0, 2.0, -5.0, 3.0, 0.0, -5.0, 2.0];
         let v: [f32; 3] = [1.0, 3.0, 0.0];
-        let result = cramer(&mat, v).unwrap();
+        let result = cramer(&mat, v)?;
         let expected: [f32; 3] = [1.0, 0.4, 1.0];
         for i in 0..3 {
             assert!(are_close(result[i], expected[i]), "{}: {:?}", i + 1, mat[i]);
         }
+
+        Ok(())
     }
 
     #[test]
-    #[should_panic(expected = "det is 0.0!")]
     fn test_zero_determinant_cramer() {
         let mat: [f32; 9] = [1.0, 0.0, 1.0, 0.0, 1.0, 0.0, 1.0, 0.0, 1.0];
         let v: [f32; 3] = [1.0, 1.0, 0.0];
-        let _ = cramer(&mat, v).unwrap();
+        let result = cramer(&mat, v);
+
+        assert!(result.is_err());
+        assert_eq!(
+            result.unwrap_err().to_string(),
+            "det is 0.0! No solution available!"
+        );
     }
 }

@@ -2,18 +2,16 @@ use anyhow::Result;
 use clap::Parser;
 use rstrace::camera::{Camera, OrthogonalCamera, PerspectiveCamera};
 use rstrace::color::Color;
-//use rstrace::geometry::Point;
 use rstrace::geometry::Vector;
 use rstrace::hdr_image::HDR;
 use rstrace::image_tracer::ImageTracer;
-use rstrace::pfm_func::{Endianness, pfm_to_png};
+use rstrace::pfm_func::{Endianness, pfm_to_ldr};
 use rstrace::ray::Ray;
 use rstrace::shapes::{Shape, Sphere};
 use rstrace::transformations::{Scaling, Transformation, Translation};
 use rstrace::world::World;
 use std::fs::File;
 use std::io::BufWriter;
-//use std::iter::once;
 use std::time::Instant;
 /*=============================================================================
 PROGRAMMER NOTES:
@@ -53,11 +51,6 @@ enum Commands {
         output_file: String,
         factor_a: f32,
         gamma: f32,
-    },
-
-    Debug {
-        file_name: String,
-        output_file: String,
     },
 }
 
@@ -115,40 +108,40 @@ fn main() -> Result<()> {
                 let mut o_cam = OrthogonalCamera::new(transl);
                 let img = HDR::new(cli.width, cli.height);
                 let aspectratio = img.width as f32 / img.height as f32;
-                o_cam.set_aspect_ratio(aspectratio);
+                o_cam.set_aspect_ratio(aspectratio)?;
                 let mut imagetracer = ImageTracer::new(img, o_cam);
                 imagetracer
                     .fire_all_rays(&world, color_image)
                     .expect("error firing all rays");
                 println!("all done orthogonal!");
-                let filename = "files/".to_string() + &file_name;
+                let filename = "outputs/".to_string() + &file_name;
                 let file = File::create(&filename)?;
                 let disk_writer = BufWriter::new(&file);
                 imagetracer
                     .image
                     .write_pfm(disk_writer, &Endianness::BigEndian)
                     .expect("error creating pfm file ");
-                pfm_to_png(file_name, 0.18, 2.2, "files/first_image.png".to_string())
+                pfm_to_ldr(file_name, 0.18, 2.2, "outputs/first_image.png".to_string())
                     .expect("error converting file from pfm");
             } else {
                 let mut p_cam = PerspectiveCamera::new(transl);
                 let img = HDR::new(cli.width, cli.height);
 
                 let aspectratio = img.width as f32 / img.height as f32;
-                p_cam.set_aspect_ratio(aspectratio);
+                p_cam.set_aspect_ratio(aspectratio)?;
                 let mut imagetracer = ImageTracer::new(img, p_cam);
                 imagetracer
                     .fire_all_rays(&world, color_image)
                     .expect("error firing all rays");
                 println!("all done!");
-                let filename = "files/".to_string() + &file_name;
+                let filename = "outputs/".to_string() + &file_name;
                 let file = File::create(&filename)?;
                 let disk_writer = BufWriter::new(&file);
                 imagetracer
                     .image
                     .write_pfm(disk_writer, &Endianness::BigEndian)
                     .expect("error creating pfm file ");
-                pfm_to_png(filename, 0.18, 2.2, "files/second_image.png".to_string())
+                pfm_to_ldr(filename, 0.18, 2.2, "outputs/second_image.png".to_string())
                     .expect("error converting file from pfm");
             }
 
@@ -165,39 +158,11 @@ fn main() -> Result<()> {
             factor_a,
             gamma,
         } => {
-            pfm_to_png(input_file, factor_a, gamma, output_file)
+            pfm_to_ldr(input_file, factor_a, gamma, output_file)
                 .expect("error converting file from pfm");
 
             let duration = now.elapsed();
             println!("Program finished in {:?}", duration);
-            Ok(())
-        }
-
-        Commands::Debug {
-            file_name,
-            output_file,
-        } => {
-            let mat = Vector::new(-2.0, 0.0, 0.0);
-            let transl = Translation::new(mat);
-            let world = demo_world();
-
-            let o_cam = OrthogonalCamera::new(transl);
-            let img = HDR::new(cli.width, cli.height);
-            let mut imagetracer = ImageTracer::new(img, o_cam);
-            imagetracer.fire_all_rays(&world, color_image)?;
-            println!("All fired!");
-
-            let filename = "files/".to_string() + &file_name;
-            let file = File::create(&filename)?;
-            let disk_writer = BufWriter::new(&file);
-            imagetracer
-                .image
-                .write_pfm(disk_writer, &Endianness::BigEndian)
-                .expect("error creating pfm file ");
-            let output_filename = "files/".to_string() + &output_file;
-            pfm_to_png(filename, 0.18, 2.2, output_filename)
-                .expect("error converting file from pfm");
-
             Ok(())
         }
     }

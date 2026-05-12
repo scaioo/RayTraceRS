@@ -47,6 +47,7 @@ impl Color {
         }
     }
 
+    /// Return false if any stored color is not a positive real number.
     fn is_valid(&self) -> bool {
         // Has this color all correct values?
         // Must be a Real, positive number!
@@ -61,7 +62,7 @@ impl Color {
     /// Verifies that the color satisfies the validity invariants.
     ///
     /// # Errors
-    /// Returns an error if any component is negative or not finite.
+    /// Returns an error if any component is negative, `NaN`, or infinite (`INFINITY`).
     pub fn self_check(&self) -> Result<()> {
         if self.is_valid() {
             Ok(())

@@ -147,7 +147,6 @@ impl HDR {
     /// use rstrace::hdr_image::HDR;
     /// use std::fs::File;
     /// use std::io::BufWriter;
-    /// use endianness::ByteOrder;
     ///
     ///
     /// # fn main() -> anyhow::Result<()> {
@@ -241,8 +240,11 @@ impl HDR {
         let log_sum: f32 = self
             .pixels
             .iter()
-            .map(|col| (col.sem_luminosity().unwrap() + f32::EPSILON).log10())
-            .sum();
+            .map(|col| {
+                let lum = col.sem_luminosity()?;
+                Ok((lum + f32::EPSILON).log10())
+            })
+            .sum::<Result<f32>>()?;
 
         Ok(10.0_f32.powf(log_sum / count))
     }
@@ -421,7 +423,7 @@ mod test {
     }
 
     #[test]
-    fn test_get_and_set_pixel() {
+    fn test_get_and_set_pixel() -> Result<()> {
         let mut hdr = HDR::new(10, 2);
         hdr.set_pixel(
             5,
@@ -431,38 +433,37 @@ mod test {
                 g: 2.5,
                 b: 10.0,
             },
-        )
-        .unwrap();
-        let pixel = hdr.get_pixel(5, 1).unwrap();
+        )?;
+        let pixel = hdr.get_pixel(5, 1)?;
         assert_eq!(pixel.r, 1.0);
         assert_eq!(pixel.g, 2.5);
         assert_eq!(pixel.b, 10.0);
+        Ok(())
     }
 
     #[test]
-    #[should_panic(expected = "OUT OF BOUND PIXEL")]
-    fn test_get_pixel_panic() {
+    fn test_get_pixel_error() {
         let hdr = HDR::new(10, 2);
-        let _ = hdr.get_pixel(11, 1).unwrap();
+        assert!(hdr.get_pixel(11, 1).is_err());
     }
 
     #[test]
-    fn test_vector_index() {
+    fn test_vector_index() -> Result<()> {
         let x = 9;
         let y = 1;
         let hdr = HDR::new(10, 10);
-        assert_eq!(hdr.vector_index(x, y).unwrap(), y * hdr.width + x);
+        assert_eq!(hdr.vector_index(x, y)?, y * hdr.width + x);
+        Ok(())
     }
 
     #[test]
-    #[should_panic(expected = "OUT OF BOUND PIXEL")]
     fn test_check_position() {
         let hdr = HDR::new(10, 55);
-        hdr.check_position(11, 2).unwrap();
+        assert!(hdr.check_position(11, 2).is_err());
     }
 
     #[test]
-    fn test_write_pfm() {
+    fn test_write_pfm() -> Result<()> {
         let reference_le_bytes = vec![
             0x50, 0x46, 0x0a, 0x33, 0x20, 0x32, 0x0a, 0x2d, 0x31, 0x2e, 0x30, 0x0a, 0x00, 0x00,
             0xc8, 0x42, 0x00, 0x00, 0x48, 0x43, 0x00, 0x00, 0x96, 0x43, 0x00, 0x00, 0xc8, 0x43,
@@ -482,33 +483,27 @@ mod test {
         ];
         let mut img = HDR::new(3, 2);
 
-        img.set_pixel(0, 0, Color::new(1.0e1, 2.0e1, 3.0e1))
-            .unwrap();
-        img.set_pixel(1, 0, Color::new(4.0e1, 5.0e1, 6.0e1))
-            .unwrap();
-        img.set_pixel(2, 0, Color::new(7.0e1, 8.0e1, 9.0e1))
-            .unwrap();
-        img.set_pixel(0, 1, Color::new(1.0e2, 2.0e2, 3.0e2))
-            .unwrap();
-        img.set_pixel(1, 1, Color::new(4.0e2, 5.0e2, 6.0e2))
-            .unwrap();
-        img.set_pixel(2, 1, Color::new(7.0e2, 8.0e2, 9.0e2))
-            .unwrap();
+        img.set_pixel(0, 0, Color::new(1.0e1, 2.0e1, 3.0e1))?;
+        img.set_pixel(1, 0, Color::new(4.0e1, 5.0e1, 6.0e1))?;
+        img.set_pixel(2, 0, Color::new(7.0e1, 8.0e1, 9.0e1))?;
+        img.set_pixel(0, 1, Color::new(1.0e2, 2.0e2, 3.0e2))?;
+        img.set_pixel(1, 1, Color::new(4.0e2, 5.0e2, 6.0e2))?;
+        img.set_pixel(2, 1, Color::new(7.0e2, 8.0e2, 9.0e2))?;
         let mut buffer: Vec<u8> = vec![];
-        img.write_pfm(&mut buffer, &Endianness::LittleEndian)
-            .unwrap();
+        img.write_pfm(&mut buffer, &Endianness::LittleEndian)?;
         assert_eq!(buffer, reference_le_bytes);
         buffer = vec![];
-        img.write_pfm(&mut buffer, &Endianness::BigEndian).unwrap();
+        img.write_pfm(&mut buffer, &Endianness::BigEndian)?;
         assert_eq!(buffer, reference_be_bytes);
+        Ok(())
     }
 
     #[test]
-    fn test_sem_clamp_image() {
+    fn test_sem_clamp_image() -> Result<()> {
         let mut hdr = HDR::new(1, 2);
 
-        hdr.sem_clamp_image().unwrap();
-        assert_eq!(hdr.get_pixel(0, 0).unwrap().r, 0.0);
+        hdr.sem_clamp_image()?;
+        assert_eq!(hdr.get_pixel(0, 0)?.r, 0.0);
 
         hdr.set_pixel(
             0,
@@ -518,83 +513,77 @@ mod test {
                 g: 2.0e02,
                 b: 3.0e03,
             },
-        )
-        .unwrap();
-        hdr.sem_clamp_image().unwrap();
+        )?;
+        hdr.sem_clamp_image()?;
 
-        assert_eq!(hdr.get_pixel(0, 0).unwrap().r, 1.0 / 2.0);
-        assert_eq!(hdr.get_pixel(0, 0).unwrap().b, 3.0e3 / (1.0 + 3.0e3));
-        assert_eq!(hdr.get_pixel(0, 0).unwrap().g, 2.0e2 / (1.0 + 2.0e2));
-        assert_eq!(hdr.get_pixel(0, 1).unwrap().b, 0.0);
+        assert_eq!(hdr.get_pixel(0, 0)?.r, 1.0 / 2.0);
+        assert_eq!(hdr.get_pixel(0, 0)?.b, 3.0e3 / (1.0 + 3.0e3));
+        assert_eq!(hdr.get_pixel(0, 0)?.g, 2.0e2 / (1.0 + 2.0e2));
+        assert_eq!(hdr.get_pixel(0, 1)?.b, 0.0);
+
+        Ok(())
     }
 
     #[test]
-    fn test_average_luminosity() {
+    fn test_average_luminosity() -> Result<()> {
         let img = HDR::new(0, 0);
         assert!(img.average_luminosity().is_err());
 
         let mut img = HDR::new(1, 4);
         assert!(img.average_luminosity().is_ok());
-        // The use of are_close() is justified by the difference
-        // from the analytic solution (f32::EPSILON)
-        // and the rounded result of average_luminosity()
-        println!(
-            "average_luminosity: {:?}",
-            img.average_luminosity().unwrap()
-        );
-        println!("expected average luminosity: {:?}", f32::EPSILON);
-        assert!(are_close(img.average_luminosity().unwrap(), f32::EPSILON));
+
+        assert!(are_close(img.average_luminosity()?, f32::EPSILON));
+
         let mut sum = 0.0;
         for i in 0..4 {
             let mut color = Color::new(1.0, 20.0, 300.0);
             color = 10.0_f32.powi(i) * color;
-            img.set_pixel(0, i as usize, color).unwrap();
-            sum += (color.sem_luminosity().unwrap() + f32::EPSILON).log10() / 4.0;
+            img.set_pixel(0, i as usize, color)?;
+            sum += (color.sem_luminosity()? + f32::EPSILON).log10() / 4.0;
         }
-        assert_eq!(img.average_luminosity().unwrap(), 10.0_f32.powf(sum));
+        assert_eq!(img.average_luminosity()?, 10.0_f32.powf(sum));
+
+        Ok(())
     }
 
     #[test]
-    fn test_normalization() {
+    fn test_normalization() -> Result<()> {
         // Test the empty image
         let mut img1 = HDR::new(0, 0);
         assert!(img1.normalization(Some(&1.0)).is_err());
 
-        // Test wrong parameters input
+        // MODIFICATO: Rimossi i match prolissi. Ora testiamo il risultato direttamente.
         let mut img = HDR::new(1, 4);
         let mut img1 = HDR::new(1, 4);
         let mut img2 = HDR::new(1, 4);
-        match img1.normalization(Some(&-1.0)) {
-            Ok(_) => panic!("Should fail!"),
-            Err(e) => println!("Error obtained: {:?}", e),
-        }
-        match img1.normalization(Some(&0.0)) {
-            Ok(_) => panic!("Should fail!"),
-            Err(e) => println!("Error obtained: {:?}", e),
-        }
+
+        assert!(img1.normalization(Some(&-1.0)).is_err());
+        assert!(img1.normalization(Some(&0.0)).is_err());
 
         // Fill the HDR image and get the average
         for i in 0..4 {
             let mut color = Color::new(1.0, 20.0, 300.0);
             color = 10.0_f32.powi(i) * color;
-            img.set_pixel(0, i as usize, color).unwrap();
-            img1.set_pixel(0, i as usize, color).unwrap();
-            img2.set_pixel(0, i as usize, color).unwrap();
+            img.set_pixel(0, i as usize, color)?;
+            img1.set_pixel(0, i as usize, color)?;
+            img2.set_pixel(0, i as usize, color)?;
         }
-        let log_average = img.average_luminosity().unwrap();
+        let log_average = img.average_luminosity()?;
 
         // Test the None option
-        img1.normalization(None).unwrap();
+        img1.normalization(None)?;
         assert_eq!(
-            img1.get_pixel(0, 0).unwrap().r,
-            img.get_pixel(0, 0).unwrap().r * 0.18 / log_average
+            img1.get_pixel(0, 0)?.r,
+            img.get_pixel(0, 0)?.r * 0.18 / log_average
         );
 
         // Test the input value option
-        img2.normalization(Some(&5.0)).unwrap();
+        img2.normalization(Some(&5.0))?;
         assert_eq!(
-            img2.get_pixel(0, 0).unwrap().r,
-            img.get_pixel(0, 0).unwrap().r * 5.0 / log_average
+            img2.get_pixel(0, 0)?.r,
+            img.get_pixel(0, 0)?.r * 5.0 / log_average
         );
+
+        Ok(())
     }
 }

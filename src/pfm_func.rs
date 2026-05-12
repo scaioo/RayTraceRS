@@ -1,6 +1,6 @@
 //! PFM (Portable Float Map) image reading utilities.
 //!
-//! This module provides functions to parse and load `.pfm` files into the
+//! This module provides functions to parse and load `.pfm` outputs into the
 //! [`HDR`] structure used by the raytracer.
 //!
 //! ## Supported features
@@ -22,7 +22,7 @@
 //! - Negative scale → little endian
 //!
 //! ## Notes
-//! - This implementation expects well-formed files.
+//! - This implementation expects well-formed outputs.
 //! - Extra trailing bytes are treated as an error.
 //! - Pixel data is stored in row-major order.
 use crate::color::Color;

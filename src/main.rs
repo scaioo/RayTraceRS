@@ -52,11 +52,6 @@ enum Commands {
         factor_a: f32,
         gamma: f32,
     },
-
-    Debug {
-        file_name: String,
-        output_file: String,
-    },
 }
 
 fn demo_world() -> World {
@@ -119,14 +114,14 @@ fn main() -> Result<()> {
                     .fire_all_rays(&world, color_image)
                     .expect("error firing all rays");
                 println!("all done orthogonal!");
-                let filename = "files/".to_string() + &file_name;
+                let filename = "outputs/".to_string() + &file_name;
                 let file = File::create(&filename)?;
                 let disk_writer = BufWriter::new(&file);
                 imagetracer
                     .image
                     .write_pfm(disk_writer, &Endianness::BigEndian)
                     .expect("error creating pfm file ");
-                pfm_to_ldr(file_name, 0.18, 2.2, "files/first_image.png".to_string())
+                pfm_to_ldr(file_name, 0.18, 2.2, "outputs/first_image.png".to_string())
                     .expect("error converting file from pfm");
             } else {
                 let mut p_cam = PerspectiveCamera::new(transl);
@@ -139,14 +134,14 @@ fn main() -> Result<()> {
                     .fire_all_rays(&world, color_image)
                     .expect("error firing all rays");
                 println!("all done!");
-                let filename = "files/".to_string() + &file_name;
+                let filename = "outputs/".to_string() + &file_name;
                 let file = File::create(&filename)?;
                 let disk_writer = BufWriter::new(&file);
                 imagetracer
                     .image
                     .write_pfm(disk_writer, &Endianness::BigEndian)
                     .expect("error creating pfm file ");
-                pfm_to_ldr(filename, 0.18, 2.2, "files/second_image.png".to_string())
+                pfm_to_ldr(filename, 0.18, 2.2, "outputs/second_image.png".to_string())
                     .expect("error converting file from pfm");
             }
 
@@ -164,36 +159,6 @@ fn main() -> Result<()> {
             gamma,
         } => {
             pfm_to_ldr(input_file, factor_a, gamma, output_file)
-                .expect("error converting file from pfm");
-
-            let duration = now.elapsed();
-            println!("Program finished in {:?}", duration);
-            Ok(())
-        }
-
-        Commands::Debug {
-            file_name,
-            output_file,
-        } => {
-            let mat = Vector::new(-2.0, 0.0, 0.0);
-            let transl = Translation::new(mat);
-            let world = demo_world();
-
-            let o_cam = OrthogonalCamera::new(transl);
-            let img = HDR::new(cli.width, cli.height);
-            let mut imagetracer = ImageTracer::new(img, o_cam);
-            imagetracer.fire_all_rays(&world, color_image)?;
-            println!("All fired!");
-
-            let filename = "files/".to_string() + &file_name;
-            let file = File::create(&filename)?;
-            let disk_writer = BufWriter::new(&file);
-            imagetracer
-                .image
-                .write_pfm(disk_writer, &Endianness::BigEndian)
-                .expect("error creating pfm file ");
-            let output_filename = "files/".to_string() + &output_file;
-            pfm_to_ldr(filename, 0.18, 2.2, output_filename)
                 .expect("error converting file from pfm");
 
             let duration = now.elapsed();

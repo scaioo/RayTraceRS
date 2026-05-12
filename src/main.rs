@@ -13,17 +13,6 @@ use rstrace::world::World;
 use std::fs::File;
 use std::io::BufWriter;
 use std::time::Instant;
-/*=============================================================================
-PROGRAMMER NOTES:
-The `demo` command:
-1. Initialize a World object with the 10 spheres in the indicated positions
-2. Create an OrthogonalCamera or PerspectiveCamera object
-3. Rotate the observer
-4. Create an ImageTracer object
-5. Perform image tracing, using an “on/off” criterion
-6. Save the PFM image
-7. Immediately convert the image to PNG using default values for tone-mapping
- =============================================================================*/
 #[derive(Parser)]
 
 struct Cli {
@@ -91,15 +80,12 @@ fn demo_world() -> World {
 
 fn main() -> Result<()> {
     let now = Instant::now();
-    // Leave two lines between the execution and the printing of the
     println! {"\n------------------------------------------------------\n"};
 
     let cli = Cli::parse();
 
     match cli.command {
         Commands::Demo { file_name } => {
-            //let origin: Point = Point::new(-2.0, 0.0, 0.0);
-            //let screen_center: Point = Point::new(-1.0, 0.0, 0.0);
             let mat = Vector::new(-2.0, 0.0, 0.0);
             let transl = Translation::new(mat);
             let world = demo_world();

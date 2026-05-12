@@ -14,12 +14,16 @@ impl PCG {
         self.random();
         self
     }
-
+//perchè usiamo pruma u64 e poi u32?
     pub fn random(&mut self)-> u32 {
         let oldstate = self.state;
         self.state = oldstate.wrapping_mul(6364136223846793005).wrapping_add(self.inc);
         let xorshifted = (((oldstate >> 18)^oldstate) >> 27) as u32;
         let rot = (oldstate >> 59) as u32;
         xorshifted.rotate_right(rot)
+    }
+//f32 o f64?
+    pub fn random_float(&mut self) -> f32 {
+        self.random() as f32 / (u32::MAX as f32 + 1.0)
     }
 }

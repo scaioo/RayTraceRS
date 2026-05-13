@@ -25,9 +25,12 @@ Development is prioritized as follows:
   - [x] Basic camera system with viewport mapping
   - [x] `World` struct to contain scene shapes
   - [x] `Ray` type with shape-intersection utilities
+  - [x] `OnOffRenderer` to produce the first images
 
 - [ ] **v0.3.0 — Ray Tracing Engine**
   - [ ] Implement a path tracer
+  - [ ] Add `Material` type
+  - [ ] Add `FlatRenderer` and path tracing algorithm
 
 ## 🚀 Installation
 

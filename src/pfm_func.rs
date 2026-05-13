@@ -338,28 +338,28 @@ impl Parameter {
     /// let params = Parameter::new(&args).unwrap();
     /// ```
     pub fn new(args: &[String]) -> anyhow::Result<Parameter> {
-        if args.len() != 5 {
+        if args.len() != 4 {
             return Err(anyhow!(
                 "wrong number of parameters: expected\n\
             <input_file_name> <factor_a> <gamma> <output_file_name>"
             ));
         }
 
-        let input_temp: &String = &args[1];
+        let input_temp: &String = &args[0];
         let input_pfm_file_name = input_temp.to_string();
-        let mut factor_a: f32 = args[2].parse::<f32>().map_err(|_| {
+        let mut factor_a: f32 = args[1].parse::<f32>().map_err(|_| {
             anyhow!(
                 "invalid factor_a value: expected\n\
             <input_file_name> <factor_a> <gamma> <output_file_name>"
             )
         })?;
-        let mut gamma: f32 = args[3].parse::<f32>().map_err(|_| {
+        let mut gamma: f32 = args[2].parse::<f32>().map_err(|_| {
             anyhow!(
                 "invalid gamma value: expected\n\
             <input_file_name> <factor_a> <gamma> <output_file_name>"
             )
         })?;
-        let output_temp: &String = &args[4];
+        let output_temp: &String = &args[3];
         let output_file_name: String = output_temp.to_string();
         if factor_a <= 0.0 {
             println!("factor 'a' was automatically set to 0.18");

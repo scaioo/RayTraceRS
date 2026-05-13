@@ -26,9 +26,8 @@ Development is prioritized as follows:
   - [x] `World` struct to contain scene shapes
   - [x] `Ray` type with shape-intersection utilities
 
-- [ ] **v1.0.0 — Ray Tracing Engine**
+- [ ] **v0.3.0 — Ray Tracing Engine**
   - [ ] Implement a path tracer
-  - [ ] Implement a language to describe scene files
 
 ## 🚀 Installation
 

@@ -524,9 +524,11 @@ mod tests {
     #[test]
     fn test_sphere_ray_intersection_bug15() {
         let sphere : Sphere<Scaling> = Sphere::new(Scaling::new([0.1, 0.1, 0.1]));
-        let ray = Ray::new(Point::new(-700.0, 0.0, 0.0), X_AXIS);
-        let hit_record = sphere.ray_intersection(&ray);
-        assert!(!hit_record.is_none(), "Error occurred (1): there should be intersection!");
+        for i in 0..100 {
+            let ray = Ray::new(Point::new(-10.0 * i as f32, 0.0, 0.0), X_AXIS);
+            let hit_record = sphere.ray_intersection(&ray);
+            assert!(!hit_record.is_none(), "Error occurred ({}): there should be intersection!", i+1);
+        }
     }
 
     fn setup_plane() -> (Plane<Transformation>, Ray, Ray, Ray) {

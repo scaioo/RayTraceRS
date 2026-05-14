@@ -66,7 +66,7 @@ where
 
         //let discriminant = half_b * half_b - a * c;
         let cross = transformed_ray.dir.cross(&origin);
-        
+
         let discriminant = a - cross.squared_norm();
 
         if discriminant < 0.0 || are_close(discriminant, 0.0) {
@@ -310,7 +310,7 @@ impl Shape for Triangle {
 mod tests {
     use super::*;
     use crate::functions::IDENTITY_4X4;
-    use crate::geometry::{is_close, X_AXIS};
+    use crate::geometry::{X_AXIS, is_close};
     use crate::transformations::{Scaling, Transformation, Translation};
 
     fn setup1() -> (Sphere<Transformation>, [Ray; 3]) {
@@ -523,11 +523,15 @@ mod tests {
 
     #[test]
     fn test_sphere_ray_intersection_bug15() {
-        let sphere : Sphere<Scaling> = Sphere::new(Scaling::new([0.1, 0.1, 0.1]));
+        let sphere: Sphere<Scaling> = Sphere::new(Scaling::new([0.1, 0.1, 0.1]));
         for i in 0..100 {
             let ray = Ray::new(Point::new(-10.0 * i as f32, 0.0, 0.0), X_AXIS);
             let hit_record = sphere.ray_intersection(&ray);
-            assert!(!hit_record.is_none(), "Error occurred ({}): there should be intersection!", i+1);
+            assert!(
+                !hit_record.is_none(),
+                "Error occurred ({}): there should be intersection!",
+                i + 1
+            );
         }
     }
 

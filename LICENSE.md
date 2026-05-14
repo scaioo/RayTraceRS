@@ -1,0 +1,19 @@
+# European Union Public Licence (EUPL)
+
+Copyright © 2026 Andrea Scaioli, Isacco Forlani, Marta Viola.
+
+Licensed under the European Union Public Licence (EUPL), Version 1.2.
+
+You may not use this work except in compliance with the Licence.
+
+You can obtain a copy of the Licence at:
+
+https://joinup.ec.europa.eu/collection/eupl/eupl-text-eupl-12
+
+Unless required by applicable law or agreed to in writing,
+software distributed under the Licence is distributed on an
+"AS IS" basis, WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND,
+either express or implied.
+
+See the Licence for the specific language governing permissions
+and limitations under the Licence.

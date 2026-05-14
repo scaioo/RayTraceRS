@@ -1,122 +1,145 @@
 # RayTraceRS 🦀
 
-RayTraceRS is a physically based ray tracing engine written in Rust.
+RayTraceRS is a ray tracing engine written in Rust.
 
 The project focuses on building a clean and extensible rendering architecture,
-covering core concepts such as ray–object intersections, materials, lighting,
+covering core concepts such as ray-object intersections, materials, lighting,
 reflections, and camera geometry.
 
-## 🗺️ Roadmap
+## Current Status
 
-The project is currently in the **Foundational Architecture** phase.
+The project is currently able to generate a first rendered image using basic
+ray-shape intersections.
+
 Development is prioritized as follows:
 
-- [x] **v0.1.0: Core Architecture** *(Current)*
-  - [x] Basic Rust project structure (library + binary).
-  - [x] Robust `Color` and math utilities.
-  - [x] HDR image buffer and `.pfm` file I/O.
-- [ ] **v0.2.0: Primitive Geometry** *(In Progress)*
-  - [ ] Add `Point`, `Vec`, and `Normal` basic architecture.
-  - [ ] Add `Transform` architecture to handle transformations.
-  - [ ] Add `Sphere` and `Plane` geometry.
-  - [ ] Basic camera system with viewport mapping.
+- [x] **v0.1.0 — Core Architecture**
+  - [x] Basic Rust project structure (library + binary)
+  - [x] `Color` and math utilities
+  - [x] HDR image buffer and `.pfm` file I/O
 
-## 🚀 Getting Started
+- [x] **v0.2.0 — Primitive Geometry**
+  - [x] `Point`, `Vector`, and `Normal` basic architecture
+  - [x] `Transform` architecture for geometric transformations
+  - [x] `Sphere`, `Plane`, and `Triangle` geometry
+  - [x] Basic camera system with viewport mapping
+  - [x] `World` struct to contain scene shapes
+  - [x] `Ray` type with shape-intersection utilities
+  - [x] `OnOffRenderer` to produce the first images
+
+- [ ] **v0.3.0 — Ray Tracing Engine**
+  - [ ] Implement a path tracer
+  - [ ] Add `Material` type
+  - [ ] Add `FlatRenderer` and path tracing algorithm
+
+## 🚀 Installation
 
 ### Prerequisites
+
 Make sure you have the Rust toolchain installed.
 
-### Build and Run
-To run the project with full optimizations, use:
+### Build and Test
+
+To run the test suite and verify that everything works:
+
+```bash
+cargo test --release
+````
+
+To build and run the project:
 
 ```bash
 cargo run --release
 ```
 
-## 📂 Features & Directory Structure
 
-### Features
-The current `v0.1.0` release provides the following building blocks:
+## 🖥️ Command Line Interface
 
-- `Color` module for RGB color representation and operations.
-- `HDR image` module for storing image pixels.
-- PFM file I/O support for reading and writing `.pfm` images.
+The project provides a small CLI for generating demo scenes, converting HDR
+images, and testing the rendering pipeline.
+
+### Global Options
+
+These options are available for the rendering commands:
+- `--width <N>`: output image width
+- `--height <N>`: output image height
+- `--orthogonal`: use an orthogonal camera instead of a perspective camera
+
+### Commands
+
+`demo``
+
+Renders a demo scene made of multiple spheres, saves the result as a `.pfm`
+image, and converts it to a `.png` preview.
+
+```bash
+cargo run --release -- demo output.pfm
+```
+
+With an orthogonal camera:
+
+```bash
+cargo run --release -- --orthogonal demo ortho_scene.pfm
+```
+
+With a custom resolution:
+
+```bash
+cargo run --release -- --width 1920 --height 1080 demo hd_scene.pfm
+```
+
+`pfm2png``
+
+Converts a `.pfm` HDR image into an LDR image such as `.png`.
+
+```bash
+cargo run --release -- pfm2png input.pfm output.png 0.18 2.2
+```
+
+Arguments:
+- `input.pfm`: input HDR image path,
+- `output.png`: output image,
+- `0.18`: normalization factor used for tone mapping,
+- `2.2`: gamma correction value.
+
+## ✨ Features
+
+The current release provides the following building blocks:
+- `Color` module for RGB color representation and operations
+- `HDR` image module for storing image pixels
+- PFM file I/O support for reading and writing `.pfm` images
+- Basic geometric primitives and affine transformations
+- Ray representation and ray transformation support
+- Scene management through the `World` type
+- Camera abstraction for perspective and orthogonal projections
 
 ### Directory Structure
 The repository follows the standard Cargo project structure.
 
 ```text
 RayTraceRS/
-├── examples/             # Example scenes and usage demos
-├── files/                # Reference .pfm images for validation
+├── outputs/              # Generated outputs
 ├── src/                  # Core source code
-│   ├── color.rs          # Color types and spectrum math
+│   ├── camera.rs         # Camera types and viewport mapping
+│   ├── color.rs          # Color types and color math
 │   ├── functions.rs      # Math utilities and helper functions
+│   ├── geometry.rs       # Vector, Point, and Normal types
 │   ├── hdr_image.rs      # HDR buffer and image processing logic
 │   ├── lib.rs            # Crate root and public API
 │   ├── main.rs           # CLI entry point
-│   └── pfm_func.rs       # PFM file format I/O handling
+│   ├── pfm_func.rs       # PFM file format I/O handling
+│   ├── ray.rs            # Ray type and ray utilities
+│   ├── shapes.rs         # Scene geometry and intersections
+│   ├── transformations.rs# Affine transformation utilities
+│   └── world.rs          # Scene container and ray traversal
 ├── tests/                # Integration tests
 ├── Cargo.toml            # Project dependencies and metadata
-└── LICENSE               # MIT License
+├── README.md             # ReadMe file 
+└── LICENSE.md            # License file
 ```
 
-## Examples
+## 📌 Notes
 
----
-
-### 1. Tone Mapping an Existing Image
-This example shows how to load a .pfm image, apply normalization and clamping, 
-and save it back to disk as a high-dynamic-range file.
-
-```rust
-use rstrace::pfm_func::read_pfm_file;
-use endianness::ByteOrder;
-use std::fs::File;
-use std::io::BufWriter;
-
-fn main() -> anyhow::Result<()> {
-  // Load a PFM image into an HDR structure
-  let mut img = read_pfm_file("input.pfm")?;
-
-  // Apply simple tone mapping (Normalization + simple clamping)
-  img.normalization(Some(0.18))?;
-  img.sem_clamp_image()?;
-
-  // Save the HDR result back to disk
-  let file = File::create("output.pfm")?;
-  let mut writer = BufWriter::new(file);
-  img.write_pfm(&mut writer, &ByteOrder::LittleEndian)?;
-
-  Ok(())
-}
-```
-
-### 2. Convert HDR to LDR (PNG/JPEG)
-
-This example demonstrates how to convert a high-dynamic-range .pfm file 
-into a standard low-dynamic-range image suitable for viewing, 
-applying both tone mapping and gamma correction.
-
-```rust
-use rstrace::pfm_func::Parameter;
-use rstrace::hdr_image::hdr_to_ldr;
-
-fn main() -> anyhow::Result<()> {
-  // Define parameters for the conversion
-  let mut params = Parameter {
-    input_pfm_file_name: "input.pfm".to_string(),
-    output_file_name: "output.png".to_string(),
-    factor_a: 0.18,
-    gamma: 2.2,
-  };
-
-  // Process and save the LDR image
-  hdr_to_ldr(&mut params)?;
-
-  println!("LDR image saved to {}", params.output_file_name);
-  Ok(())
-}
-```
-
----
+- The project is still in active development.
+- Some modules are intentionally kept simple while the rendering pipeline is being expanded.
+- Generated images are usually stored in the output/ directory.

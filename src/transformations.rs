@@ -1,31 +1,50 @@
-use crate::functions::{IDENTITY_4X4, are_close, fast_matrix_mul, inverse_4x4, transpose_matrix};
+//! Affine transformations in 3D space using homogeneous coordinates.
+//!
+//! This module provides the mathematical foundation for positioning, rotating,
+//! and scaling objects and rays in the scene. It uses 4x4 matrices flattened
+//! into `[f32; 16]` arrays for performance.
+//!
+//! To maximize efficiency, transformations are split into a generic [`Transformation`]
+//! and highly optimized specific structs ([`Translation`], [`Scaling`], [`XRotation`], etc.)
+//! that bypass unnecessary floating-point operations.
+use crate::functions::{IDENTITY_4X4, are_close, inverse_4x4, matrix_mul_4x4, transpose_matrix};
 use crate::geometry::{Normal, Point, Vector};
 use std::ops::Mul;
 
 // =======================================================================
 // TRAIT DEFINITIONS
 // =======================================================================
-/// This trait is the Marker Trait for Transformations
+/// A marker and utility trait for all homogeneous transformations.
 ///
-/// It gives the matrix and the inverse-transposed matrix of the transformation
+/// Any struct implementing this trait represents a 4x4 transformation matrix
+/// in homogeneous coordinates. It mandates the storage (or on-the-fly generation)
+/// of both the base transformation matrix and its inverse-transposed version.
+///
+/// The inverse-transposed matrix is crucial in raytracing to correctly transform
+/// normal vectors when non-uniform scaling is applied.
 pub trait IsHomogeneousMatrix {
-    /// It returns the transformation homogeneous matrix
+    /// Returns a reference to the 16-element array representing the 4x4 transformation matrix.
     fn mat(&self) -> &[f32; 16];
 
-    /// It returns the inverse-transposed matrix of the transformation
+    /// Returns a reference to the 16-element array representing the inverse-transposed matrix.
     fn it_mat(&self) -> &[f32; 16];
+
+    /// Computes and returns the inverse of the current transformation.
+    fn inverse_transformation(&self) -> Transformation;
 }
 
 // =======================================================================
 // MACRO DEFINITIONS
 // =======================================================================
-
+/// Implements matrix multiplication and the `IsHomogeneousMatrix` trait for a given struct.
+///
+/// This macro reduces boilerplate by automatically implementing the generic matrix
+/// combination logic (`A * B`) for specific transformation structs.
 #[macro_export]
 macro_rules! impl_matrix_operations {
     ($t: ident) => {
         // Note: we totally ignored - so far - the possibility that Point vector
         // has a last coordinate different from one in the homogeneous space.
-
         // -----------------------       Marker trait      -------------------------
         impl IsHomogeneousMatrix for $t {
             fn mat(&self) -> &[f32; 16] {
@@ -35,22 +54,25 @@ macro_rules! impl_matrix_operations {
             fn it_mat(&self) -> &[f32; 16] {
                 &self.it_mat
             }
+
+            fn inverse_transformation(&self) -> Transformation {
+                Transformation {
+                    mat: transpose_matrix(&self.it_mat),
+                    it_mat: transpose_matrix(&self.mat),
+                }
+            }
         }
         // -----------------------   Matrix * Matrix    -------------------------
-
-        // Do we want to use the * symbol for the matrix-rhs product?
-        // option 1: yes
-        /// Creates a Transformation that Operates the two input-Transformation in the given order:
+        /// Creates a new `Transformation` by combining two transformations.
         ///
-        /// Let `A`, `B` homogeneous transformations.
-        /// `A*B` returns the combined transformation
-        /// resulting of first `A` applied on `B*v`, where `v` is a vector.
+        /// Let `A` and `B` be homogeneous transformations.
+        /// `A * B` returns the combined transformation equivalent to applying `B` first, then `A`.
         impl<RHS: IsHomogeneousMatrix> Mul<RHS> for $t {
             type Output = Transformation;
 
             fn mul(self, rhs: RHS) -> Transformation {
-                let array = fast_matrix_mul(&self.mat, rhs.mat());
-                let total_it = fast_matrix_mul(&self.it_mat(), &rhs.it_mat());
+                let array = matrix_mul_4x4(&self.mat, rhs.mat());
+                let total_it = matrix_mul_4x4(&self.it_mat(), &rhs.it_mat());
 
                 Transformation {
                     mat: array,
@@ -59,11 +81,11 @@ macro_rules! impl_matrix_operations {
             }
         }
 
-        // option 2: no
+        /// Multiplies this transformation by another homogeneous matrix.
         impl $t {
             pub fn times_transformation<H: IsHomogeneousMatrix>(&self, rhs: H) -> Transformation {
-                let array = fast_matrix_mul(&self.mat, rhs.mat());
-                let total_it = fast_matrix_mul(&self.it_mat(), &rhs.it_mat());
+                let array = matrix_mul_4x4(&self.mat, rhs.mat());
+                let total_it = matrix_mul_4x4(&self.it_mat(), &rhs.it_mat());
 
                 Transformation {
                     mat: array,
@@ -74,6 +96,8 @@ macro_rules! impl_matrix_operations {
     };
 }
 
+/// Macro to implement `Mul` trait for XRotation as the LHS.
+/// The RHS is specified as the second input of the macro.
 macro_rules! impl_mul_xrot {
     ($name:ident, $matrix: ident) => {
         impl Mul<$name> for XRotation {
@@ -89,6 +113,8 @@ macro_rules! impl_mul_xrot {
     };
 }
 
+/// Macro to implement `Mul` trait for YRotation as the LHS.
+/// The RHS is specified as the second input of the macro.
 macro_rules! impl_mul_yrot {
     ($name:ident, $matrix: ident) => {
         impl Mul<$name> for YRotation {
@@ -104,6 +130,8 @@ macro_rules! impl_mul_yrot {
     };
 }
 
+/// Macro to implement `Mul` trait for ZRotation as the LHS.
+/// The RHS is specified as the second input of the macro.
 macro_rules! impl_mul_zrot {
     ($name:ident, $matrix: ident) => {
         impl Mul<$name> for ZRotation {
@@ -122,10 +150,18 @@ macro_rules! impl_mul_zrot {
 // =======================================================================
 // FUNCTIONS DEFINITIONS
 // =======================================================================
-
+/// Checks if a transformation matrix is mathematically consistent.
+///
+/// A consistent transformation ensures that multiplying its matrix by the
+/// transpose of its inverse-transposed matrix results in the Identity matrix.
+/// This function is primarily used internally for debugging and testing.
+///
+/// # Arguments
+///
+/// * `matrix` - Any object implementing the [`IsHomogeneousMatrix`] trait.
 pub fn is_consistent<T: IsHomogeneousMatrix>(matrix: &T) -> bool {
     let it_mat: [f32; 16] = transpose_matrix(matrix.it_mat());
-    let mat = fast_matrix_mul(matrix.mat(), &it_mat);
+    let mat = matrix_mul_4x4(matrix.mat(), &it_mat);
     let mut result = true;
     for i in 0..16 {
         result = result && are_close(mat[i], IDENTITY_4X4[i]);
@@ -136,21 +172,41 @@ pub fn is_consistent<T: IsHomogeneousMatrix>(matrix: &T) -> bool {
 // =======================================================================
 // TRANSFORMATION
 // =======================================================================
-/// Transformation contains the transformation matrix
-/// and its inverse-transposed matrix as unrolled `[f32; 16]` arrays.
+/// A generic affine transformation matrix in 3D homogeneous coordinates.
+///
+/// It stores both the transformation matrix (`mat`) and its inverse-transpose (`it_mat`)
+/// as flattened 16-element arrays to maximize cache locality and performance.
+///
+/// # Examples
+///
+/// ```rust,no_run
+/// # use rstrace::transformations::Transformation;
+/// # use rstrace::functions::IDENTITY_4X4;
+/// // Create a simple identity transformation
+/// let transform = Transformation::new(IDENTITY_4X4);
+/// ```
 #[derive(Copy, Clone, Debug, PartialEq)]
 pub struct Transformation {
-    // 0..3 are the first row,
-    // 4..7 the second row...
+    /// The main 4x4 transformation matrix unrolled in a 1D array (row-major order).
     pub mat: [f32; 16],
+    /// The inverse-transposed matrix, used to correctly transform [`Normal`] vectors.
     pub it_mat: [f32; 16],
 }
 
 impl Transformation {
-    /// Transformation constructor gets an array and stores it in a Transformation class.
+    /// Creates a new `Transformation` from a 16-element array.
+    ///
+    /// # Arguments
+    ///
+    /// * `mat` - A 16-element array representing a 4x4 matrix in row-major order.
+    ///
+    /// # Panics
+    ///
+    /// This constructor will panic if the provided matrix is not mathematically invertible
+    /// (e.g., its determinant is zero), because the inverse-transpose cannot be computed.
     pub fn new(mat: [f32; 16]) -> Transformation {
         // Add a check if they have properties
-        let matrix = inverse_4x4(&mat);
+        let matrix = inverse_4x4(&mat).unwrap();
         Transformation {
             mat,
             it_mat: transpose_matrix(&matrix),
@@ -159,6 +215,8 @@ impl Transformation {
 }
 
 impl_matrix_operations!(Transformation);
+
+// Implements Transformation * Vector mul operator
 impl Mul<Vector> for Transformation {
     type Output = Vector;
     fn mul(self, rhs: Vector) -> Vector {
@@ -179,6 +237,8 @@ impl Mul<Vector> for Transformation {
         vec
     }
 }
+
+// Implements Transformation * Point mul operator
 impl Mul<Point> for Transformation {
     type Output = Point;
     fn mul(self, rhs: Point) -> Point {
@@ -199,6 +259,7 @@ impl Mul<Point> for Transformation {
         point
     }
 }
+// Implements Transformation * Normal mul operator
 impl Mul<Normal> for Transformation {
     type Output = Normal;
     fn mul(self, rhs: Normal) -> Normal {
@@ -216,11 +277,32 @@ impl Mul<Normal> for Transformation {
 // =======================================================================
 // SCALING
 // =======================================================================
-/// Scaling contains the transformation matrix
-/// and its inverse-transposed matrix as unrolled `[f32; 16]` arrays
-/// for **scaling operators**.
+/// A highly optimized transformation representing a 3D scaling operation.
+///
+/// By exploiting the known zeros in a scaling matrix, this struct avoids the overhead
+/// of full 4x4 matrix multiplications when applied to points, vectors, and normals.
+///
+/// # Examples
+/// ```rust,no_run
+/// # use rstrace::transformations::Scaling;
+/// # use rstrace::geometry::Point;
+/// let scale = Scaling::new([2.0, 0.5, 1.0]);
+/// let pt = Point::new(1.0, 2.0, 3.0);
+///
+/// let scaled_pt = scale * pt; // Results in Point(2.0, 1.0, 3.0)
+/// ```
 #[derive(Copy, Clone, Debug, PartialEq)]
 pub struct Scaling {
+    /// Creates a new uniform or non-uniform `Scaling` transformation.
+    ///
+    /// # Arguments
+    ///
+    /// * `diagonal` - An array `[sx, sy, sz]` representing the scale factors along the X, Y, and Z axes.
+    ///
+    /// # Panics
+    ///
+    /// This constructor panics if any of the scale factors is `0.0`, because
+    /// a zero scale factor destroys spatial information and is not mathematically invertible.
     pub mat: [f32; 16],
     pub it_mat: [f32; 16],
 }
@@ -251,6 +333,8 @@ impl Scaling {
         Scaling { mat: array, it_mat }
     }
 }
+
+// Implements Scaling * Vector mul operator
 impl Mul<Vector> for Scaling {
     type Output = Vector;
     fn mul(self, rhs: Vector) -> Vector {
@@ -261,6 +345,7 @@ impl Mul<Vector> for Scaling {
         }
     }
 }
+// Implements Scaling * Point mul operator
 impl Mul<Point> for Scaling {
     type Output = Point;
     fn mul(self, rhs: Point) -> Point {
@@ -271,6 +356,7 @@ impl Mul<Point> for Scaling {
         }
     }
 }
+// Implements Scaling * Normal mul operator
 impl Mul<Normal> for Scaling {
     type Output = Normal;
     fn mul(self, rhs: Normal) -> Normal {
@@ -284,6 +370,22 @@ impl Mul<Normal> for Scaling {
 // =======================================================================
 // TRANSLATION
 // =======================================================================
+/// A highly optimized transformation representing a 3D translation (shift).
+///
+/// This struct skips unnecessary multiplications by 0 or 1, making it
+/// extremely fast. Note that mathematically, translations only affect [`Point`]s;
+/// multiplying a `Translation` by a [`Vector`] or [`Normal`] simply returns them unchanged.
+///
+/// # Examples
+/// ```rust,no_run
+/// # use rstrace::transformations::Translation;
+/// # use rstrace::geometry::{Point, Vector};
+/// let offset = Vector::new(10.0, -5.0, 0.0);
+/// let translation = Translation::new(offset);
+///
+/// let pt = Point::new(0.0, 0.0, 0.0);
+/// let moved_pt = translation * pt; // Results in Point(10.0, -5.0, 0.0)
+/// ```
 #[derive(Copy, Clone, Debug, PartialEq)]
 pub struct Translation {
     pub mat: [f32; 16],
@@ -291,7 +393,11 @@ pub struct Translation {
 }
 impl_matrix_operations!(Translation);
 impl Translation {
-    /// Translation transformation constructor
+    /// Creates a new `Translation` transformation.
+    ///
+    /// # Arguments
+    ///
+    /// * `k` - A [`Vector`] indicating how much to shift along the X, Y, and Z axes.
     pub fn new(k: Vector) -> Self {
         let mat = [
             1.0, 0.0, 0.0, k.x, 0.0, 1.0, 0.0, k.y, 0.0, 0.0, 1.0, k.z, 0.0, 0.0, 0.0, 1.0,
@@ -307,18 +413,24 @@ impl Translation {
         }
     }
 }
+
+// Implements Translation * Vector mul operator
 impl Mul<Vector> for Translation {
     type Output = Vector;
     fn mul(self, rhs: Vector) -> Vector {
         rhs
     }
 }
+
+// Implements Translation * Normal mul operator
 impl Mul<Normal> for Translation {
     type Output = Normal;
     fn mul(self, rhs: Normal) -> Normal {
         rhs
     }
 }
+
+// Implements Translation * Point mul operator
 impl Mul<Point> for Translation {
     type Output = Point;
     fn mul(self, rhs: Point) -> Point {
@@ -333,6 +445,15 @@ impl Mul<Point> for Translation {
 // =======================================================================
 // ROTATION AROUND X-AXIS
 // =======================================================================
+/// A highly optimized transformation representing a rotation around the X-axis.
+///
+/// # Examples
+/// ```rust,no_run
+/// # use rstrace::transformations::XRotation;
+/// # use std::f32::consts::PI;
+/// // Rotate 90 degrees around the X axis
+/// let rot_x = XRotation::new(PI / 2.0);
+/// ```
 #[derive(Copy, Clone, Debug, PartialEq)]
 pub struct XRotation {
     pub mat: [f32; 16],
@@ -340,9 +461,11 @@ pub struct XRotation {
 }
 
 impl XRotation {
-    /// Returns a rotation around the x-axis.
+    /// Creates a new rotation around the X-axis.
     ///
-    /// The input must be considered in ste-radiants
+    /// # Arguments
+    ///
+    /// * `theta` - The rotation angle, expressed in **radians**.
     pub fn new(theta: f32) -> Self {
         let cos = theta.cos();
         let sin = theta.sin();
@@ -360,6 +483,15 @@ impl_mul_xrot!(Point, mat);
 // =======================================================================
 // ROTATION AROUND Y-AXIS
 // =======================================================================
+/// A highly optimized transformation representing a rotation around the Y-axis.
+///
+/// # Examples
+/// ```rust,no_run
+/// # use rstrace::transformations::YRotation;
+/// # use std::f32::consts::PI;
+/// // Rotate 180 degrees around the Y axis
+/// let rot_y = YRotation::new(PI);
+/// ```
 #[derive(Copy, Clone, Debug, PartialEq)]
 pub struct YRotation {
     pub mat: [f32; 16],
@@ -367,6 +499,11 @@ pub struct YRotation {
 }
 
 impl YRotation {
+    /// Creates a new rotation around the Y-axis.
+    ///
+    /// # Arguments
+    ///
+    /// * `theta` - The rotation angle, expressed in **radians**.
     pub fn new(theta: f32) -> Self {
         let cos = theta.cos();
         let sin = theta.sin();
@@ -384,8 +521,22 @@ impl_mul_yrot!(Point, mat);
 // =======================================================================
 // ROTATION AROUND Z-AXIS
 // =======================================================================
+/// A highly optimized transformation representing a rotation around the Z-axis.
+///
+/// # Examples
+/// ```rust,no_run
+/// # use rstrace::transformations::ZRotation;
+/// # use std::f32::consts::PI;
+/// // Rotate 45 degrees around the Z axis
+/// let rot_z = ZRotation::new(PI / 4.0);
+/// ```
 #[derive(Copy, Clone, Debug, PartialEq)]
 pub struct ZRotation {
+    /// Creates a new rotation around the Z-axis.
+    ///
+    /// # Arguments
+    ///
+    /// * `theta` - The rotation angle, expressed in **radians**.
     pub mat: [f32; 16],
     pub it_mat: [f32; 16],
 }
@@ -412,7 +563,7 @@ impl_mul_zrot!(Point, mat);
 mod test {
     #[allow(unused_imports)]
     use crate::functions::{
-        IDENTITY_4X4, are_close, equal_matrices, fast_matrix_mul, inverse_4x4, transpose_matrix,
+        IDENTITY_4X4, are_close, equal_matrices, inverse_4x4, matrix_mul_4x4, transpose_matrix,
     };
     use crate::geometry::{Normal, Point, Vector, is_close};
     use crate::transformations::{
@@ -456,9 +607,9 @@ mod test {
 
     #[test]
     fn test_constants() {
-        let result = fast_matrix_mul(&MAT1, &INVERSE_MAT1);
+        let result = matrix_mul_4x4(&MAT1, &INVERSE_MAT1);
         assert!(equal_matrices(&result, &IDENTITY_4X4));
-        let result = fast_matrix_mul(&MAT2, &INVERSE_MAT2);
+        let result = matrix_mul_4x4(&MAT2, &INVERSE_MAT2);
         assert!(equal_matrices(&result, &IDENTITY_4X4));
     }
 
@@ -494,7 +645,7 @@ mod test {
         let it_mat = transpose_matrix(&INVERSE_MAT1);
         assert!(equal_matrices(trans.it_mat(), &it_mat));
         let it_mat = transpose_matrix(&trans.it_mat);
-        let result = fast_matrix_mul(&it_mat, trans.mat());
+        let result = matrix_mul_4x4(&it_mat, trans.mat());
         assert!(equal_matrices(&result, &IDENTITY_4X4));
     }
 
@@ -582,7 +733,7 @@ mod test {
 
         assert!(equal_matrices(scale.it_mat(), &it_scaling_matrix));
         let it_mat = transpose_matrix(&scale.it_mat);
-        let result = fast_matrix_mul(&it_mat, scale.mat());
+        let result = matrix_mul_4x4(&it_mat, scale.mat());
         assert!(equal_matrices(&result, &IDENTITY_4X4));
 
         let _ = Scaling::new([0.0, 2.0, 3.0]);
@@ -659,7 +810,7 @@ mod test {
         assert!(equal_matrices(translation.it_mat(), &expected));
 
         let it_mat = transpose_matrix(&translation.it_mat);
-        let result = fast_matrix_mul(&it_mat, translation.mat());
+        let result = matrix_mul_4x4(&it_mat, translation.mat());
         assert!(equal_matrices(&result, &IDENTITY_4X4));
     }
 
@@ -720,7 +871,7 @@ mod test {
         assert!(equal_matrices(rotation.mat(), &matrix));
         assert!(equal_matrices(&rotation.it_mat, &matrix));
         let matrix = transpose_matrix(rotation.it_mat());
-        let result = fast_matrix_mul(rotation.mat(), &matrix);
+        let result = matrix_mul_4x4(rotation.mat(), &matrix);
         assert!(equal_matrices(&result, &IDENTITY_4X4));
     }
 
@@ -788,7 +939,7 @@ mod test {
         assert!(equal_matrices(rotation.mat(), &matrix));
         assert!(equal_matrices(&rotation.it_mat, &matrix));
         let matrix = transpose_matrix(rotation.it_mat());
-        let result = fast_matrix_mul(rotation.mat(), &matrix);
+        let result = matrix_mul_4x4(rotation.mat(), &matrix);
         assert!(equal_matrices(&result, &IDENTITY_4X4));
     }
 
@@ -858,7 +1009,7 @@ mod test {
         assert!(equal_matrices(rotation.mat(), &matrix));
         assert!(equal_matrices(&rotation.it_mat, &matrix));
         let matrix = transpose_matrix(rotation.it_mat());
-        let result = fast_matrix_mul(rotation.mat(), &matrix);
+        let result = matrix_mul_4x4(rotation.mat(), &matrix);
         assert!(equal_matrices(&result, &IDENTITY_4X4));
     }
 

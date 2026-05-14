@@ -30,5 +30,5 @@ pub mod pfm_func;
 pub mod ray;
 pub mod shapes;
 pub mod transformations;
-mod     PCG;
+pub mod pcg;
 pub mod world;

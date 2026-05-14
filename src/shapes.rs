@@ -62,9 +62,12 @@ where
 
         let a = transformed_ray.dir.squared_norm();
         let half_b = origin.dot(&transformed_ray.dir);
-        let c = origin.squared_norm() - 1.0;
+        //let c = origin.squared_norm() - 1.0;
 
-        let discriminant = half_b * half_b - a * c;
+        //let discriminant = half_b * half_b - a * c;
+        let cross = transformed_ray.dir.cross(&origin);
+        
+        let discriminant = a - cross.squared_norm();
 
         if discriminant < 0.0 || are_close(discriminant, 0.0) {
             return None;

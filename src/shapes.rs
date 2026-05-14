@@ -307,8 +307,8 @@ impl Shape for Triangle {
 mod tests {
     use super::*;
     use crate::functions::IDENTITY_4X4;
-    use crate::geometry::is_close;
-    use crate::transformations::{Transformation, Translation};
+    use crate::geometry::{is_close, X_AXIS};
+    use crate::transformations::{Scaling, Transformation, Translation};
 
     fn setup1() -> (Sphere<Transformation>, [Ray; 3]) {
         let rays = [
@@ -517,6 +517,15 @@ mod tests {
             hit_record.unwrap().world_point
         );
     }
+
+    #[test]
+    fn test_sphere_ray_intersection_bug15() {
+        let sphere : Sphere<Scaling> = Sphere::new(Scaling::new([0.1, 0.1, 0.1]));
+        let ray = Ray::new(Point::new(-700.0, 0.0, 0.0), X_AXIS);
+        let hit_record = sphere.ray_intersection(&ray);
+        assert!(!hit_record.is_none(), "Error occurred (1): there should be intersection!");
+    }
+
     fn setup_plane() -> (Plane<Transformation>, Ray, Ray, Ray) {
         let transformation = Transformation::new(IDENTITY_4X4);
         let plane = Plane::new(transformation);

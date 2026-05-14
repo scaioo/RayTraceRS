@@ -80,7 +80,7 @@ pub fn is_close<T: TDV>(a: T, b: T) -> bool {
 }
 
 // =======================================================================
-// TRAIT DEFINITIONS
+// MARKER TRAIT DEFINITIONS
 // =======================================================================
 
 /// Marker trait that signals the struct to be either Vector, Point or Normal
@@ -92,11 +92,18 @@ pub trait TDV {
     fn z(&self) -> f32;
 }
 
+/// This trait maks Vectors and Normals
+pub trait VecOrNorm {
+    fn x(&self) -> f32;
+    fn y(&self) -> f32;
+    fn z(&self) -> f32;
+}
+
 // =======================================================================
-// MACRO DEFINITIONS
+// MACRO DEFINITIONS MARKER TRAITS
 // =======================================================================
 
-#[macro_export]
+#[macro_export] // We could remove this!
 macro_rules! impl_homogeneous {
     ($t:ty, $w:expr) => {
         // Note: this trait implementation works only
@@ -115,6 +122,16 @@ macro_rules! impl_homogeneous {
             fn z(&self) -> f32 {
                 self.z
             }
+        }
+    };
+}
+
+macro_rules! impl_vec_or_norm {
+    ($id: ident) => {
+        impl VecOrNorm for $id {
+            fn x(&self) -> f32 {self.x}
+            fn y(&self) -> f32 {self.y}
+            fn z(&self) -> f32 {self.z}
         }
     };
 }
@@ -390,6 +407,12 @@ impl_homogeneous!(Point, 1.0);
 impl_homogeneous!(Normal, 0.0);
 
 // ----------------------------------------------------------------
+// Automatically implement `VecOrNorm` for Vector, Point, and Normal
+// ----------------------------------------------------------------
+impl_vec_or_norm!(Vector);
+impl_vec_or_norm!(Normal);
+
+// ----------------------------------------------------------------
 // Automatically implement `is_close` for Vector, Point, and Normal
 // ----------------------------------------------------------------
 impl_is_close!(Vector);
@@ -471,6 +494,18 @@ impl_from!(Normal, Vector);
 impl_from!(Vector, Normal);
 impl_from!(Point, Vector);
 impl_from!(Vector, Point);
+
+// ==========================================
+// Orthonormal Base function
+// ==========================================
+
+
+
+
+
+pub fn branchless_onb<T: VecOrNorm >( normal: T) -> (Vector, Vector, Vector) {
+    panic!("WRITE THE FUNCTION!")
+}
 
 // ==========================================
 // TEST

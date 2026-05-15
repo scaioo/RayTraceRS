@@ -522,6 +522,8 @@ pub fn branchless_onb<T: VecOrNorm>(normal: T) -> (Vector, Vector, Vector) {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::pcg;
+    use crate::pcg::PCG;
 
     #[test]
     fn test_vec2d_is_close() {
@@ -732,8 +734,94 @@ mod tests {
         );
     }
 
+    fn build_random_normal(random_gen: &mut PCG) -> Vector {
+        let x = random_gen.random_float();
+        let y = random_gen.random_float();
+        let z = random_gen.random_float();
+        let normal = Vector::new(x, y, z);
+        normal.normalize()
+    }
+
     #[test]
-    fn test_onb() {
-        panic!("Write test!!")
+    fn test_onb_orthogonality() {
+        let mut random_gen = PCG::new();
+
+        for i in 1..5000 {
+            let normal = build_random_normal(&mut random_gen);
+
+            let (e1, e2, e3) = branchless_onb(normal);
+
+            assert!(e3.is_close(&normal), "Z-AXIS is not input vector!");
+
+            assert!(
+                are_close(0.0, e1.dot(&e2)),
+                "ERROR in i = {}:\n e1 * e2 != 0.0 !!!!",
+                i
+            );
+            assert!(
+                are_close(0.0, e2.dot(&e3)),
+                "ERROR in i = {}:\n e2 * e3 != 0.0 !!!!",
+                i
+            );
+            assert!(
+                are_close(0.0, e3.dot(&e1)),
+                "ERROR in i = {}:\n e3 * e1 != 0.0 !!!!",
+                i
+            );
+        }
+    }
+
+    #[test]
+    fn test_onb_normalization() {
+        let mut random_gen = PCG::new();
+
+        for i in 1..5000 {
+            let normal = build_random_normal(&mut random_gen);
+
+            let (e1, e2, e3) = branchless_onb(normal);
+
+            assert!(
+                are_close(1.0, e1.squared_norm()),
+                "ERROR in i = {}:\n  e1 * e1 != 1.0 !!!!",
+                i
+            );
+            assert!(
+                are_close(1.0, e2.squared_norm()),
+                "ERROR in i = {}:\n  e2 * e2 != 1.0 !!!!",
+                i
+            );
+            assert!(
+                are_close(1.0, e3.squared_norm()),
+                "ERROR in i = {}:\n  e3 * e3 != 1.0 !!!!",
+                i
+            );
+        }
+    }
+
+    #[test]
+    fn test_onb_cross_product() {
+        let mut random_gen = PCG::new();
+
+        for i in 1..5000 {
+            let normal = build_random_normal(&mut random_gen);
+
+            let (e1, e2, e3) = branchless_onb(normal);
+
+            assert!(
+                e1.is_close(&(e2.cross(&e3))),
+                "ERROR in i = {}:\n  e1 * e1 != 1.0 !!!!",
+                i
+            );
+            assert!(
+                e2.is_close(&(e3.cross(&e1))),
+                "ERROR in i = {}:\n  e2 * e2 != 1.0 !!!!",
+                i
+            );
+            assert!(
+                e3.is_close(&(e1.cross(&e2))),
+                "ERROR in i = {}:\n  e3 * e3 != 1.0 !!!!",
+                i
+            );
+        }
     }
 }

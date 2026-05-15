@@ -129,9 +129,15 @@ macro_rules! impl_homogeneous {
 macro_rules! impl_vec_or_norm {
     ($id: ident) => {
         impl VecOrNorm for $id {
-            fn x(&self) -> f32 {self.x}
-            fn y(&self) -> f32 {self.y}
-            fn z(&self) -> f32 {self.z}
+            fn x(&self) -> f32 {
+                self.x
+            }
+            fn y(&self) -> f32 {
+                self.y
+            }
+            fn z(&self) -> f32 {
+                self.z
+            }
         }
     };
 }
@@ -499,12 +505,35 @@ impl_from!(Vector, Point);
 // Orthonormal Base function
 // ==========================================
 
+pub fn branchless_onb<T>(normal: T) -> anyhow::Result<(Vector, Vector, Vector)>
+where
+    T: Into<Vector> + VecOrNorm,
+{
+    let sign: f32;
+    if normal.z() > 0.0 {
+        sign = 1.0;
+    } else if normal.z() < 0.0 {
+        sign = -1.0;
+    } else {
+        return Err(anyhow::anyhow!(
+            "Error in the creation of a Orthonormal Base: normal.z == 0.0!!!"
+        ));
+    }
+    let a: f32 = -1.0 / (sign + normal.z());
+    let b: f32 = normal.x() * normal.y() * a;
 
+    let e1 = Vector {
+        x: 1.0 + sign * normal.x() * normal.x() * a,
+        y: sign * b,
+        z: -sign * normal.x(),
+    };
+    let e2 = Vector {
+        x: b,
+        y: sign * normal.y() * normal.y() * a,
+        z: -normal.y(),
+    };
 
-
-
-pub fn branchless_onb<T: VecOrNorm >( normal: T) -> (Vector, Vector, Vector) {
-    panic!("WRITE THE FUNCTION!")
+    Ok((e1, e2, normal.into()))
 }
 
 // ==========================================

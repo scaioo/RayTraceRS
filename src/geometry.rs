@@ -93,11 +93,7 @@ pub trait TDV {
 }
 
 /// This trait maks Vectors and Normals
-pub trait VecOrNorm {
-    fn x(&self) -> f32;
-    fn y(&self) -> f32;
-    fn z(&self) -> f32;
-}
+pub trait VecOrNorm: TDV + Into<Vector> {}
 
 // =======================================================================
 // MACRO DEFINITIONS MARKER TRAITS
@@ -128,17 +124,7 @@ macro_rules! impl_homogeneous {
 
 macro_rules! impl_vec_or_norm {
     ($id: ident) => {
-        impl VecOrNorm for $id {
-            fn x(&self) -> f32 {
-                self.x
-            }
-            fn y(&self) -> f32 {
-                self.y
-            }
-            fn z(&self) -> f32 {
-                self.z
-            }
-        }
+        impl VecOrNorm for $id {}
     };
 }
 
@@ -512,10 +498,7 @@ impl_from!(Vector, Point);
 ///
 /// If the input vector is not unit length, the returned basis
 /// will not be orthonormal.
-pub fn branchless_onb<T>(normal: T) -> (Vector, Vector, Vector)
-where
-    T: Into<Vector> + VecOrNorm,
-{
+pub fn branchless_onb<T: VecOrNorm>(normal: T) -> (Vector, Vector, Vector) {
     let sign = if normal.z() >= 0.0 { 1.0 } else { -1.0 };
 
     let a = -1.0 / (sign + normal.z());
@@ -527,11 +510,7 @@ where
         -sign * normal.x(),
     );
 
-    let e2 = Vector::new(
-        b,
-        sign + normal.y() * normal.y() * a,
-        -normal.y(),
-    );
+    let e2 = Vector::new(b, sign + normal.y() * normal.y() * a, -normal.y());
 
     (e1, e2, normal.into())
 }

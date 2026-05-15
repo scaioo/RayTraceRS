@@ -504,36 +504,36 @@ impl_from!(Vector, Point);
 // ==========================================
 // Orthonormal Base function
 // ==========================================
-
-pub fn branchless_onb<T>(normal: T) -> anyhow::Result<(Vector, Vector, Vector)>
+/// This function returns an orthonormal base with the last of the three being the new Z-Axis.
+///
+/// # Warning
+///
+/// `normal` must be normalized.
+///
+/// If the input vector is not unit length, the returned basis
+/// will not be orthonormal.
+pub fn branchless_onb<T>(normal: T) -> (Vector, Vector, Vector)
 where
     T: Into<Vector> + VecOrNorm,
 {
-    let sign: f32;
-    if normal.z() > 0.0 {
-        sign = 1.0;
-    } else if normal.z() < 0.0 {
-        sign = -1.0;
-    } else {
-        return Err(anyhow::anyhow!(
-            "Error in the creation of a Orthonormal Base: normal.z == 0.0!!!"
-        ));
-    }
-    let a: f32 = -1.0 / (sign + normal.z());
-    let b: f32 = normal.x() * normal.y() * a;
+    let sign = if normal.z() >= 0.0 { 1.0 } else { -1.0 };
 
-    let e1 = Vector {
-        x: 1.0 + sign * normal.x() * normal.x() * a,
-        y: sign * b,
-        z: -sign * normal.x(),
-    };
-    let e2 = Vector {
-        x: b,
-        y: sign * normal.y() * normal.y() * a,
-        z: -normal.y(),
-    };
+    let a = -1.0 / (sign + normal.z());
+    let b = normal.x() * normal.y() * a;
 
-    Ok((e1, e2, normal.into()))
+    let e1 = Vector::new(
+        1.0 + sign * normal.x() * normal.x() * a,
+        sign * b,
+        -sign * normal.x(),
+    );
+
+    let e2 = Vector::new(
+        b,
+        sign + normal.y() * normal.y() * a,
+        -normal.y(),
+    );
+
+    (e1, e2, normal.into())
 }
 
 // ==========================================
@@ -751,5 +751,10 @@ mod tests {
             v.normalize().is_close(&expected),
             "Normalized vector length is not NaN!"
         );
+    }
+
+    #[test]
+    fn test_onb() {
+        panic!("Write test!!")
     }
 }

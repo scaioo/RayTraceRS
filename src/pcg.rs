@@ -4,15 +4,20 @@ pub struct PCG {
 }
 
 impl PCG {
-    pub fn __init__(&mut self) -> &mut PCG {
+    pub fn new() -> Self {
         let init_state: u64 = 42;
         let init_seq: u64 = 54;
-        self.state = 0;
-        self.inc = (init_seq >> 1) | 1;
-        self.random();
-        self.state += init_state;
-        self.random();
-        self
+
+        let mut rng = PCG {
+            state: 0,
+            inc: (init_seq << 1) | 1,
+        };
+
+        rng.random();
+        rng.state += init_state;
+        rng.random();
+
+        rng
     }
     //perchè usiamo pruma u64 e poi u32?
     pub fn random(&mut self) -> u32 {

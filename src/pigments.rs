@@ -60,8 +60,13 @@ impl CheckeredPigment {
 }
 
 impl Pigment for CheckeredPigment {
-    // Note: the function returns only one color if steps = 0.
+    /// This function returns the color of a checkered surface for a given coordinate (u,v).
+    ///
+    /// # Warnings
+    /// - If `CheckeredPigment` is initialized with `steps = 0` then the output color is always `color1`.
+    /// - The border coordinate `1.0` for `u` or `v` return the same result as `0.0`.
     fn get_color(&self, uv: &Vec2D) -> Color {
+        // NOTE: the
         let int_u = (uv.x * self.steps as f32).floor() as u32;
         let int_v = (uv.y * self.steps as f32).floor() as u32;
 
@@ -79,6 +84,7 @@ impl Pigment for CheckeredPigment {
 
 #[cfg(test)]
 mod tests {
+    use crate::pcg::PCG;
     use super::*;
 
     // - - - - - - - - - - - - - - - - - - - - - -
@@ -118,7 +124,7 @@ mod tests {
         let blue = Color::new(0.0, 0.0, 1.0);
         let pigment = CheckeredPigment::new(green, blue, 3);
 
-        //      (0,0)                                                   (0,1)
+        //      (0,0)                                                   (1,0)
         //             * ----- * ----- * ----- * ----- * ----- * ----- *
         //             |       |       |       |       |       |       |
         //             * --- Green --- * --   Blue  -- * --- Green --- *
@@ -132,7 +138,7 @@ mod tests {
         //             * --- Green --- * --   Blue  -- * --- Green --- *
         //             |       |       |       |       |       |       |
         //             * ----- * ----- * ----- * ----- * ----- * ----- *
-        //          (1,0)                                               (1,1)
+        //          (0,1)                                               (1,1)
 
         let expected_colors = vec![green, blue, green, blue, green, blue, green, blue, green];
         let mut expected = expected_colors.iter();
@@ -166,5 +172,48 @@ mod tests {
                 expected.next().unwrap()
             );
         }
+    }
+
+    #[test]
+    fn test_checkered_pigment_get_color_zero_case() {
+        let green = Color::new(0.0, 1.0, 0.0);
+        let blue = Color::new(0.0, 0.0, 1.0);
+        let pigment = CheckeredPigment::new(green, blue, 0);
+
+        for _ in 0..10000 {
+            let mut random_gen = PCG::new();
+            let u = random_gen.random_float();
+            let v = random_gen.random_float();
+
+            assert_eq!(pigment.get_color(&Vec2D { x: u, y: v }), green);
+        }
+    }
+
+    #[test]
+    fn test_checkered_pigment_get_color_border_case() {
+        let red = Color::new(3.0, 0.0, 0.0);
+        let color = Color::new(0.0, 1.0, 2.0);
+        let pigment = CheckeredPigment::new(red, color, 2);
+
+        //   (0,0)                            (1,0)
+        //      * ----- * ----- * ----- * ----- *
+        //      |       |       |       |       |
+        //      * ---- Red  --- * --- Color --- *
+        //      |       |       |       |       |
+        //      * ----- * ----- * ----- * ----- *
+        //      |       |       |       |       |
+        //      * --- Color --- * ---- Red  --- *
+        //      |       |       |       |       |
+        //      * ----- * ----- * ----- * ----- *
+        //   (0,1)                            (1,1)
+
+        // top left corner
+        assert_eq!(pigment.get_color(&Vec2D { x: 0.0, y: 0.0 }), red);
+        // top right corner
+        assert_eq!(pigment.get_color(&Vec2D { x: 1.0, y: 1.0 }), red);
+        // bottom left corner
+        assert_eq!(pigment.get_color(&Vec2D { x: 0.0, y: 1.0 }), red);
+        // bottom right corner
+        assert_eq!(pigment.get_color(&Vec2D { x: 1.0, y: 0.0 }), red);
     }
 }

@@ -457,8 +457,8 @@ pub fn hdr_to_ldr(argv: &mut Parameter) -> Result<()> {
 
 #[cfg(test)]
 mod test {
-    use crate::color::RAINBOW_COLORS;
     use super::*;
+    use crate::color::RAINBOW_COLORS;
     use crate::functions::are_close;
     #[test]
     fn test_new() {

@@ -107,7 +107,7 @@ fn main() -> Result<()> {
                     .image
                     .write_pfm(disk_writer, &Endianness::BigEndian)
                     .expect("error creating pfm file ");
-                pfm_to_ldr(file_name, 0.18, 2.2, "outputs/first_image.png".to_string())
+                pfm_to_ldr(filename, 0.18, 2.2, "outputs/first_image.png".to_string())
                     .expect("error converting file from pfm");
             } else {
                 let mut p_cam = PerspectiveCamera::new(transl);

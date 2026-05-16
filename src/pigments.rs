@@ -7,7 +7,7 @@
 
 use crate::color::Color;
 use crate::geometry::Vec2D;
-
+use crate::hdr_image::HDR;
 // ===============================================
 // Pigment type
 // ==============================================
@@ -75,6 +75,33 @@ impl Pigment for CheckeredPigment {
         } else {
             self.color2
         }
+    }
+}
+
+// ===============================================
+// ImagePigment
+// ==============================================
+/// A textured pigment.
+pub struct ImagePigment {
+    pub image: HDR,
+}
+
+impl ImagePigment {
+    pub fn new(image: HDR) -> Self {
+        ImagePigment { image }
+    }
+}
+
+impl Pigment for ImagePigment {
+    fn get_color(&self, uv: &Vec2D) -> Color {
+        // The Bilinear interpolation is used in this function!
+
+        // First i need to find the borders
+        let col = uv.x * self.image.width as f32;
+        let row = uv.y * self.image.height as f32;
+
+        panic!("FINISH WRITING FUNCTION!!")
+
     }
 }
 
@@ -195,7 +222,7 @@ mod tests {
         let color = Color::new(0.0, 1.0, 2.0);
         let pigment = CheckeredPigment::new(red, color, 2);
 
-        //   (0,0)                            (1,0)
+        //   (0,0)                               (1,0)
         //      * ----- * ----- * ----- * ----- *
         //      |       |       |       |       |
         //      * ---- Red  --- * --- Color --- *
@@ -205,7 +232,7 @@ mod tests {
         //      * --- Color --- * ---- Red  --- *
         //      |       |       |       |       |
         //      * ----- * ----- * ----- * ----- *
-        //   (0,1)                            (1,1)
+        //   (0,1)                               (1,1)
 
         // top left corner
         assert_eq!(pigment.get_color(&Vec2D { x: 0.0, y: 0.0 }), red);

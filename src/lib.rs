@@ -19,6 +19,7 @@
 //! - [`hdr_image`] — HDR image storage, tone mapping, and export
 //! - [`pfm_func`] — PFM reading and conversion utilities
 
+pub mod brdf;
 pub mod camera;
 pub mod color;
 pub mod functions;
@@ -26,12 +27,11 @@ pub mod geometry;
 pub mod hdr_image;
 pub mod hit_record;
 pub mod image_tracer;
+pub mod materials;
 pub mod pcg;
 pub mod pfm_func;
+pub mod pigments;
 pub mod ray;
 pub mod shapes;
 pub mod transformations;
 pub mod world;
-pub mod pigments;
-pub mod brdf;
-pub mod materials;

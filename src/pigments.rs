@@ -94,13 +94,7 @@ impl ImagePigment {
 
 impl Pigment for ImagePigment {
     fn get_color(&self, uv: &Vec2D) -> Color {
-        // The Bilinear interpolation is used in this function!
-
-        // First i need to find the borders
-        let col = uv.x * self.image.width as f32;
-        let row = uv.y * self.image.height as f32;
-
-        panic!("FINISH WRITING FUNCTION!!")
+        panic!("Write function!")
     }
 }
 

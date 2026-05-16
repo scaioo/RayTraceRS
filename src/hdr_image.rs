@@ -37,6 +37,7 @@ use byteorder::{BigEndian, LittleEndian, WriteBytesExt};
 use std::fs::File;
 use std::io::{BufReader, Write};
 
+use crate::geometry::Vec2D;
 use crate::pfm_func::{Endianness, Parameter, read_pfm};
 use image::{Rgb, RgbImage};
 
@@ -317,6 +318,55 @@ impl HDR {
     }
 }
 
+// ==========================================
+// Repeated linear interpolation
+// ==========================================
+impl HDR {
+    /// This function returns the **Bilinear Interpolation** of a point in a HDR image.
+    ///
+    /// The point is stored as a `Vec2D` and assumed to have coordinates in `[0,1)` range.
+    /// No control on this is implemented.
+    pub fn bilinear_interpolation(&self, uv: Vec2D) -> Color {
+        //      i       x                      i+1    [width]
+        //   j  * ----- * --------------------- *
+        //      |       |                       |
+        //   y  * ----- * --------------------- *
+        //      |       |                       |
+        //      |       |                       |    (Corner dots are pixels)
+        //      |       |                       |
+        //      |       |                       |
+        //      |       |                       |
+        //      * ----- * --------------------- *
+        //    j+1
+        //  [height]
+
+        let x = uv.x * self.width as f32;
+        let y = uv.y * self.height as f32;
+
+        // Border cells with wrapping feature
+        let i0 = x.floor() as usize;
+        let j0 = y.floor() as usize;
+        let i1 = (i0 + 1) % self.width;
+        let j1 = (j0 + 1) % self.height;
+
+        // I used the fact that the formula uses i and i+1
+        let tx = x - i0 as f32;
+        let ty = y - j0 as f32;
+
+        let f0 =
+            (1.0 - tx) * self.pixels[i0 + j0 * self.width] + tx * self.pixels[i1 + j0 * self.width];
+
+        let f1 =
+            (1.0 - tx) * self.pixels[i0 + j1 * self.width] + tx * self.pixels[i1 + j1 * self.width];
+
+        (1.0 - ty) * f0 + ty * f1
+    }
+}
+
+// ==========================================
+// HDR to LDR
+// ==========================================
+
 /// Converts an HDR image stored in `.pfm` (Portable Float Map) format into an LDR image.
 ///
 /// The function performs the following steps:
@@ -585,5 +635,84 @@ mod test {
         );
 
         Ok(())
+    }
+
+    fn rainbow_colors() -> [Color; 8] {
+        [
+            Color {
+                r: 1.0,
+                g: 1.0,
+                b: 1.0,
+            }, // White
+            Color {
+                r: 1.0,
+                g: 0.0,
+                b: 0.0,
+            }, // Red
+            Color {
+                r: 1.0,
+                g: 0.5,
+                b: 0.0,
+            }, // Orange
+            Color {
+                r: 1.0,
+                g: 1.0,
+                b: 0.0,
+            }, // Yellow
+            Color {
+                r: 0.0,
+                g: 1.0,
+                b: 0.0,
+            }, // Green
+            Color {
+                r: 0.0,
+                g: 0.5,
+                b: 1.0,
+            }, // Blue
+            Color {
+                r: 0.3,
+                g: 0.0,
+                b: 0.6,
+            }, // Indigo
+            Color {
+                r: 0.6,
+                g: 0.0,
+                b: 0.6,
+            }, // Violet
+        ]
+    }
+
+    fn setup_test_rainbow() -> HDR {
+        let mut img = HDR::new(4, 2);
+
+        for (i, color) in rainbow_colors().iter().enumerate() {
+            img.pixels[i] = *color;
+        }
+
+        img
+    }
+
+    #[test]
+    fn test_bilinear_interpolation() {
+        let hdr_image = setup_test_rainbow();
+
+        let expected = Color {
+            r: 0.5,
+            g: 0.4,
+            b: 0.5,
+        };
+        assert!(expected.is_close(&hdr_image.bilinear_interpolation(Vec2D::new(0.2, 0.25)),));
+    }
+
+    #[test]
+    fn test_bilinear_interpolation_top_border_pixel() {
+        let hdr_image = setup_test_rainbow();
+
+        let expected = Color {
+            r: 0.74,
+            g: 0.6,
+            b: 0.34,
+        };
+        assert!(expected.is_close(&hdr_image.bilinear_interpolation(Vec2D::new(0.8, 0.25))));
     }
 }

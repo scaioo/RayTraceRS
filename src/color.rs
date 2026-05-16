@@ -10,6 +10,7 @@
 //! Arithmetic operations do not enforce validity, so callers are
 //! responsible for preserving physically meaningful values.
 
+use crate::functions::are_close;
 use anyhow::{Result, anyhow};
 use std::ops::{Add, Div, Mul};
 
@@ -45,6 +46,11 @@ impl Color {
             g: green,
             b: blue,
         }
+    }
+
+    /// For debugging TODO: FIX THIS DESCRIPTION!
+    pub fn is_close(&self, other: &Color) -> bool {
+        are_close(self.r, other.r) && are_close(self.g, other.g) && are_close(self.b, other.b)
     }
 
     /// Return false if any stored color is not a positive real number.

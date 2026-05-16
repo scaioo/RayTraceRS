@@ -8,7 +8,6 @@
 use crate::color::Color;
 use crate::geometry::Vec2D;
 
-
 // ===============================================
 // Pigment type
 // ==============================================
@@ -24,12 +23,12 @@ pub trait Pigment {
 // ==============================================
 
 /// The surface has only one color!
-pub struct UniformPigment{
-    pub color : Color,
+pub struct UniformPigment {
+    pub color: Color,
 }
 
 impl UniformPigment {
-    pub fn new(color : Color) -> Self {
+    pub fn new(color: Color) -> Self {
         UniformPigment { color }
     }
 }
@@ -40,16 +39,51 @@ impl Pigment for UniformPigment {
     }
 }
 
+// ===============================================
+// CheckeredPigment
+// ==============================================
+/// The pigment is a checkered surface
+pub struct CheckeredPigment {
+    pub color1: Color,
+    pub color2: Color,
+    pub steps: u32,
+}
 
+impl CheckeredPigment {
+    pub fn new(color1: Color, color2: Color, steps: u32) -> Self {
+        CheckeredPigment {
+            color1,
+            color2,
+            steps,
+        }
+    }
+}
 
+impl Pigment for CheckeredPigment {
+    // Note: the function returns only one color if steps = 0.
+    fn get_color(&self, uv: &Vec2D) -> Color {
+        let int_u = (uv.x * self.steps as f32).floor() as u32;
+        let int_v = (uv.y * self.steps as f32).floor() as u32;
 
+        if int_u % 2 == int_v % 2 {
+            self.color1
+        } else {
+            self.color2
+        }
+    }
+}
 
-
+// **********************************************
+// Tests
+// **********************************************
 
 #[cfg(test)]
 mod tests {
     use super::*;
 
+    // - - - - - - - - - - - - - - - - - - - - - -
+    //              UniformPigment
+    // - - - - - - - - - - - - - - - - - - - - - -
     #[test]
     fn test_uniform_pigment_constructor() {
         let color = Color::new(1.0, 2.0, 3.0);
@@ -63,5 +97,23 @@ mod tests {
         let pigment = UniformPigment::new(color);
         assert_eq!(pigment.get_color(&Vec2D { x: 0.0, y: 0.0 }), color);
     }
-}
 
+    // - - - - - - - - - - - - - - - - - - - - - -
+    //             CheckeredPigment
+    // - - - - - - - - - - - - - - - - - - - - - -
+
+    #[test]
+    fn test_checkered_pigment_constructor() {
+        let color1 = Color::new(1.0, 2.0, 3.0);
+        let color2 = Color::new(1.0, 2.0, 3.0);
+        let pigment = CheckeredPigment::new(color1, color2, 3);
+        assert_eq!(color1, pigment.color1);
+        assert_eq!(color2, pigment.color2);
+        assert_eq!(pigment.steps, 3);
+    }
+
+    #[test]
+    fn test_checkered_pigment_get_color() {
+        panic!("Write test!!!")
+    }
+}

@@ -335,4 +335,18 @@ mod tests {
             )
         );
     }
+
+    #[test]
+    fn test_gradient_pigments_constructor() {
+        let color1 = Color::new(1.0, 2.0, 3.0);
+        let color2 = Color::new(4.0, 5.0, 6.0);
+        let angle = std::f32::consts::FRAC_PI_3;
+        let gradient = GradientPigment::new(color1, color2, angle);
+        panic!("Finish test!!!")
+    }
+    
+    #[test]
+    fn test_gradient_pigments_get_color() {
+        panic!("Finish test!!!")
+    }
 }

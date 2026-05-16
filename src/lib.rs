@@ -32,4 +32,4 @@ pub mod ray;
 pub mod shapes;
 pub mod transformations;
 pub mod world;
-pub mod materials;
+pub mod pigments;

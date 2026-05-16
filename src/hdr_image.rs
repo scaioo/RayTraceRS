@@ -457,6 +457,7 @@ pub fn hdr_to_ldr(argv: &mut Parameter) -> Result<()> {
 
 #[cfg(test)]
 mod test {
+    use crate::color::RAINBOW_COLORS;
     use super::*;
     use crate::functions::are_close;
     #[test]
@@ -637,55 +638,10 @@ mod test {
         Ok(())
     }
 
-    fn rainbow_colors() -> [Color; 8] {
-        [
-            Color {
-                r: 1.0,
-                g: 1.0,
-                b: 1.0,
-            }, // White
-            Color {
-                r: 1.0,
-                g: 0.0,
-                b: 0.0,
-            }, // Red
-            Color {
-                r: 1.0,
-                g: 0.5,
-                b: 0.0,
-            }, // Orange
-            Color {
-                r: 1.0,
-                g: 1.0,
-                b: 0.0,
-            }, // Yellow
-            Color {
-                r: 0.0,
-                g: 1.0,
-                b: 0.0,
-            }, // Green
-            Color {
-                r: 0.0,
-                g: 0.5,
-                b: 1.0,
-            }, // Blue
-            Color {
-                r: 0.3,
-                g: 0.0,
-                b: 0.6,
-            }, // Indigo
-            Color {
-                r: 0.6,
-                g: 0.0,
-                b: 0.6,
-            }, // Violet
-        ]
-    }
-
     fn setup_test_rainbow() -> HDR {
         let mut img = HDR::new(4, 2);
 
-        for (i, color) in rainbow_colors().iter().enumerate() {
+        for (i, color) in RAINBOW_COLORS.iter().enumerate() {
             img.pixels[i] = *color;
         }
 

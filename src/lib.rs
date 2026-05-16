@@ -34,3 +34,4 @@ pub mod transformations;
 pub mod world;
 pub mod pigments;
 pub mod brdf;
+pub mod materials;

@@ -25,6 +25,52 @@ pub struct Color {
     pub b: f32,
 }
 
+
+pub static RAINBOW_COLORS : [Color; 8] =
+    [
+        Color {
+            r: 1.0,
+            g: 1.0,
+            b: 1.0,
+        }, // White
+        Color {
+            r: 1.0,
+            g: 0.0,
+            b: 0.0,
+        }, // Red
+        Color {
+            r: 1.0,
+            g: 0.5,
+            b: 0.0,
+        }, // Orange
+        Color {
+            r: 1.0,
+            g: 1.0,
+            b: 0.0,
+        }, // Yellow
+        Color {
+            r: 0.0,
+            g: 1.0,
+            b: 0.0,
+        }, // Green
+        Color {
+            r: 0.0,
+            g: 0.5,
+            b: 1.0,
+        }, // Blue
+        Color {
+            r: 0.3,
+            g: 0.0,
+            b: 0.6,
+        }, // Indigo
+        Color {
+            r: 0.6,
+            g: 0.0,
+            b: 0.6,
+        }, // Violet
+    ];
+
+
 // =================================================================
 //     Constructor
 //     and methods

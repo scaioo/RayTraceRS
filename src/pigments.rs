@@ -94,7 +94,7 @@ impl ImagePigment {
 
 impl Pigment for ImagePigment {
     fn get_color(&self, uv: &Vec2D) -> Color {
-        panic!("Write function!")
+        self.image.bilinear_interpolation(*uv)
     }
 }
 
@@ -105,6 +105,7 @@ impl Pigment for ImagePigment {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::color::RAINBOW_COLORS;
     use crate::pcg::PCG;
 
     // - - - - - - - - - - - - - - - - - - - - - -
@@ -235,5 +236,67 @@ mod tests {
         assert_eq!(pigment.get_color(&Vec2D { x: 0.0, y: 1.0 }), red);
         // bottom right corner
         assert_eq!(pigment.get_color(&Vec2D { x: 1.0, y: 0.0 }), red);
+    }
+
+    fn setup_test_rainbow() -> HDR {
+        let mut img = HDR::new(4, 2);
+
+        for (i, color) in RAINBOW_COLORS.iter().enumerate() {
+            img.pixels[i] = *color;
+        }
+
+        img
+    }
+
+    #[test]
+    fn test_image_pigments_constructor() {
+        let image = setup_test_rainbow();
+        let image_pigment = ImagePigment::new(image.clone());
+
+        assert_eq!(image.width, image_pigment.image.width);
+        assert_eq!(image.height, image_pigment.image.height);
+
+        assert!(
+            image
+                .pixels
+                .iter()
+                .zip(image_pigment.image.pixels.iter())
+                .all(|(a, b)| a.is_close(b))
+        );
+    }
+
+    #[test]
+    fn test_image_pigments_get_color() {
+        // basically the same test as in hdr_image ...
+        let image = setup_test_rainbow();
+        let image_pigment = ImagePigment::new(image.clone());
+
+        let expected = Color {
+            r: 0.5,
+            g: 0.4,
+            b: 0.5,
+        };
+
+        assert!(
+            expected.is_close(
+                &image_pigment
+                    .image
+                    .bilinear_interpolation(Vec2D::new(0.2, 0.25))
+            )
+        );
+
+        let expected = Color {
+            r: 0.74,
+            g: 0.6,
+            b: 0.34,
+        };
+
+        assert!(
+            expected.is_close(
+                &image_pigment
+                    .image
+                    .bilinear_interpolation(Vec2D::new(0.8, 0.25))
+            )
+        );
     }
 }

@@ -524,7 +524,7 @@ pub fn branchless_onb<T: VecOrNorm>(normal: T) -> (Vector, Vector, Vector) {
 /// The point is stored as a `Vec2D` and assumed to have coordinates in `[0,1)` range.
 /// No control on this is implemented.
 pub fn bilinear_interpolation< F >(uv: Vec2D, width: usize, height: usize, f: &F) -> f32
-where F: Fn(f32, f32) -> f32,
+where F: Fn(usize, usize) -> f32,
 {
     //      i       x                      i+1    [width]
     //   j  * ----- * --------------------- *
@@ -538,17 +538,29 @@ where F: Fn(f32, f32) -> f32,
     //      * ----- * --------------------- *
     //    j+1
     //  [height]
-
+    
     let x = uv.x * width as f32;
     let y = uv.y * height as f32;
 
-    let i = x.floor();
-    let j = y.floor();
+    // Border cells with wrapping feature
+    let i0 = x.floor() as usize;
+    let j0 = y.floor() as usize;
+    let i1 = (i0 + 1) % width;
+    let j1 = (j0 + 1) % height;
 
-    let f0 = (i + 1.0 - x) * f(i,j) + (x - i) * f(i+1.0 , j);
-    let f1 = (i + 1.0 - x) * f(i, j+1.0) + (x - i) * f(i+1.0 , j+1.0);
+    // I used the fact that the formula uses i and i+1
+    let tx = x - i0 as f32;
+    let ty = y - j0 as f32;
+    
+    let f0 =
+        (1.0 - tx) * f(i0, j0)
+            + tx * f(i1, j0);
 
-    (j + 1.0 - y) * f0 + (y - j) * f1
+    let f1 =
+        (1.0 - tx) * f(i0, j1)
+            + tx * f(i1, j1);
+
+    (1.0 - ty) * f0 + ty * f1
 }
 
 // ==========================================
@@ -867,8 +879,8 @@ mod tests {
         let width :usize = 5;
         let height :usize = 10;
 
-        let const_f = |_u: f32, _v: f32|->f32 {10.0};
-        assert_eq!(10.0, bilinear_interpolation(uv, width, height, &const_f));
+        let const_f = |_u: usize, _v: usize|->f32 {10.0};
+        assert!(are_close(10.0, bilinear_interpolation(uv, width, height, &const_f)));
     }
 
     #[test]
@@ -877,9 +889,11 @@ mod tests {
         let width :usize = 2;
         let height :usize = 3;
 
-        let f = |x: f32, y: f32|->f32 {2.0 * x + 3.0 * y};
+        let f = |x: usize, y: usize|->f32 {
+            2.0 * x as f32 + 3.0 * y as f32
+        };
 
-        assert_eq!(5.5, bilinear_interpolation(uv, width, height, &f));
+        assert!(are_close(5.5, bilinear_interpolation(uv, width, height, &f)));
     }
 
     #[test]
@@ -888,8 +902,14 @@ mod tests {
         let width :usize = 2;
         let height :usize = 3;
 
-        let f = |x: f32, y: f32|->f32 {y * x + 3.0 * y};
+        let f = |x: usize, y: usize|->f32 {
+            let a = x as f32; let b = y as f32;
+            b * a + 3.0 * b
+        };
 
-        assert_eq!(7.875, bilinear_interpolation(uv, width, height, &f));
+        assert!(are_close(
+            5.25,
+            bilinear_interpolation(uv, width, height, &f)
+        ));
     }
 }

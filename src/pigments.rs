@@ -114,6 +114,57 @@ mod tests {
 
     #[test]
     fn test_checkered_pigment_get_color() {
-        panic!("Write test!!!")
+        let green = Color::new(0.0, 1.0, 0.0);
+        let blue = Color::new(0.0, 0.0, 1.0);
+        let pigment = CheckeredPigment::new(green, blue, 3);
+
+        //      (0,0)                                                   (0,1)
+        //             * ----- * ----- * ----- * ----- * ----- * ----- *
+        //             |       |       |       |       |       |       |
+        //             * --- Green --- * --   Blue  -- * --- Green --- *
+        //             |       |       |       |       |       |       |
+        //             * ----- * ----- * ----- * ----- * ----- * ----- *
+        //             |       |       |       |       |       |       |
+        //             * --   Blue  -- * --- Green --- * --   Blue  -- *
+        //             |       |       |       |       |       |       |
+        //             * ----- * ----- * ----- * ----- * ----- * ----- *
+        //             |       |       |       |       |       |       |
+        //             * --- Green --- * --   Blue  -- * --- Green --- *
+        //             |       |       |       |       |       |       |
+        //             * ----- * ----- * ----- * ----- * ----- * ----- *
+        //          (1,0)                                               (1,1)
+
+        let expected_colors = vec![green, blue, green, blue, green, blue, green, blue, green];
+        let mut expected = expected_colors.iter();
+
+        // first row
+        let u = 0.5 / 3.0;
+        for i in 0..3 {
+            let v = (i * 2 + 1) as f32 / 6.0;
+            assert_eq!(
+                &pigment.get_color(&Vec2D { x: u, y: v }),
+                expected.next().unwrap()
+            );
+        }
+
+        // second row
+        let u = 0.5 / 3.0 + 1.0 / 3.0;
+        for i in 0..3 {
+            let v = (i * 2 + 1) as f32 / 6.0;
+            assert_eq!(
+                &pigment.get_color(&Vec2D { x: u, y: v }),
+                expected.next().unwrap()
+            );
+        }
+
+        // third row
+        let u = 1.0 - 0.5 / 3.0;
+        for i in 0..3 {
+            let v = (i * 2 + 1) as f32 / 6.0;
+            assert_eq!(
+                &pigment.get_color(&Vec2D { x: u, y: v }),
+                expected.next().unwrap()
+            );
+        }
     }
 }

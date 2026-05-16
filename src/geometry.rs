@@ -516,6 +516,42 @@ pub fn branchless_onb<T: VecOrNorm>(normal: T) -> (Vector, Vector, Vector) {
 }
 
 // ==========================================
+// Repeated linear interpolation
+// ==========================================
+
+/// This function returns the **Bilinear Interpolation** of a point in a grid for a given function.
+///
+/// The point is stored as a `Vec2D` and assumed to have coordinates in `[0,1)` range.
+/// No control on this is implemented.
+pub fn bilinear_interpolation< F >(uv: Vec2D, width: usize, height: usize, f: &F) -> f32
+where F: Fn(f32, f32) -> f32,
+{
+    //      i       x                      i+1    [width]
+    //   j  * ----- * --------------------- *
+    //      |       |                       |
+    //   y  * ----- * --------------------- *
+    //      |       |                       |
+    //      |       |                       |      (Drawing for HDR
+    //      |       |                       |       images in mind)
+    //      |       |                       |
+    //      |       |                       |
+    //      * ----- * --------------------- *
+    //    j+1
+    //  [height]
+
+    let x = uv.x * width as f32;
+    let y = uv.y * height as f32;
+
+    let i = x.floor();
+    let j = y.floor();
+
+    let f0 = (i + 1.0 - x) * f(i,j) + (x - i) * f(i+1.0 , j);
+    let f1 = (i + 1.0 - x) * f(i, j+1.0) + (x - i) * f(i+1.0 , j+1.0);
+
+    (j + 1.0 - y) * f0 + (y - j) * f1
+}
+
+// ==========================================
 // TEST
 // ==========================================
 
@@ -823,5 +859,37 @@ mod tests {
                 i
             );
         }
+    }
+
+    #[test]
+    fn test_rep_lin_interpolation_constant() {
+        let uv = Vec2D { x: 0.25, y: 0.75 };
+        let width :usize = 5;
+        let height :usize = 10;
+
+        let const_f = |_u: f32, _v: f32|->f32 {10.0};
+        assert_eq!(10.0, bilinear_interpolation(uv, width, height, &const_f));
+    }
+
+    #[test]
+    fn test_rep_lin_interpolation_simple_function() {
+        let uv = Vec2D { x: 0.25, y: 0.5 };
+        let width :usize = 2;
+        let height :usize = 3;
+
+        let f = |x: f32, y: f32|->f32 {2.0 * x + 3.0 * y};
+
+        assert_eq!(5.5, bilinear_interpolation(uv, width, height, &f));
+    }
+
+    #[test]
+    fn test_rep_lin_interpolation_border_pixels() {
+        let uv = Vec2D { x: 0.25, y: 0.75 };
+        let width :usize = 2;
+        let height :usize = 3;
+
+        let f = |x: f32, y: f32|->f32 {y * x + 3.0 * y};
+
+        assert_eq!(7.875, bilinear_interpolation(uv, width, height, &f));
     }
 }

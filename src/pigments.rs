@@ -101,7 +101,6 @@ impl Pigment for ImagePigment {
         let row = uv.y * self.image.height as f32;
 
         panic!("FINISH WRITING FUNCTION!!")
-
     }
 }
 
@@ -111,8 +110,8 @@ impl Pigment for ImagePigment {
 
 #[cfg(test)]
 mod tests {
-    use crate::pcg::PCG;
     use super::*;
+    use crate::pcg::PCG;
 
     // - - - - - - - - - - - - - - - - - - - - - -
     //              UniformPigment

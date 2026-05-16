@@ -98,6 +98,42 @@ impl Pigment for ImagePigment {
     }
 }
 
+// ===============================================
+// ===============================================
+// ================= Extras! =====================
+// ==============================================
+// ===============================================
+
+// Procedural pigments
+// This is experimental!!
+
+pub struct GradientPigment {
+    pub color1: Color,
+    pub color2: Color,
+    pub angle: f32, // In Radiants
+}
+
+impl GradientPigment {
+    pub fn new(color1: Color, color2: Color, angle: f32) -> Self {
+        Self {
+            color1,
+            color2,
+            angle,
+        }
+    }
+}
+
+impl Pigment for GradientPigment {
+    /// Returns a linear gradient along a rotated axis.
+    ///
+    /// The gradient is not clamped, so colors may extrapolate
+    /// beyond `color1` and `color2`.
+    fn get_color(&self, uv: &Vec2D) -> Color {
+        let new_x = uv.x * self.angle.cos() + uv.y * self.angle.sin();
+        self.color1 * (1.0 - new_x) + self.color2 * new_x
+    }
+}
+
 // **********************************************
 // Tests
 // **********************************************

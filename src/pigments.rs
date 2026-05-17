@@ -142,6 +142,7 @@ impl Pigment for GradientPigment {
 mod tests {
     use super::*;
     use crate::color::RAINBOW_COLORS;
+    use crate::geometry::Vector;
     use crate::pcg::PCG;
 
     // - - - - - - - - - - - - - - - - - - - - - -
@@ -342,11 +343,58 @@ mod tests {
         let color2 = Color::new(4.0, 5.0, 6.0);
         let angle = std::f32::consts::FRAC_PI_3;
         let gradient = GradientPigment::new(color1, color2, angle);
-        panic!("Finish test!!!")
+
+        assert_eq!(gradient.color1, color1);
+        assert_eq!(gradient.color2, color2);
+        assert_eq!(gradient.angle, angle);
     }
-    
+
+    fn setup_gradient() -> GradientPigment {
+        let color1 = Color::new(1.0, 2.0, 3.0);
+        let color2 = Color::new(4.0, 5.0, 6.0);
+        let angle = std::f32::consts::FRAC_PI_3;
+        GradientPigment::new(color1, color2, angle)
+    }
+
     #[test]
     fn test_gradient_pigments_get_color() {
-        panic!("Finish test!!!")
+        let gradient = setup_gradient();
+
+        assert_eq!(
+            gradient.get_color(&Vec2D { x: 0.0, y: 0.0 }),
+            gradient.color1,
+            "Error in (0,0) check!"
+        );
+        assert_eq!(
+            gradient.get_color(&Vec2D {
+                x: 0.5,
+                y: 3.0_f32.sqrt() / 2.0
+            }),
+            gradient.color2,
+            "Error in new_x == 1 check!"
+        );
+        // for t = 0.5 we can compute the corresponding coordinates by:
+        // u = l * cos(60) = 0.25,
+        // v = l * sin(60) = sqrt(3) / 4.
+        // The expected color is given by 0.5 * color1 + 0.5 * color2
+        let mid_color = Color::new(2.5, 3.5, 4.5);
+        assert_eq!(
+            gradient.get_color(&Vec2D {
+                x: 0.25,
+                y: 3.0_f32.sqrt() / 4.0
+            }),
+            mid_color,
+            "Error in mid-color check!"
+        );
+    }
+
+    #[test]
+    fn test_gradient_pigments_get_color_extrapolation() {
+        let gradient = setup_gradient();
+        let bottom_left_corner = Vec2D::new(0.9, 0.9);
+
+        let expected_color = (1.0 - 1.2294228) * gradient.color1 + 1.2294228 * gradient.color2;
+
+        assert!(expected_color.is_close(&gradient.get_color(&bottom_left_corner)));
     }
 }

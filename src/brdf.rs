@@ -2,7 +2,7 @@
 //!
 
 use crate::color::Color;
-use crate::geometry::{Normal, Point, Vec2D, Vector, branchless_onb};
+use crate::geometry::{Dot, Normal, Point, Vec2D, Vector, branchless_onb};
 use crate::pcg::PCG;
 use crate::pigments;
 use crate::ray::Ray;
@@ -20,9 +20,10 @@ pub trait BRDF {
 }
 
 // ======================================================
-// BRDF
+// DiffusiveBrdf
 // ======================================================
 
+/// DiffusiveBrdf is used for the material that emit light rays for 2π hemisphere.
 pub struct DiffusiveBrdf {}
 impl BRDF for DiffusiveBrdf {
     /// This function returns a random direction ray scattered from a point in the surface.
@@ -46,6 +47,36 @@ impl BRDF for DiffusiveBrdf {
             dir,
             t_max: std::f32::INFINITY,
             t_min: 1e-3,
+            depth,
+        }
+    }
+}
+
+// ======================================================
+// DiffusiveBrdf
+// ======================================================
+
+/// SpecularBrdf represent the totally reflective materials.
+pub struct SpecularBrdf {}
+
+impl BRDF for SpecularBrdf {
+    fn scatter_ray(
+        &self,
+        pcg: PCG,
+        incoming_dir: Vector,
+        interacting_point: Point,
+        normal: Normal,
+        depth: usize,
+    ) -> Ray {
+        let ray_dir = Vector::new(incoming_dir.x, incoming_dir.y, incoming_dir.z).normalize();
+        let normal = Vector::from(normal).normalize();
+        let dot_product = ray_dir.dot(&normal);
+
+        Ray {
+            origin: interacting_point,
+            dir: ray_dir - normal * 2.0 * dot_product,
+            t_min: 1e-5,
+            t_max: std::f32::INFINITY,
             depth,
         }
     }

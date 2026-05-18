@@ -66,11 +66,22 @@ mod tests {
     use crate::transformations::{Scaling, Transformation, Translation};
     use crate::world::World;
     use anyhow::Result;
+    use crate::brdf::DiffusiveBrdf;
+    use crate::color::Color;
+    use crate::materials::Material;
+    use crate::pigments::UniformPigment;
+
+    fn give_white_uniform_diffusive() -> Material {
+        Material {
+            pigment: Box::new(UniformPigment::new(Color::new(10.0, 10.0, 10.0))),
+            brdf: Box::new(DiffusiveBrdf {}),
+        }
+    }
 
     fn setup() -> World {
-        let sphere1 = Sphere::new(Translation::new(Vector::new(5.0, 0.0, 0.0)));
-        let sphere2 = Sphere::new(Translation::new(Vector::new(0.0, 5.0, 0.0)));
-        let bean = Sphere::new(Scaling::new([1.0, 1.0, 2.0]));
+        let sphere1 = Sphere::new(Translation::new(Vector::new(5.0, 0.0, 0.0)), give_white_uniform_diffusive());
+        let sphere2 = Sphere::new(Translation::new(Vector::new(0.0, 5.0, 0.0)),give_white_uniform_diffusive());
+        let bean = Sphere::new(Scaling::new([1.0, 1.0, 2.0]), give_white_uniform_diffusive());
 
         World {
             objects: vec![Box::new(sphere1), Box::new(sphere2), Box::new(bean)],
@@ -125,9 +136,11 @@ mod tests {
         let world_1 = setup();
 
         let transformation = Transformation::new(IDENTITY_4X4);
-        let plane = Plane::new(transformation);
         let world_2 = World {
-            objects: vec![Box::new(plane), Box::new(plane), Box::new(plane)],
+            objects: vec![
+                Box::new(Plane::new(transformation, give_white_uniform_diffusive())), 
+                Box::new(Plane::new(transformation, give_white_uniform_diffusive())), 
+                Box::new(Plane::new(transformation, give_white_uniform_diffusive()))],
         };
 
         let world = world_1 + world_2;

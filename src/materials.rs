@@ -4,9 +4,8 @@
 //!
 //! In this raytracing project only reflectance is considered. No transparent materials.
 
-use crate::brdf::{DiffusiveBrdf, BRDF};
-use crate::color::Color;
-use crate::pigments::{Pigment, UniformPigment};
+use crate::brdf::BRDF;
+use crate::pigments::Pigment;
 
 /// This struct stores the pigment and the light handling of a material.
 pub struct Material {

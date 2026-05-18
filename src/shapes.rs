@@ -5,19 +5,17 @@
 //!
 //! All the documentation is a WIP - draft!
 
-use crate::brdf::BRDF;
 use crate::functions::{Within, are_close, cramer};
 use crate::geometry::{Cross, Dot, Normal, Point, Vec2D, Vector};
 use crate::hit_record::HitRecord;
 use crate::materials::Material;
-use crate::pigments::Pigment;
 use crate::ray::Ray;
 use crate::transformations::IsHomogeneousMatrix;
 use anyhow::{Result, anyhow};
 use std::ops::Mul;
 
 pub trait Shape {
-    fn ray_intersection(&self, ray: &Ray) -> Option<HitRecord>;
+    fn ray_intersection(&self, ray: &Ray) -> Option<HitRecord<'_>>;
 
     fn normal_at(&self, point: Point, ray: &Ray) -> Normal;
 
@@ -62,7 +60,7 @@ where
         + Mul<Vector, Output = Vector>
         + Copy,
 {
-    fn ray_intersection(&self, ray: &Ray) -> Option<HitRecord> {
+    fn ray_intersection(&self, ray: &Ray) -> Option<HitRecord<'_>> {
         let inverse_transformation = self.transformation.inverse_transformation();
         let transformed_ray = inverse_transformation * (*ray);
 
@@ -166,7 +164,7 @@ where
         + Mul<Vector, Output = Vector>
         + Copy,
 {
-    fn ray_intersection(&self, ray: &Ray) -> Option<HitRecord> {
+    fn ray_intersection(&self, ray: &Ray) -> Option<HitRecord<'_>> {
         let inverse_transformation = self.transformation.inverse_transformation();
         let transformed_ray = inverse_transformation * (*ray);
 
@@ -276,7 +274,7 @@ impl Triangle {
 }
 
 impl Shape for Triangle {
-    fn ray_intersection(&self, ray: &Ray) -> Option<HitRecord> {
+    fn ray_intersection(&self, ray: &Ray) -> Option<HitRecord<'_>> {
         let (t, beta, gamma) = self._intersection(*ray).ok()?;
 
         if t.is_between_close(&ray.t_min, &ray.t_max) {
@@ -287,7 +285,7 @@ impl Shape for Triangle {
                 uv: Vec2D::new(beta, gamma),
                 t,
                 ray: *ray,
-                material: &self.material
+                material: &self.material,
             })
         } else {
             None

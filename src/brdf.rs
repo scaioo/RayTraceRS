@@ -1,7 +1,7 @@
 //! The BRDF encodes the Bidirectional Reflectance Distribution Function of the Rendering Equation.
 //!
 
-use crate::geometry::{Dot, Normal, Point, Vec2D, Vector, branchless_onb};
+use crate::geometry::{Dot, Normal, Point, Vector, branchless_onb};
 use crate::pcg::PCG;
 use crate::ray::Ray;
 
@@ -62,7 +62,7 @@ pub struct SpecularBrdf {}
 impl BRDF for SpecularBrdf {
     fn scatter_ray(
         &self,
-        pcg: PCG,
+        _pcg: PCG,
         incoming_dir: Vector,
         interacting_point: Point,
         normal: Normal,

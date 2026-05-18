@@ -11,7 +11,6 @@ use crate::functions::are_close;
 use crate::geometry::{Normal, Point, Vec2D, is_close};
 use crate::materials::Material;
 use crate::ray::Ray;
-use crate::shapes::Shape;
 
 /// A record of a successful ray-surface intersection.
 ///
@@ -81,9 +80,9 @@ impl<'a> HitRecord<'a> {
 
 #[cfg(test)]
 mod tests {
+    use super::*;
     use crate::brdf::DiffusiveBrdf;
     use crate::color::Color;
-    use super::*;
     use crate::geometry::{Point, Vec2D, Vector};
     use crate::pigments::CheckeredPigment;
 
@@ -94,7 +93,7 @@ mod tests {
                 color2: Color::new(3.0, 4.0, 5.0),
                 steps: 5,
             }),
-            brdf: Box::new(DiffusiveBrdf {})
+            brdf: Box::new(DiffusiveBrdf {}),
         }
     }
 
@@ -121,7 +120,7 @@ mod tests {
             uv: Vec2D::new(7.0, 8.0000001),
             t: 1.0000001,
             ray: ray2,
-            material: &mat2
+            material: &mat2,
         };
         assert!(hr1.is_close(&hr2));
 

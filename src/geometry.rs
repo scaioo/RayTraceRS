@@ -1,5 +1,4 @@
 //! Geometry module providing the spatial primitives used by the renderer.
-use crate::color::Color;
 use crate::functions::are_close;
 use std::fmt;
 use std::ops::{Add, Div, Mul, Neg, Sub};

@@ -23,7 +23,7 @@ impl World {
     /// # Returns
     /// - `Some(HitRecord)` if at least one intersection is found.
     /// - `None` if the ray misses everything or internal errors occur in specific shapes.
-    pub fn ray_intersection(&self, ray: &Ray) -> Option<HitRecord> {
+    pub fn ray_intersection(&self, ray: &Ray) -> Option<HitRecord<'_>> {
         let mut closest_hit: Option<HitRecord> = None;
         let mut closest_t = ray.t_max;
 

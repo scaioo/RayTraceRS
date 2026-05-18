@@ -11,4 +11,5 @@
 ---
 
 ## [0.1.0] - Initial Release
+- First release of the code
 

@@ -102,10 +102,13 @@ impl<C: Camera> ImageTracer<C> {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::brdf::DiffusiveBrdf;
     use crate::camera::PerspectiveCamera;
     use crate::color::Color;
     use crate::functions::IDENTITY_4X4;
     use crate::geometry::{Point, Vector};
+    use crate::materials::Material;
+    use crate::pigments::UniformPigment;
     use crate::shapes::{Shape, Sphere};
     use crate::transformations::{Scaling, Transformation, Translation};
 
@@ -155,10 +158,15 @@ mod tests {
         }
 
         fn demo_world() -> World {
+            let material = Material {
+                pigment: Box::new(UniformPigment::new(Color::new(10.0, 10.0, 10.0))),
+                brdf: Box::new(DiffusiveBrdf {}),
+            };
             let sphere_scaling = Scaling::new([1.0, 1.0, 1.0]);
 
             let central_spheres = vec![Sphere::new(
                 Translation::new(Vector::new(0.0, 0.0, -0.0)) * sphere_scaling,
+                material,
             )];
 
             let objects: Vec<Box<dyn Shape>> = central_spheres

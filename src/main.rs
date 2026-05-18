@@ -1,11 +1,14 @@
 use anyhow::Result;
 use clap::Parser;
+use rstrace::brdf::DiffusiveBrdf;
 use rstrace::camera::{Camera, OrthogonalCamera, PerspectiveCamera};
 use rstrace::color::Color;
 use rstrace::geometry::Vector;
 use rstrace::hdr_image::HDR;
 use rstrace::image_tracer::ImageTracer;
+use rstrace::materials::Material;
 use rstrace::pfm_func::{Endianness, pfm_to_ldr};
+use rstrace::pigments::UniformPigment;
 use rstrace::ray::Ray;
 use rstrace::shapes::{Shape, Sphere};
 use rstrace::transformations::{Scaling, Transformation, Translation};
@@ -13,6 +16,7 @@ use rstrace::world::World;
 use std::fs::File;
 use std::io::BufWriter;
 use std::time::Instant;
+
 #[derive(Parser)]
 
 struct Cli {
@@ -56,7 +60,13 @@ fn demo_world() -> World {
     let return_sphere = |vec: &Vector, z: f32| -> Sphere<Transformation> {
         let new_vec = *vec + Vector::new(0.0, 0.0, z);
         let transformation = Translation::new(new_vec) * sphere_scaling;
-        Sphere::new(transformation)
+        Sphere::new(
+            transformation,
+            Material {
+                pigment: Box::new(UniformPigment::new(Color::new(10.0, 10.0, 10.0))),
+                brdf: Box::new(DiffusiveBrdf {}),
+            },
+        )
     };
 
     let upper_spheres = flat_corners.iter().map(|vec| return_sphere(vec, 0.5));
@@ -64,8 +74,20 @@ fn demo_world() -> World {
     let lower_spheres = flat_corners.iter().map(|vec| return_sphere(vec, -0.5));
 
     let central_spheres = vec![
-        Sphere::new(Translation::new(Vector::new(0.0, 0.0, -0.5)) * sphere_scaling),
-        Sphere::new(Translation::new(Vector::new(0.0, 0.5, 0.0)) * sphere_scaling),
+        Sphere::new(
+            Translation::new(Vector::new(0.0, 0.0, -0.5)) * sphere_scaling,
+            Material {
+                pigment: Box::new(UniformPigment::new(Color::new(10.0, 10.0, 10.0))),
+                brdf: Box::new(DiffusiveBrdf {}),
+            },
+        ),
+        Sphere::new(
+            Translation::new(Vector::new(0.0, 0.5, 0.0)) * sphere_scaling,
+            Material {
+                pigment: Box::new(UniformPigment::new(Color::new(10.0, 10.0, 10.0))),
+                brdf: Box::new(DiffusiveBrdf {}),
+            },
+        ),
     ];
 
     let objects: Vec<Box<dyn Shape>> = central_spheres

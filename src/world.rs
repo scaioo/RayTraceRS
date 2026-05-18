@@ -59,17 +59,17 @@ impl Add for World {
 }
 #[cfg(test)]
 mod tests {
+    use crate::brdf::DiffusiveBrdf;
+    use crate::color::Color;
     use crate::functions::{IDENTITY_4X4, are_close};
     use crate::geometry::{Point, Vector, is_close};
+    use crate::materials::Material;
+    use crate::pigments::UniformPigment;
     use crate::ray::Ray;
     use crate::shapes::{Plane, Sphere};
     use crate::transformations::{Scaling, Transformation, Translation};
     use crate::world::World;
     use anyhow::Result;
-    use crate::brdf::DiffusiveBrdf;
-    use crate::color::Color;
-    use crate::materials::Material;
-    use crate::pigments::UniformPigment;
 
     fn give_white_uniform_diffusive() -> Material {
         Material {
@@ -79,9 +79,18 @@ mod tests {
     }
 
     fn setup() -> World {
-        let sphere1 = Sphere::new(Translation::new(Vector::new(5.0, 0.0, 0.0)), give_white_uniform_diffusive());
-        let sphere2 = Sphere::new(Translation::new(Vector::new(0.0, 5.0, 0.0)),give_white_uniform_diffusive());
-        let bean = Sphere::new(Scaling::new([1.0, 1.0, 2.0]), give_white_uniform_diffusive());
+        let sphere1 = Sphere::new(
+            Translation::new(Vector::new(5.0, 0.0, 0.0)),
+            give_white_uniform_diffusive(),
+        );
+        let sphere2 = Sphere::new(
+            Translation::new(Vector::new(0.0, 5.0, 0.0)),
+            give_white_uniform_diffusive(),
+        );
+        let bean = Sphere::new(
+            Scaling::new([1.0, 1.0, 2.0]),
+            give_white_uniform_diffusive(),
+        );
 
         World {
             objects: vec![Box::new(sphere1), Box::new(sphere2), Box::new(bean)],
@@ -138,9 +147,10 @@ mod tests {
         let transformation = Transformation::new(IDENTITY_4X4);
         let world_2 = World {
             objects: vec![
-                Box::new(Plane::new(transformation, give_white_uniform_diffusive())), 
-                Box::new(Plane::new(transformation, give_white_uniform_diffusive())), 
-                Box::new(Plane::new(transformation, give_white_uniform_diffusive()))],
+                Box::new(Plane::new(transformation, give_white_uniform_diffusive())),
+                Box::new(Plane::new(transformation, give_white_uniform_diffusive())),
+                Box::new(Plane::new(transformation, give_white_uniform_diffusive())),
+            ],
         };
 
         let world = world_1 + world_2;

@@ -12,6 +12,9 @@ use crate::ray::Ray;
 use crate::transformations::IsHomogeneousMatrix;
 use anyhow::{Result, anyhow};
 use std::ops::Mul;
+use crate::brdf::BRDF;
+use crate::materials::Material;
+use crate::pigments::Pigment;
 
 pub trait Shape {
     fn ray_intersection(&self, ray: &Ray) -> Option<HitRecord>;
@@ -19,6 +22,8 @@ pub trait Shape {
     fn normal_at(&self, point: Point, ray: &Ray) -> Normal;
 
     fn point_to_uv(&self, point: &Point) -> Result<Vec2D>;
+
+    fn material(&self) -> &Material;
 }
 // =================================================================================
 /// The class Sphere adds the possibility to represent spherical objects in images
@@ -34,14 +39,14 @@ pub trait Shape {
 ///
 /// All of this is for the unit sphere. To obtain other pseudo-spherical objects
 /// we use transformations.
-#[derive(Copy, Clone, Debug, PartialEq)]
 pub struct Sphere<T: IsHomogeneousMatrix> {
-    pub transformation: T, // Is it where the sphere is at?
+    pub transformation: T,
+    pub material: Material
 }
 
 impl<T: IsHomogeneousMatrix> Sphere<T> {
-    pub fn new(transformation: T) -> Self {
-        Self { transformation }
+    pub fn new(transformation: T, material: Material) -> Self {
+        Self { transformation , material }
     }
 }
 
@@ -117,6 +122,8 @@ where
 
         Ok(Vec2D { x: u, y: v })
     }
+
+    fn material(&self) -> &Material { &self.material }
 }
 // =================================================================================
 /// The class Plane adds the possibility to represent the plane in an image
@@ -132,13 +139,13 @@ where
 ///
 /// All of this is for the x-y plane. To obtain other pseudo-spherical objects
 /// we use transformations.
-#[derive(Copy, Clone, Debug, PartialEq)]
 pub struct Plane<T: IsHomogeneousMatrix> {
     pub transformation: T,
+    pub material: Material
 }
 impl<T: IsHomogeneousMatrix> Plane<T> {
-    pub fn new(transformation: T) -> Self {
-        Self { transformation }
+    pub fn new(transformation: T, material: Material) -> Self {
+        Self { transformation, material }
     }
 }
 impl<T> Shape for Plane<T>
@@ -185,6 +192,8 @@ where
             y: point.y - point.y.floor(),
         })
     }
+    
+    fn material(&self) -> &Material { &self.material }
 }
 // =================================================================================
 /// The class Triangle adds the possibility to represent a triangle in an image
@@ -199,16 +208,20 @@ where
 /// # Note:
 ///
 /// Understand where to put the triangle properly for then further transformations!
-#[derive(Copy, Clone, Debug, PartialEq)]
 pub struct Triangle {
     pub a: Point,
     pub b: Point,
     pub c: Point,
+    pub material: Material
 }
 
 //                           For triangle implementation
 
 impl Triangle {
+    pub fn new(a: Point, b: Point, c: Point, material: Material) -> Self {
+        Self { a, b, c, material }
+    }
+    
     pub fn _intersection(&self, ray: Ray) -> Result<(f32, f32, f32)> {
         let mat: [f32; 9] = [
             self.b.x - self.a.x,
@@ -293,6 +306,8 @@ impl Shape for Triangle {
 
         Ok(Vec2D { x: beta, y: gamma })
     }
+    
+    fn material(&self) -> &Material { &self.material }
 }
 
 // =================================================================================
@@ -316,6 +331,7 @@ mod tests {
             Ray::new(Point::new(3.0, 0.0, 0.0), Vector::new(-1.0, 0.0, 0.0)),
             Ray::new(Point::new(0.0, 0.0, 0.0), Vector::new(1.0, 0.0, 0.0)),
         ];
+        
 
         let transformation = Transformation::new(IDENTITY_4X4);
         let sphere = Sphere::new(transformation);

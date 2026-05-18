@@ -280,7 +280,7 @@ impl HDR {
         }
 
         let avr = self.average_luminosity()?;
-        if are_close(avr, 0.0) {
+        if avr == 0.0 {
             return Err(anyhow!(
                 "normalization():
             Average luminosity is zero, cannot normalize."

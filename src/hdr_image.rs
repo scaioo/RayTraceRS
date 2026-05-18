@@ -31,7 +31,7 @@
 //!
 
 use crate::color::Color;
-use crate::functions::{are_close, endianness_number};
+use crate::functions::{endianness_number};
 use anyhow::{Result, anyhow};
 use byteorder::{BigEndian, LittleEndian, WriteBytesExt};
 use std::fs::File;

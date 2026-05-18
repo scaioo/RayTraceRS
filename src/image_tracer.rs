@@ -88,17 +88,16 @@ impl<C: Camera> ImageTracer<C> {
         for row in 0..self.image.height {
             for col in 0..self.image.width {
                 // Using 0.5 as the default pixel offsets like in Python
-                let ray = self.fire_ray(col, row, 0.5, 0.5);
+               let ray = self.fire_ray(col, row, 0.5, 0.5);
 
                 let color = func(ray, world)?;
 
                 self.image.set_pixel(col, row, color)?;
+
             }
-        }
-        Ok(())
+        } Ok(())
     }
 }
-
 #[cfg(test)]
 mod tests {
     use super::*;

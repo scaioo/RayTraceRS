@@ -89,6 +89,7 @@ impl Color {
         // Shirley & Morley’s formula
         let max = self.r.max(self.g.max(self.b));
         let min = self.r.min(self.g.min(self.b));
+
         Ok((max + min) * 0.5)
     }
 

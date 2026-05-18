@@ -25,6 +25,9 @@ struct Cli {
     #[arg(long)]
     orthogonal: bool,
 
+    #[arg(long, default_value = "png")]
+    format: String,
+
     #[command(subcommand)]
     command: Commands,
 }
@@ -84,7 +87,11 @@ fn main() -> Result<()> {
 
     let cli = Cli::parse();
 
-    match cli.command {
+    if cli.format != "png" && cli.format != "jpeg" && cli.format != "jpg" {
+        panic!("invalid extension for --format \n try \tpng \n\tjpg \n\tjpeg \nextension is automatically set to png")
+    }
+
+        match cli.command {
         Commands::Demo { file_name } => {
             let mat = Vector::new(-2.0, 0.0, 0.0);
             let transl = Translation::new(mat);
@@ -100,14 +107,14 @@ fn main() -> Result<()> {
                     .fire_all_rays(&world, color_image)
                     .expect("error firing all rays");
                 println!("all done orthogonal!");
-                let filename = "outputs/".to_string() + &file_name;
+                let filename = "outputs/".to_string() + &file_name + &".pfm".to_string();
                 let file = File::create(&filename)?;
                 let disk_writer = BufWriter::new(&file);
                 imagetracer
                     .image
                     .write_pfm(disk_writer, &Endianness::BigEndian)
                     .expect("error creating pfm file ");
-                pfm_to_ldr(filename, 0.18, 2.2, "outputs/first_image.png".to_string())
+                pfm_to_ldr(filename, 0.18, 2.2, "outputs/".to_string() + &file_name + &".".to_string() + &cli.format.to_string())
                     .expect("error converting file from pfm");
             } else {
                 let mut p_cam = PerspectiveCamera::new(transl);
@@ -119,22 +126,20 @@ fn main() -> Result<()> {
                 imagetracer
                     .fire_all_rays(&world, color_image)
                     .expect("error firing all rays");
-                println!("all done!");
-                let filename = "outputs/".to_string() + &file_name;
+                let filename = "outputs/".to_string() + &file_name + &".pfm".to_string();
                 println!("filename {}", &filename);
 
-                //let file = File::create(&filename)?;
-                let file = File::create("outputs/testfile.pfm")?;
+                let file = File::create(&filename)?;
+                //let file = File::create("outputs/testfile.pfm")?;
                 let disk_writer = BufWriter::new(&file);
                 imagetracer
                     .image
                     .write_pfm(disk_writer, &Endianness::BigEndian)
                     .expect("error creating pfm file ");
-                pfm_to_ldr(filename, 0.18, 2.2, "outputs/second_image.png".to_string())
+                pfm_to_ldr(filename, 0.18, 2.2, "outputs/".to_string() + &file_name + &".".to_string() + &cli.format.to_string())
                     .expect("error converting file from pfm");
             }
 
-            // create a file
 
             let duration = now.elapsed();
             println!("Program finished in {:?}", duration);

@@ -88,10 +88,12 @@ fn main() -> Result<()> {
     let cli = Cli::parse();
 
     if cli.format != "png" && cli.format != "jpeg" && cli.format != "jpg" {
-        panic!("invalid extension for --format \n try \tpng \n\tjpg \n\tjpeg \nextension is automatically set to png")
+        panic!(
+            "invalid extension for --format \n try \tpng \n\tjpg \n\tjpeg \nextension is automatically set to png"
+        )
     }
 
-        match cli.command {
+    match cli.command {
         Commands::Demo { file_name } => {
             let mat = Vector::new(-2.0, 0.0, 0.0);
             let transl = Translation::new(mat);
@@ -114,8 +116,16 @@ fn main() -> Result<()> {
                     .image
                     .write_pfm(disk_writer, &Endianness::BigEndian)
                     .expect("error creating pfm file ");
-                pfm_to_ldr(filename, 0.18, 2.2, "outputs/".to_string() + &file_name + &".".to_string() + &cli.format.to_string())
-                    .expect("error converting file from pfm");
+                pfm_to_ldr(
+                    filename,
+                    0.18,
+                    2.2,
+                    "outputs/".to_string()
+                        + &file_name
+                        + &".".to_string()
+                        + &cli.format.to_string(),
+                )
+                .expect("error converting file from pfm");
             } else {
                 let mut p_cam = PerspectiveCamera::new(transl);
                 let img = HDR::new(cli.width, cli.height);
@@ -136,10 +146,17 @@ fn main() -> Result<()> {
                     .image
                     .write_pfm(disk_writer, &Endianness::BigEndian)
                     .expect("error creating pfm file ");
-                pfm_to_ldr(filename, 0.18, 2.2, "outputs/".to_string() + &file_name + &".".to_string() + &cli.format.to_string())
-                    .expect("error converting file from pfm");
+                pfm_to_ldr(
+                    filename,
+                    0.18,
+                    2.2,
+                    "outputs/".to_string()
+                        + &file_name
+                        + &".".to_string()
+                        + &cli.format.to_string(),
+                )
+                .expect("error converting file from pfm");
             }
-
 
             let duration = now.elapsed();
             println!("Program finished in {:?}", duration);

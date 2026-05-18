@@ -242,11 +242,13 @@ impl HDR {
             .iter()
             .map(|col| {
                 let lum = col.sem_luminosity()?;
+
                 Ok((lum + f32::EPSILON).log10())
             })
             .sum::<Result<f32>>()?;
 
-        Ok(10.0_f32.powf(log_sum / count))
+        let res = 10.0_f32.powf(log_sum / count);
+        Ok(res)
     }
 
     /// Normalizes the image luminance.
@@ -286,7 +288,6 @@ impl HDR {
             Average luminosity is zero, cannot normalize."
             ));
         }
-
         for color in self.pixels.iter_mut() {
             *color = (*color * a) / avr;
         }

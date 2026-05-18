@@ -98,7 +98,6 @@ impl<C: Camera> ImageTracer<C> {
         Ok(())
     }
 }
-
 #[cfg(test)]
 mod tests {
     use super::*;

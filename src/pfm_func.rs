@@ -274,12 +274,9 @@ pub fn read_pfm<R: BufRead>(mut reader: R) -> anyhow::Result<HDR> {
     reader.read_line(&mut line)?;
     let (width, height) = _parse_img_size(&line)?;
 
-    println!("Pfm image size: {}x{}", width, height);
     line.clear();
     reader.read_line(&mut line)?;
     let endianness = _parse_endianness(&line);
-
-    println!("endianness: {}", line.trim());
 
     let hdr_img = _read_hdr(&mut reader, width, height, endianness?)?;
     Ok(hdr_img)
@@ -328,7 +325,7 @@ impl Parameter {
     /// ```rust, no_run
     /// use rstrace::pfm_func::Parameter;
     /// let args = vec![
-    ///     "program".into(),
+    ///
     ///     "input.pfm".into(),
     ///     "0.18".into(),
     ///     "2.2".into(),
@@ -435,7 +432,6 @@ pub fn pfm_to_ldr(
     output_file: String,
 ) -> anyhow::Result<()> {
     let args = vec![
-        "demo".to_string(),
         input_file,
         factor_a.to_string(),
         gamma.to_string(),
@@ -444,7 +440,7 @@ pub fn pfm_to_ldr(
 
     let mut params = Parameter::new(&args)?;
 
-    let file = File::open(&args[1]);
+    let file = File::open(&args[0]);
     let mut reader: BufReader<File> = BufReader::new(file?);
     let mut img = read_pfm(&mut reader)?;
     img.normalization(Some(&factor_a))?;

@@ -31,7 +31,7 @@
 //!
 
 use crate::color::Color;
-use crate::functions::{are_close, endianness_number};
+use crate::functions::endianness_number;
 use anyhow::{Result, anyhow};
 use byteorder::{BigEndian, LittleEndian, WriteBytesExt};
 use std::fs::File;
@@ -280,7 +280,7 @@ impl HDR {
         }
 
         let avr = self.average_luminosity()?;
-        if are_close(avr, 0.0) {
+        if avr == 0.0 {
             return Err(anyhow!(
                 "normalization():
             Average luminosity is zero, cannot normalize."

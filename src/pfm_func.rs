@@ -338,28 +338,28 @@ impl Parameter {
     /// let params = Parameter::new(&args).unwrap();
     /// ```
     pub fn new(args: &[String]) -> anyhow::Result<Parameter> {
-        if args.len() != 5 {
+        if args.len() != 4 {
             return Err(anyhow!(
                 "wrong number of parameters: expected\n\
             <input_file_name> <factor_a> <gamma> <output_file_name>"
             ));
         }
 
-        let input_temp: &String = &args[1];
+        let input_temp: &String = &args[0];
         let input_pfm_file_name = input_temp.to_string();
-        let mut factor_a: f32 = args[2].parse::<f32>().map_err(|_| {
+        let mut factor_a: f32 = args[1].parse::<f32>().map_err(|_| {
             anyhow!(
                 "invalid factor_a value: expected\n\
             <input_file_name> <factor_a> <gamma> <output_file_name>"
             )
         })?;
-        let mut gamma: f32 = args[3].parse::<f32>().map_err(|_| {
+        let mut gamma: f32 = args[2].parse::<f32>().map_err(|_| {
             anyhow!(
                 "invalid gamma value: expected\n\
             <input_file_name> <factor_a> <gamma> <output_file_name>"
             )
         })?;
-        let output_temp: &String = &args[4];
+        let output_temp: &String = &args[3];
         let output_file_name: String = output_temp.to_string();
         if factor_a <= 0.0 {
             println!("factor 'a' was automatically set to 0.18");
@@ -435,6 +435,7 @@ pub fn pfm_to_ldr(
     output_file: String,
 ) -> anyhow::Result<()> {
     let args = vec![
+        "demo".to_string(),
         input_file,
         factor_a.to_string(),
         gamma.to_string(),
@@ -443,7 +444,7 @@ pub fn pfm_to_ldr(
 
     let mut params = Parameter::new(&args)?;
 
-    let file = File::open(&args[0]);
+    let file = File::open(&args[1]);
     let mut reader: BufReader<File> = BufReader::new(file?);
     let mut img = read_pfm(&mut reader)?;
     img.normalization(Some(&factor_a))?;
@@ -569,7 +570,7 @@ mod test {
     // test for new created for Parameter
     #[test]
     fn test_1_new_parameter() {
-        let strings: Vec<String> = ["exe", "filename_in", "a", "2.2", "filename_out"]
+        let strings: Vec<String> = ["filename_in", "a", "2.2", "filename_out"]
             .iter()
             .map(|s| s.to_string())
             .collect();
@@ -586,7 +587,7 @@ mod test {
     #[should_panic(expected = "invalid gamma value")]
     //should panic if gamma is not a number
     fn test_2_new_parameter() {
-        let strings: Vec<String> = ["exe", "filename_in", "0.18", "a", "filename_out"]
+        let strings: Vec<String> = ["filename_in", "0.18", "a", "filename_out"]
             .map(String::from)
             .to_vec();
         let _par = Parameter::new(&strings).unwrap();
@@ -595,7 +596,7 @@ mod test {
     #[test]
     //sets factor_a to 0.18 when a < 0
     fn test_3_new_parameter() -> anyhow::Result<()> {
-        let strings: Vec<String> = ["exe", "filename_in", "-1", "2.2", "filename_out"]
+        let strings: Vec<String> = ["filename_in", "-1", "2.2", "filename_out"]
             .map(String::from)
             .to_vec();
         let par = Parameter::new(&strings)?;
@@ -606,7 +607,7 @@ mod test {
     #[test]
     //sets gamma to 2.2 when gamma < 0
     fn test_4_new_parameter() {
-        let strings: Vec<String> = ["exe", "filename_in", "0.18", "-1", "filename_out"]
+        let strings: Vec<String> = ["filename_in", "0.18", "-1", "filename_out"]
             .map(String::from)
             .to_vec();
         let par = Parameter::new(&strings).unwrap();

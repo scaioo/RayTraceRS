@@ -1,10 +1,8 @@
 //! The BRDF encodes the Bidirectional Reflectance Distribution Function of the Rendering Equation.
 //!
 
-use crate::color::Color;
 use crate::geometry::{Dot, Normal, Point, Vec2D, Vector, branchless_onb};
 use crate::pcg::PCG;
-use crate::pigments;
 use crate::ray::Ray;
 
 /// This trait collects the various BRDF types.

@@ -101,6 +101,7 @@ where
             uv,
             t,
             ray: *ray,
+            material: &self.material,
         })
     }
 
@@ -186,6 +187,7 @@ where
             uv,
             t,
             ray: *ray,
+            material: &self.material,
         })
     }
 
@@ -285,6 +287,7 @@ impl Shape for Triangle {
                 uv: Vec2D::new(beta, gamma),
                 t,
                 ray: *ray,
+                material: &self.material
             })
         } else {
             None

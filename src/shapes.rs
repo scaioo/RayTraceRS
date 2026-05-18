@@ -5,16 +5,16 @@
 //!
 //! All the documentation is a WIP - draft!
 
+use crate::brdf::BRDF;
 use crate::functions::{Within, are_close, cramer};
 use crate::geometry::{Cross, Dot, Normal, Point, Vec2D, Vector};
 use crate::hit_record::HitRecord;
+use crate::materials::Material;
+use crate::pigments::Pigment;
 use crate::ray::Ray;
 use crate::transformations::IsHomogeneousMatrix;
 use anyhow::{Result, anyhow};
 use std::ops::Mul;
-use crate::brdf::BRDF;
-use crate::materials::Material;
-use crate::pigments::Pigment;
 
 pub trait Shape {
     fn ray_intersection(&self, ray: &Ray) -> Option<HitRecord>;
@@ -41,12 +41,15 @@ pub trait Shape {
 /// we use transformations.
 pub struct Sphere<T: IsHomogeneousMatrix> {
     pub transformation: T,
-    pub material: Material
+    pub material: Material,
 }
 
 impl<T: IsHomogeneousMatrix> Sphere<T> {
     pub fn new(transformation: T, material: Material) -> Self {
-        Self { transformation , material }
+        Self {
+            transformation,
+            material,
+        }
     }
 }
 
@@ -123,7 +126,9 @@ where
         Ok(Vec2D { x: u, y: v })
     }
 
-    fn material(&self) -> &Material { &self.material }
+    fn material(&self) -> &Material {
+        &self.material
+    }
 }
 // =================================================================================
 /// The class Plane adds the possibility to represent the plane in an image
@@ -141,11 +146,14 @@ where
 /// we use transformations.
 pub struct Plane<T: IsHomogeneousMatrix> {
     pub transformation: T,
-    pub material: Material
+    pub material: Material,
 }
 impl<T: IsHomogeneousMatrix> Plane<T> {
     pub fn new(transformation: T, material: Material) -> Self {
-        Self { transformation, material }
+        Self {
+            transformation,
+            material,
+        }
     }
 }
 impl<T> Shape for Plane<T>
@@ -192,8 +200,10 @@ where
             y: point.y - point.y.floor(),
         })
     }
-    
-    fn material(&self) -> &Material { &self.material }
+
+    fn material(&self) -> &Material {
+        &self.material
+    }
 }
 // =================================================================================
 /// The class Triangle adds the possibility to represent a triangle in an image
@@ -212,7 +222,7 @@ pub struct Triangle {
     pub a: Point,
     pub b: Point,
     pub c: Point,
-    pub material: Material
+    pub material: Material,
 }
 
 //                           For triangle implementation
@@ -221,7 +231,7 @@ impl Triangle {
     pub fn new(a: Point, b: Point, c: Point, material: Material) -> Self {
         Self { a, b, c, material }
     }
-    
+
     pub fn _intersection(&self, ray: Ray) -> Result<(f32, f32, f32)> {
         let mat: [f32; 9] = [
             self.b.x - self.a.x,
@@ -306,8 +316,10 @@ impl Shape for Triangle {
 
         Ok(Vec2D { x: beta, y: gamma })
     }
-    
-    fn material(&self) -> &Material { &self.material }
+
+    fn material(&self) -> &Material {
+        &self.material
+    }
 }
 
 // =================================================================================
@@ -321,9 +333,19 @@ impl Shape for Triangle {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::brdf::DiffusiveBrdf;
+    use crate::color::Color;
     use crate::functions::IDENTITY_4X4;
     use crate::geometry::is_close;
+    use crate::pigments::UniformPigment;
     use crate::transformations::{Transformation, Translation};
+
+    fn give_white_uniform_diffusive() -> Material {
+        Material {
+            pigment: Box::new(UniformPigment::new(Color::new(10.0, 10.0, 10.0))),
+            brdf: Box::new(DiffusiveBrdf {}),
+        }
+    }
 
     fn setup1() -> (Sphere<Transformation>, [Ray; 3]) {
         let rays = [
@@ -331,10 +353,9 @@ mod tests {
             Ray::new(Point::new(3.0, 0.0, 0.0), Vector::new(-1.0, 0.0, 0.0)),
             Ray::new(Point::new(0.0, 0.0, 0.0), Vector::new(1.0, 0.0, 0.0)),
         ];
-        
 
         let transformation = Transformation::new(IDENTITY_4X4);
-        let sphere = Sphere::new(transformation);
+        let sphere = Sphere::new(transformation, give_white_uniform_diffusive());
         (sphere, rays)
     }
 
@@ -406,7 +427,7 @@ mod tests {
 
     fn setup2() -> (Sphere<Translation>, Ray, Ray) {
         let translation = Translation::new(Vector::new(10.0, 0.0, 0.0));
-        let sphere = Sphere::new(translation);
+        let sphere = Sphere::new(translation, give_white_uniform_diffusive());
         let ray = Ray::new(Point::new(10.0, 0.0, 2.0), Vector::new(0.0, 0.0, -1.0));
         let ray2 = Ray::new(Point::new(13.0, 0.0, 0.0), Vector::new(-1.0, 0.0, 0.0));
 
@@ -534,8 +555,12 @@ mod tests {
         );
     }
     fn setup_plane() -> (Plane<Transformation>, Ray, Ray, Ray) {
+        let material = Material {
+            pigment: Box::new(UniformPigment::new(Color::new(10.0, 10.0, 10.0))),
+            brdf: Box::new(DiffusiveBrdf {}),
+        };
         let transformation = Transformation::new(IDENTITY_4X4);
-        let plane = Plane::new(transformation);
+        let plane = Plane::new(transformation, material);
 
         // Ray from top to bottom
         let ray_top = Ray::new(Point::new(0.0, 0.0, 5.0), Vector::new(0.0, 0.0, -1.0));
@@ -580,7 +605,7 @@ mod tests {
     #[test]
     fn test_plane_uv_fractional_coordinates() {
         let transformation = Transformation::new(IDENTITY_4X4);
-        let plane = Plane::new(transformation);
+        let plane = Plane::new(transformation, give_white_uniform_diffusive());
 
         // A ray hits the plane in x = 2.5, y = -1.3
         let ray = Ray::new(Point::new(2.5, -1.3, 5.0), Vector::new(0.0, 0.0, -1.0));
@@ -597,6 +622,7 @@ mod tests {
             a: Point::new(0.0, 4.0, 0.0),
             b: Point::new(0.0, -1.0, 0.0),
             c: Point::new(0.0, 0.0, 4.0),
+            material: give_white_uniform_diffusive(),
         }
     }
 

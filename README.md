@@ -64,6 +64,7 @@ These options are available for the rendering commands:
 - `--width <N>`: output image width
 - `--height <N>`: output image height
 - `--orthogonal`: use an orthogonal camera instead of a perspective camera
+- `--format <T>`: choose the file format you want to save the first converted image into
 
 ### Commands
 
@@ -73,19 +74,19 @@ Renders a demo scene made of multiple spheres, saves the result as a `.pfm`
 image, and converts it to a `.png` preview.
 
 ```bash
-cargo run --release -- demo output.pfm
+cargo run --release -- demo output
 ```
 
 With an orthogonal camera:
 
 ```bash
-cargo run --release -- --orthogonal demo ortho_scene.pfm
+cargo run --release -- --orthogonal demo ortho_scene
 ```
 
 With a custom resolution:
 
 ```bash
-cargo run --release -- --width 1920 --height 1080 demo hd_scene.pfm
+cargo run --release -- --width 1920 --height 1080 demo hd_scene
 ```
 
 `pfm2png``

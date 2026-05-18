@@ -108,7 +108,6 @@ fn main() -> Result<()> {
                 imagetracer
                     .fire_all_rays(&world, color_image)
                     .expect("error firing all rays");
-                println!("all done orthogonal!");
                 let filename = "outputs/".to_string() + &file_name + &".pfm".to_string();
                 let file = File::create(&filename)?;
                 let disk_writer = BufWriter::new(&file);

@@ -8,13 +8,16 @@ use crate::brdf::BRDF;
 use crate::pigments::Pigment;
 
 /// This struct stores the pigment and the light handling of a material.
-pub struct Material<P, B> {
-    pub pigment: P,
-    pub brdf: B,
+pub struct Material {
+    pub pigment: Box<dyn Pigment>,
+    pub brdf: Box<dyn BRDF>,
 }
 
-impl<P: Pigment, B: BRDF> Material<P, B> {
-    fn new(pigment: P, brdf: B) -> Material<P, B> {
-        Material { pigment, brdf }
+impl Material {
+    pub fn new(pigment: impl Pigment + 'static, brdf: impl BRDF + 'static) -> Self {
+        Material {
+            pigment: Box::new(pigment),
+            brdf: Box::new(brdf),
+        }
     }
 }

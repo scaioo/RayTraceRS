@@ -23,6 +23,7 @@ pub trait Pigment {
 // ==============================================
 
 /// The surface has only one color!
+#[derive(Clone, Debug, PartialEq)]
 pub struct UniformPigment {
     pub color: Color,
 }
@@ -43,6 +44,7 @@ impl Pigment for UniformPigment {
 // CheckeredPigment
 // ==============================================
 /// The pigment is a checkered surface
+#[derive(Clone, Debug, PartialEq)]
 pub struct CheckeredPigment {
     pub color1: Color,
     pub color2: Color,
@@ -82,6 +84,7 @@ impl Pigment for CheckeredPigment {
 // ImagePigment
 // ==============================================
 /// A textured pigment.
+#[derive(Clone, Debug, PartialEq)]
 pub struct ImagePigment {
     pub image: HDR,
 }
@@ -106,7 +109,7 @@ impl Pigment for ImagePigment {
 
 // Procedural pigments
 // This is experimental!!
-
+#[derive(Clone, Debug, PartialEq)]
 pub struct GradientPigment {
     pub color1: Color,
     pub color2: Color,

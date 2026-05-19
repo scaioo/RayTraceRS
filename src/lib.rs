@@ -32,7 +32,7 @@ pub mod pcg;
 pub mod pfm_func;
 pub mod pigments;
 pub mod ray;
+pub mod renderer;
 pub mod shapes;
 pub mod transformations;
 pub mod world;
-pub mod renderer;

@@ -1,3 +1,4 @@
+#[derive(Copy, Clone, Debug, PartialEq)]
 pub struct PCG {
     state: u64,
     inc: u64,

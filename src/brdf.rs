@@ -81,3 +81,59 @@ impl BRDF for SpecularBrdf {
         }
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::functions::are_close;
+
+    fn scatter_inputs() -> (PCG, Vector, Point, Normal) {
+        let incoming_dir = Vector::new(0.0, -1.0, -1.0);
+        let interacting_point = Point::new(0.0, 0.0, 0.0);
+        let normal = Normal::new(0.0, 0.0, 1.0);
+        (PCG::new(), incoming_dir, interacting_point, normal)
+    }
+
+    #[test]
+    fn test_diffusive_brdf_hemisphere() {
+        let diffusive_brdf = DiffusiveBrdf {};
+        let (pcg, incoming_dir, interacting_point, normal) = scatter_inputs();
+
+        for _ in 0..1000 {
+            let ray = diffusive_brdf.scatter_ray(pcg, incoming_dir, interacting_point, normal, 2);
+            assert!(
+                ray.dir.dot(&normal) > 0.0,
+                "ray.dir.dot(&normal) < 0!\nray.dir: {}",
+                ray.dir
+            );
+        }
+    }
+
+    #[test]
+    fn test_diffusive_brdf_z_check() {
+        let diffusive_brdf = DiffusiveBrdf {};
+        let (pcg, incoming_dir, interacting_point, normal) = scatter_inputs();
+
+        for _ in 0..1000 {
+            let ray = diffusive_brdf.scatter_ray(pcg, incoming_dir, interacting_point, normal, 2);
+            assert!(
+                ray.dir.z < 1.0 || are_close(1.0, ray.dir.z),
+                "Diffused ray has inconsistent z coordinate!\nray.dir: {}",
+                ray.dir
+            );
+        }
+    }
+
+    #[test]
+    fn test_specular_brdf() {
+        let specular_brdf = SpecularBrdf {};
+        let (_, incoming_dir, interacting_point, normal) = scatter_inputs();
+
+        let expected_dir = Vector::new(0.0, -1.0, 1.0).normalize();
+
+        let result =
+            specular_brdf.scatter_ray(PCG::new(), incoming_dir, interacting_point, normal, 5);
+
+        assert_eq!(result.dir, expected_dir);
+    }
+}

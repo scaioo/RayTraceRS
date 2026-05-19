@@ -65,6 +65,7 @@ fn demo_world() -> World {
             Material {
                 pigment: Box::new(UniformPigment::new(Color::new(10.0, 10.0, 10.0))),
                 brdf: Box::new(DiffusiveBrdf {}),
+                emitted_radiance: Box::new(UniformPigment::new(Color::new(0., 0., 0.))),
             },
         )
     };
@@ -79,6 +80,7 @@ fn demo_world() -> World {
             Material {
                 pigment: Box::new(UniformPigment::new(Color::new(10.0, 10.0, 10.0))),
                 brdf: Box::new(DiffusiveBrdf {}),
+                emitted_radiance: Box::new(UniformPigment::new(Color::new(0., 0., 0.))),
             },
         ),
         Sphere::new(
@@ -86,6 +88,7 @@ fn demo_world() -> World {
             Material {
                 pigment: Box::new(UniformPigment::new(Color::new(10.0, 10.0, 10.0))),
                 brdf: Box::new(DiffusiveBrdf {}),
+                emitted_radiance: Box::new(UniformPigment::new(Color::new(0., 0., 0.))),
             },
         ),
     ];

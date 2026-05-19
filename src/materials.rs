@@ -3,14 +3,15 @@
 //! and the BRDF which handles how the lights are reflected by the material.
 //!
 //! In this raytracing project only reflectance is considered. No transparent materials.
-
 use crate::brdf::BRDF;
-use crate::pigments::Pigment;
+use crate::color::Color;
+use crate::pigments::{Pigment, UniformPigment};
 
 /// This struct stores the pigment and the light handling of a material.
 pub struct Material {
     pub pigment: Box<dyn Pigment>,
     pub brdf: Box<dyn BRDF>,
+    pub emitted_radiance: Box<dyn Pigment>,
 }
 
 impl Material {
@@ -18,6 +19,7 @@ impl Material {
         Material {
             pigment: Box::new(pigment),
             brdf: Box::new(brdf),
+            emitted_radiance: Box::new(UniformPigment::new(Color::new(0.0, 0.0, 0.0))),
         }
     }
 }

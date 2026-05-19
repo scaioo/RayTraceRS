@@ -100,7 +100,8 @@ mod tests {
         let (mut pcg, incoming_dir, interacting_point, normal) = scatter_inputs();
 
         for _ in 0..1000 {
-            let ray = diffusive_brdf.scatter_ray(&mut pcg, incoming_dir, interacting_point, normal, 2);
+            let ray =
+                diffusive_brdf.scatter_ray(&mut pcg, incoming_dir, interacting_point, normal, 2);
             assert!(
                 ray.dir.dot(&normal) > 0.0,
                 "ray.dir.dot(&normal) < 0!\nray.dir: {}",
@@ -115,7 +116,8 @@ mod tests {
         let (mut pcg, incoming_dir, interacting_point, normal) = scatter_inputs();
 
         for _ in 0..1000 {
-            let ray = diffusive_brdf.scatter_ray(&mut pcg, incoming_dir, interacting_point, normal, 2);
+            let ray =
+                diffusive_brdf.scatter_ray(&mut pcg, incoming_dir, interacting_point, normal, 2);
             assert!(
                 ray.dir.z < 1.0 || are_close(1.0, ray.dir.z),
                 "Diffused ray has inconsistent z coordinate!\nray.dir: {}",

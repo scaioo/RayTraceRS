@@ -9,7 +9,7 @@ use crate::ray::Ray;
 pub trait BRDF {
     fn scatter_ray(
         &self,
-        pcg: PCG,
+        pcg: &mut PCG,
         incoming_dir: Vector,
         interacting_point: Point,
         normal: Normal,
@@ -28,7 +28,7 @@ impl BRDF for DiffusiveBrdf {
     /// This function returns a random direction ray scattered from a point in the surface.
     fn scatter_ray(
         &self,
-        mut pcg: PCG,
+        pcg: &mut PCG,
         _incoming_dir: Vector,
         interacting_point: Point,
         normal: Normal,
@@ -44,7 +44,7 @@ impl BRDF for DiffusiveBrdf {
         Ray {
             origin: interacting_point,
             dir,
-            t_max: std::f32::INFINITY,
+            t_max: f32::INFINITY,
             t_min: 1e-3,
             depth,
         }
@@ -62,7 +62,7 @@ pub struct SpecularBrdf {}
 impl BRDF for SpecularBrdf {
     fn scatter_ray(
         &self,
-        _pcg: PCG,
+        _pcg: &mut PCG,
         incoming_dir: Vector,
         interacting_point: Point,
         normal: Normal,
@@ -76,7 +76,7 @@ impl BRDF for SpecularBrdf {
             origin: interacting_point,
             dir: ray_dir - normal * 2.0 * dot_product,
             t_min: 1e-5,
-            t_max: std::f32::INFINITY,
+            t_max: f32::INFINITY,
             depth,
         }
     }
@@ -97,10 +97,10 @@ mod tests {
     #[test]
     fn test_diffusive_brdf_hemisphere() {
         let diffusive_brdf = DiffusiveBrdf {};
-        let (pcg, incoming_dir, interacting_point, normal) = scatter_inputs();
+        let (mut pcg, incoming_dir, interacting_point, normal) = scatter_inputs();
 
         for _ in 0..1000 {
-            let ray = diffusive_brdf.scatter_ray(pcg, incoming_dir, interacting_point, normal, 2);
+            let ray = diffusive_brdf.scatter_ray(&mut pcg, incoming_dir, interacting_point, normal, 2);
             assert!(
                 ray.dir.dot(&normal) > 0.0,
                 "ray.dir.dot(&normal) < 0!\nray.dir: {}",
@@ -112,10 +112,10 @@ mod tests {
     #[test]
     fn test_diffusive_brdf_z_check() {
         let diffusive_brdf = DiffusiveBrdf {};
-        let (pcg, incoming_dir, interacting_point, normal) = scatter_inputs();
+        let (mut pcg, incoming_dir, interacting_point, normal) = scatter_inputs();
 
         for _ in 0..1000 {
-            let ray = diffusive_brdf.scatter_ray(pcg, incoming_dir, interacting_point, normal, 2);
+            let ray = diffusive_brdf.scatter_ray(&mut pcg, incoming_dir, interacting_point, normal, 2);
             assert!(
                 ray.dir.z < 1.0 || are_close(1.0, ray.dir.z),
                 "Diffused ray has inconsistent z coordinate!\nray.dir: {}",
@@ -132,7 +132,7 @@ mod tests {
         let expected_dir = Vector::new(0.0, -1.0, 1.0).normalize();
 
         let result =
-            specular_brdf.scatter_ray(PCG::new(), incoming_dir, interacting_point, normal, 5);
+            specular_brdf.scatter_ray(&mut PCG::new(), incoming_dir, interacting_point, normal, 5);
 
         assert_eq!(result.dir, expected_dir);
     }

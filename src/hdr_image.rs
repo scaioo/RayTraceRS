@@ -326,7 +326,7 @@ impl HDR {
     ///
     /// The point is stored as a `Vec2D` and assumed to have coordinates in `[0,1)` range.
     /// No control on this is implemented.
-    pub fn bilinear_interpolation(&self, uv: Vec2D) -> Color {
+    pub fn bilinear_interpolation(&self, uv: &Vec2D) -> Color {
         //      i       x                      i+1    [width]
         //   j  * ----- * --------------------- *
         //      |       |                       |
@@ -339,9 +339,11 @@ impl HDR {
         //      * ----- * --------------------- *
         //    j+1
         //  [height]
+        let u_wrapped = uv.x - uv.x.floor();
+        let v_wrapped = uv.y - uv.y.floor();
 
-        let x = uv.x * self.width as f32;
-        let y = uv.y * self.height as f32;
+        let x = u_wrapped * self.width as f32;
+        let y = v_wrapped * self.height as f32;
 
         // Border cells with wrapping feature
         let i0 = x.floor() as usize;
@@ -657,7 +659,7 @@ mod test {
             g: 0.4,
             b: 0.5,
         };
-        assert!(expected.is_close(&hdr_image.bilinear_interpolation(Vec2D::new(0.2, 0.25)),));
+        assert!(expected.is_close(&hdr_image.bilinear_interpolation(&Vec2D::new(0.2, 0.25)),));
     }
 
     #[test]
@@ -669,6 +671,6 @@ mod test {
             g: 0.6,
             b: 0.34,
         };
-        assert!(expected.is_close(&hdr_image.bilinear_interpolation(Vec2D::new(0.8, 0.25))));
+        assert!(expected.is_close(&hdr_image.bilinear_interpolation(&Vec2D::new(0.8, 0.25))));
     }
 }

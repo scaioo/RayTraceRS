@@ -1,7 +1,6 @@
 //! This module contains the various renderers this raytracer implements
 
 use crate::color::Color;
-use crate::hit_record::HitRecord;
 use crate::ray::Ray;
 use crate::world::World;
 
@@ -39,7 +38,7 @@ impl Default for OnOffRenderer {
 
 impl Renderer for OnOffRenderer {
     fn render(&self, ray: &Ray, world: &World) -> Color {
-        let inters = world.ray_intersection(&ray);
+        let inters = world.ray_intersection(ray);
         match inters {
             Some(_x) => self.color,
             None => self.background_color,

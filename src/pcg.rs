@@ -35,3 +35,8 @@ impl PCG {
         self.random() as f32 / (u32::MAX as f32 + 1.0)
     }
 }
+impl Default for PCG {
+    fn default() -> Self {
+        Self::new()
+    }
+}

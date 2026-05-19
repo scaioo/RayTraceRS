@@ -97,7 +97,7 @@ impl ImagePigment {
 
 impl Pigment for ImagePigment {
     fn get_color(&self, uv: &Vec2D) -> Color {
-        self.image.bilinear_interpolation(*uv)
+        self.image.bilinear_interpolation(uv)
     }
 }
 
@@ -113,7 +113,7 @@ impl Pigment for ImagePigment {
 pub struct GradientPigment {
     pub color1: Color,
     pub color2: Color,
-    pub angle: f32, // In Radiants
+    pub angle: f32, // In Radiant
 }
 
 impl GradientPigment {
@@ -145,7 +145,6 @@ impl Pigment for GradientPigment {
 mod tests {
     use super::*;
     use crate::color::RAINBOW_COLORS;
-    use crate::geometry::Vector;
     use crate::pcg::PCG;
 
     // - - - - - - - - - - - - - - - - - - - - - -
@@ -321,7 +320,7 @@ mod tests {
             expected.is_close(
                 &image_pigment
                     .image
-                    .bilinear_interpolation(Vec2D::new(0.2, 0.25))
+                    .bilinear_interpolation(&Vec2D::new(0.2, 0.25))
             )
         );
 
@@ -335,7 +334,7 @@ mod tests {
             expected.is_close(
                 &image_pigment
                     .image
-                    .bilinear_interpolation(Vec2D::new(0.8, 0.25))
+                    .bilinear_interpolation(&Vec2D::new(0.8, 0.25))
             )
         );
     }

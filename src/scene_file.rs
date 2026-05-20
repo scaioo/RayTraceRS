@@ -27,12 +27,26 @@ impl SourceLocation {
 // STATUS : DRAFT
 // ==========================================
 
-pub struct InputStream {
-    pub stream : Box<dyn BufRead>, //Is it necessary to store this? 
-    pub source_location : SourceLocation,
-    pub saved_char : Option<char>, //Another way might exist to add this feature. 
-    pub saved_location : Option<SourceLocation>,
-    pub tabulation: u8
+pub struct InputStream<B: BufRead> {
+    pub stream: B,
+    pub source_location: SourceLocation,
+    pub saved_char: Option<char>, //Another way might exist to add this feature.
+    pub saved_location: Option<SourceLocation>,
+    pub tabulation: u8,
+}
+
+impl<B: BufRead> InputStream<B> {
+    fn new(stream: B, source_location: SourceLocation, tabulation: u8) -> Self {
+        // Might change saved_location definition: it depends on the usage of this struct.
+        Self {
+            stream,
+            source_location,
+            saved_char: None,
+            saved_location: None,
+            tabulation,
+        }
+    }
+    fn update_pos(&self, ch: char) {}
 }
 
 // ==========================================

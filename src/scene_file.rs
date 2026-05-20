@@ -1,5 +1,7 @@
 //! This module defines the architecture to read the files that describe the scene to be renderer.
 
+use std::io::BufRead;
+
 // ==========================================
 // SourceLocation
 // ==========================================
@@ -21,28 +23,22 @@ impl SourceLocation {
 }
 
 // ==========================================
+// InputStream
+// STATUS : DRAFT
+// ==========================================
+
+pub struct InputStream {
+    pub stream : Box<dyn BufRead>, //Is it necessary to store this? 
+    pub source_location : SourceLocation,
+    pub saved_char : Option<char>, //Another way might exist to add this feature. 
+    pub saved_location : Option<SourceLocation>,
+    pub tabulation: u8
+}
+
+// ==========================================
 // Tokens
 // ==========================================
 
-// This is the backbone: MUST BE UPDATED!!!
-
-// Notes for programmers: I don't know the best way to solve this.
-// The best way to understand is try different solutions.
-//
-// The problem is:
-/*
-Token:  - Keyword:   - NEW
-                    - MATERIAL
-                    - PLANE
-                    - ...
-        - Identifier: - String
-        - LiteralString: - String
-        - LiteralNumber: - float
-        - Symbol:   - String
- */
-// Is it better to define a struct { SourceLocation , Token }
-// or better (SourceLocation) everywhere in the enum?
-// I'd opt for the second one...
 pub enum Token {
     Keyword(Keyword, SourceLocation),
     Identifier(String, SourceLocation),
@@ -52,4 +48,6 @@ pub enum Token {
     StopToken,
 }
 
-pub enum Keyword {}
+pub enum Keyword {
+    // This is to be filled next lesson
+}

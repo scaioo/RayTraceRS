@@ -32,11 +32,11 @@ pub struct InputStream<B: BufRead> {
     pub source_location: SourceLocation,
     pub saved_char: Option<char>, //Another way might exist to add this feature.
     pub saved_location: Option<SourceLocation>,
-    pub tabulation: u8,
+    pub tabulation: usize,
 }
 
 impl<B: BufRead> InputStream<B> {
-    fn new(stream: B, source_location: SourceLocation, tabulation: u8) -> Self {
+    fn new(stream: B, source_location: SourceLocation, tabulation: usize) -> Self {
         // Might change saved_location definition: it depends on the usage of this struct.
         Self {
             stream,
@@ -46,20 +46,54 @@ impl<B: BufRead> InputStream<B> {
             tabulation,
         }
     }
-    fn update_pos(&self, ch: char) {}
+
+    // We must check elsewhere if the file is finished.
+    fn update_pos(&mut self, ch: char) {
+        match ch {
+            '\n' => {
+                self.source_location.line_number += 1;
+                self.source_location.col_number = 1;
+            }
+            '\t' => {
+                self.source_location.col_number += self.tabulation;
+            }
+            _ => {
+                self.source_location.col_number += 1;
+            }
+        }
+    }
+
+    fn read_char(&mut self) -> Option<char> {
+        if !self.saved_char.is_none() {
+            let result = self.saved_char;
+            self.saved_char = None;
+            result
+        } else {
+            // to be changed!!! Function is wrong! 
+            // Need to find a rust way to do so!
+            panic!("Function is not finished!!!!")
+        }
+    }
+
+    fn unread_char(&mut self) {}
 }
 
 // ==========================================
 // Tokens
 // ==========================================
 
-pub enum Token {
-    Keyword(Keyword, SourceLocation),
-    Identifier(String, SourceLocation),
-    LiteralString(String, SourceLocation),
-    LiteralNumber(f32, SourceLocation),
-    Symbol(String, SourceLocation),
+pub enum TokenKind {
+    Keyword(Keyword),
+    Identifier(String),
+    LiteralString(String),
+    LiteralNumber(f32),
+    Symbol(char),
     StopToken,
+}
+
+pub struct Token {
+    pub kind: TokenKind,
+    pub loc: SourceLocation,
 }
 
 pub enum Keyword {

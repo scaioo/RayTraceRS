@@ -1,6 +1,7 @@
 //! This module defines the architecture to read the files that describe the scene to be renderer.
 
 use std::io::BufRead;
+use anyhow::anyhow;
 
 // ==========================================
 // SourceLocation
@@ -30,7 +31,7 @@ impl SourceLocation {
 pub struct InputStream<B: BufRead> {
     pub stream: B,
     pub source_location: SourceLocation,
-    pub saved_char: Option<char>, //Another way might exist to add this feature.
+    pub saved_char: Option<char>,
     pub saved_location: Option<SourceLocation>,
     pub tabulation: usize,
 }
@@ -46,8 +47,10 @@ impl<B: BufRead> InputStream<B> {
             tabulation,
         }
     }
+}
 
-    // We must check elsewhere if the file is finished.
+impl<B: BufRead> InputStream<B> {
+// We must check elsewhere if the file is finished.
     fn update_pos(&mut self, ch: char) {
         match ch {
             '\n' => {
@@ -63,19 +66,30 @@ impl<B: BufRead> InputStream<B> {
         }
     }
 
-    fn read_char(&mut self) -> Option<char> {
-        if !self.saved_char.is_none() {
-            let result = self.saved_char;
-            self.saved_char = None;
-            result
-        } else {
-            // to be changed!!! Function is wrong! 
-            // Need to find a rust way to do so!
-            panic!("Function is not finished!!!!")
+    pub fn read_byte(&mut self) -> anyhow::Result<Option<char>> {
+        match self.saved_char {
+            Some(saved_char) => {
+                self.saved_char = None;
+                self.saved_location = None;
+                Ok(Some(saved_char))
+            }
+            None => {
+                let buf = self.stream.fill_buf()?;
+                if buf.is_empty() {
+                    Ok(None)
+                } else {
+                    let byte = buf[0];
+                    self.stream.consume(1);
+                    self.update_pos(byte as char);
+                    Ok(Some(byte as char))
+                }
+            }
         }
-    }
 
-    fn unread_char(&mut self) {}
+    }
+    pub fn skip_whitespace(&mut self) -> anyhow::Result<()> {
+        panic!("Write function!")
+    }
 }
 
 // ==========================================
@@ -98,4 +112,17 @@ pub struct Token {
 
 pub enum Keyword {
     // This is to be filled next lesson
+}
+
+// ==========================================
+// read_token
+// ==========================================
+
+impl<B: BufRead> InputStream<B> {
+    pub fn read_token(&mut self) -> Token {
+        // 1. Skip White spaces
+
+        // 2. If cascade - can we match?
+        panic!("Finish writing function!")
+    }
 }

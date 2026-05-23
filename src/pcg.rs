@@ -20,7 +20,19 @@ impl PCG {
 
         rng
     }
-    //perchè usiamo pruma u64 e poi u32?
+    pub fn new_from_seed(init_state: u64, init_seq: u64) -> Self {
+
+        let mut rng = PCG {
+            state: 0,
+            inc: (init_seq << 1) | 1,
+        };
+
+        rng.random();
+        rng.state += init_state;
+        rng.random();
+
+        rng
+    }
     pub fn random(&mut self) -> u32 {
         let oldstate = self.state;
         self.state = oldstate
@@ -30,7 +42,6 @@ impl PCG {
         let rot = (oldstate >> 59) as u32;
         xorshifted.rotate_right(rot)
     }
-    //f32 o f64?
     pub fn random_float(&mut self) -> f32 {
         self.random() as f32 / (u32::MAX as f32 + 1.0)
     }

@@ -6,8 +6,7 @@ use std::io::BufRead;
 // ==========================================
 // SourceLocation
 // ==========================================
-#[derive(Debug, Copy, Clone)]
-#[derive(PartialEq)]
+#[derive(Debug, Copy, Clone, PartialEq)]
 pub struct SourceLocation {
     pub file_index: usize,
     pub line_number: usize,
@@ -76,6 +75,24 @@ impl<B: BufRead> InputStream<B> {
         }
     }
 
+    pub fn read_char(&mut self) -> anyhow::Result<Option<char>> {
+        let ch: char;
+        if self.saved_char.is_some() {
+            ch = self.saved_char.unwrap();
+            self.saved_char = None;
+        } else {
+            let buf = self.stream.fill_buf()?;
+            if buf.is_empty() {
+                return Ok(None);
+            } else {
+                ch = buf[0] as char;
+                self.stream.consume(1);
+            }
+        }
+        self.saved_location = Some(self.source_location);
+        self.update_pos(ch);
+        Ok(Some(ch))
+    }
     pub fn skip_whitespace(&mut self) -> anyhow::Result<()> {
         panic!("Write function!")
     }
@@ -118,9 +135,36 @@ impl<B: BufRead> InputStream<B> {
 
 #[cfg(test)]
 mod test {
-    use std::io::Cursor;
     use super::*;
-    use crate::scene_file::TEST_FILE;
+    use std::io::Cursor;
+    static TEST_FILE: &str = "float clock(150)
+
+material sky_material(
+    diffuse(uniform(<0, 0, 0>)),
+    uniform(<0.7, 0.5, 1>)
+)
+
+# Here is a comment
+
+material ground_material(
+    diffuse(checkered(<0.3, 0.5, 0.1>,
+                      <0.1, 0.2, 0.5>, 4)),
+    uniform(<0, 0, 0>)
+)
+
+material sphere_material(
+    specular(uniform(<0.5, 0.5, 0.5>)),
+    uniform(<0, 0, 0>)
+)
+
+point_light([10, 10, 10], <1, 1, 1>, 1)
+
+plane (sky_material, translation([0, 0, 100]) * rotation_y(clock))
+plane (ground_material, identity)
+
+sphere(sphere_material, translation([0, 0, 1]))
+
+camera(perspective, rotation_z(30) * translation([-4, 0, 1]), 1.0, 1.0)";
 
     fn setup1() -> InputStream<Cursor<&'static str>> {
         let stream = std::io::Cursor::new(TEST_FILE);
@@ -165,40 +209,45 @@ mod test {
         assert_eq!(pos.line_number, 0);
         assert_eq!(pos.col_number, 1);
         assert_eq!(pos.file_index, 0);
-        
+
         input_stream.update_pos('a');
         let pos = input_stream.source_location;
         assert_eq!(pos.line_number, 0);
         assert_eq!(pos.col_number, 2);
         assert_eq!(pos.file_index, 0);
     }
+
+    fn setup2() -> InputStream<Cursor<&'static str>> {
+        let text: &str = "";
+        InputStream::new(Cursor::new(text), 0, 4)
+    }
+    #[test]
+    fn test_read_char_empty() {
+        let mut stream = setup2();
+        let output = stream.read_char();
+        assert!(output.is_ok());
+        assert_eq!(output.unwrap(), None);
+    }
+
+    #[test]
+    fn test_read_char() {
+        let mut stream = setup1();
+        let output = stream.read_char();
+        assert!(output.is_ok());
+        assert_eq!(output.unwrap(), Some('f'));
+        assert_eq!(stream.saved_location.unwrap(), SourceLocation::new(0, 0, 0));
+        assert_eq!(stream.source_location, SourceLocation::new(0, 0, 1));
+
+        let output = stream.read_char();
+        assert!(output.is_ok());
+        assert_eq!(output.unwrap(), Some('l'));
+        assert_eq!(stream.saved_location.unwrap(), SourceLocation::new(0, 0, 1));
+        assert_eq!(stream.source_location, SourceLocation::new(0, 0, 2));
+
+        let output = stream.read_char();
+        assert!(output.is_ok());
+        assert_eq!(output.unwrap(), Some('o'));
+        assert_eq!(stream.saved_location.unwrap(), SourceLocation::new(0, 0, 2));
+        assert_eq!(stream.source_location, SourceLocation::new(0, 0, 3));
+    }
 }
-
-static TEST_FILE: &str = "float clock(150)
-
-material sky_material(
-    diffuse(uniform(<0, 0, 0>)),
-    uniform(<0.7, 0.5, 1>)
-)
-
-# Here is a comment
-
-material ground_material(
-    diffuse(checkered(<0.3, 0.5, 0.1>,
-                      <0.1, 0.2, 0.5>, 4)),
-    uniform(<0, 0, 0>)
-)
-
-material sphere_material(
-    specular(uniform(<0.5, 0.5, 0.5>)),
-    uniform(<0, 0, 0>)
-)
-
-point_light([10, 10, 10], <1, 1, 1>, 1)
-
-plane (sky_material, translation([0, 0, 100]) * rotation_y(clock))
-plane (ground_material, identity)
-
-sphere(sphere_material, translation([0, 0, 1]))
-
-camera(perspective, rotation_z(30) * translation([-4, 0, 1]), 1.0, 1.0)";

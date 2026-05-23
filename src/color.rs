@@ -24,7 +24,6 @@ pub struct Color {
     pub g: f32,
     pub b: f32,
 }
-
 pub static RAINBOW_COLORS: [Color; 8] = [
     Color {
         r: 1.0,
@@ -291,6 +290,16 @@ impl Div<f32> for Color {
     }
 }
 
+pub const BLACK: Color = Color {
+    r: 0.0,
+    g: 0.0,
+    b: 0.0,
+};
+pub const WHITE: Color = Color {
+    r: 1.0,
+    g: 1.0,
+    b: 1.0,
+};
 // Test implementation
 #[cfg(test)]
 mod tests {

@@ -13,7 +13,6 @@ pub struct Material {
     pub brdf: Box<dyn BRDF>,
     pub emitted_radiance: Box<dyn Pigment>,
 }
-
 impl Material {
     pub fn new(pigment: impl Pigment + 'static, brdf: impl BRDF + 'static) -> Self {
         Material {

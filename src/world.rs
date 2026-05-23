@@ -75,6 +75,7 @@ mod tests {
         Material {
             pigment: Box::new(UniformPigment::new(Color::new(10.0, 10.0, 10.0))),
             brdf: Box::new(DiffusiveBrdf {}),
+            emitted_radiance: Box::new(UniformPigment::new(Color::new(10., 10., 10.))),
         }
     }
 

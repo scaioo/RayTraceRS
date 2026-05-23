@@ -80,17 +80,17 @@ impl<C: Camera> ImageTracer<C> {
     /// # Errors
     /// Returns an error if the shading function fails or if setting the pixel
     /// goes out of bounds (which should mathematically never happen here).
-    pub fn fire_all_rays<F>(&mut self, world: &World, func: F) -> Result<()>
+    pub fn fire_all_rays<F>(&mut self, world: &World, mut renderer: F) -> Result<()>
     where
         // `func` takes a Ray and returns a Color (adjust return type as needed)
-        F: Fn(Ray, &World) -> Result<Color>,
+        F: FnMut(Ray, &World) -> Result<Color>,
     {
         for row in 0..self.image.height {
             for col in 0..self.image.width {
                 // Using 0.5 as the default pixel offsets like in Python
                 let ray = self.fire_ray(col, row, 0.5, 0.5);
 
-                let color = func(ray, world)?;
+                let color = renderer(ray, world)?;
 
                 self.image.set_pixel(col, row, color)?;
             }
@@ -160,6 +160,7 @@ mod tests {
             let material = Material {
                 pigment: Box::new(UniformPigment::new(Color::new(10.0, 10.0, 10.0))),
                 brdf: Box::new(DiffusiveBrdf {}),
+                emitted_radiance: Box::new(UniformPigment::new(Color::new(10.0, 10.0, 10.0))),
             };
             let sphere_scaling = Scaling::new([1.0, 1.0, 1.0]);
 

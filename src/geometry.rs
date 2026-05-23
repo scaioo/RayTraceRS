@@ -522,7 +522,6 @@ pub fn branchless_onb<T: VecOrNorm>(normal: T) -> (Vector, Vector, Vector) {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::pcg;
     use crate::pcg::PCG;
 
     #[test]

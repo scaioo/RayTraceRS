@@ -94,6 +94,11 @@ mod tests {
                 steps: 5,
             }),
             brdf: Box::new(DiffusiveBrdf {}),
+            emitted_radiance: Box::new(CheckeredPigment {
+                color1: Color::new(0.0, 1.0, 2.0),
+                color2: Color::new(3.0, 4.0, 5.0),
+                steps: 5,
+            }),
         }
     }
 

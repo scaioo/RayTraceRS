@@ -88,10 +88,20 @@ impl<B: BufRead> InputStream<B> {
                 ch = buf[0] as char;
                 self.stream.consume(1);
             }
+            self.saved_location = Some(self.source_location);
+            self.update_pos(ch);
         }
-        self.saved_location = Some(self.source_location);
-        self.update_pos(ch);
+
         Ok(Some(ch))
+    }
+    pub fn unread_char(&mut self, ch: char) -> anyhow::Result<()> {
+        if self.saved_char.is_none() {
+            self.saved_char = Some(ch);
+            self.saved_location = Some(self.source_location);
+            Ok(())
+        } else {
+            Err(anyhow!("Cannot unread more than one character!"))
+        }
     }
     pub fn skip_whitespace(&mut self) -> anyhow::Result<()> {
         panic!("Write function!")
@@ -249,5 +259,28 @@ camera(perspective, rotation_z(30) * translation([-4, 0, 1]), 1.0, 1.0)";
         assert_eq!(output.unwrap(), Some('o'));
         assert_eq!(stream.saved_location.unwrap(), SourceLocation::new(0, 0, 2));
         assert_eq!(stream.source_location, SourceLocation::new(0, 0, 3));
+    }
+
+    #[test]
+    #[should_panic(expected = "Cannot unread more than one character!")]
+    fn test_unread_char_empty() {
+        let mut stream = setup1();
+        let _ = stream.unread_char('a');
+        let _ = stream.unread_char('b').unwrap();
+    }
+    #[test]
+    fn test_unread_char() {
+        let mut stream = setup1();
+        let ch = stream.read_char().unwrap();
+        stream.unread_char(ch.unwrap()).unwrap();
+        let ch = stream.read_char().unwrap();
+        assert_eq!(ch, Some('f'));
+
+        let ch = stream.read_char().unwrap();
+        assert_eq!(ch, Some('l'));
+        assert_eq!(stream.saved_char, None);
+        assert_eq!(stream.saved_location.unwrap(), SourceLocation::new(0, 0, 1));
+        assert_eq!(stream.source_location, SourceLocation::new(0, 0, 2));
+        panic!("Finish covering all possibilities!!!")
     }
 }

@@ -1,12 +1,13 @@
 //! This module defines the architecture to read the files that describe the scene to be renderer.
 
-use std::io::BufRead;
 use anyhow::anyhow;
+use std::io::BufRead;
 
 // ==========================================
 // SourceLocation
 // ==========================================
 #[derive(Debug, Copy, Clone)]
+#[derive(PartialEq)]
 pub struct SourceLocation {
     pub file_index: usize,
     pub line_number: usize,
@@ -29,19 +30,28 @@ impl SourceLocation {
 // ==========================================
 
 pub struct InputStream<B: BufRead> {
+    /// The bufreader.
     pub stream: B,
+    /// The position of the last-read char.
     pub source_location: SourceLocation,
+    /// The saved char.
     pub saved_char: Option<char>,
+    /// The SourceLocation of the saved char.
     pub saved_location: Option<SourceLocation>,
+    /// The `\t` spaces.
     pub tabulation: usize,
 }
 
 impl<B: BufRead> InputStream<B> {
-    fn new(stream: B, source_location: SourceLocation, tabulation: usize) -> Self {
+    fn new(stream: B, file_index: usize, tabulation: usize) -> Self {
         // Might change saved_location definition: it depends on the usage of this struct.
         Self {
             stream,
-            source_location,
+            source_location: SourceLocation {
+                file_index,
+                line_number: 0, // Is the convention right? Check Tomasi's
+                col_number: 0,
+            },
             saved_char: None,
             saved_location: None,
             tabulation,
@@ -50,12 +60,12 @@ impl<B: BufRead> InputStream<B> {
 }
 
 impl<B: BufRead> InputStream<B> {
-// We must check elsewhere if the file is finished.
     fn update_pos(&mut self, ch: char) {
         match ch {
             '\n' => {
                 self.source_location.line_number += 1;
-                self.source_location.col_number = 1;
+                self.source_location.col_number = 0;
+                // This is because the first element will be the read char.
             }
             '\t' => {
                 self.source_location.col_number += self.tabulation;
@@ -66,27 +76,6 @@ impl<B: BufRead> InputStream<B> {
         }
     }
 
-    pub fn read_byte(&mut self) -> anyhow::Result<Option<char>> {
-        match self.saved_char {
-            Some(saved_char) => {
-                self.saved_char = None;
-                self.saved_location = None;
-                Ok(Some(saved_char))
-            }
-            None => {
-                let buf = self.stream.fill_buf()?;
-                if buf.is_empty() {
-                    Ok(None)
-                } else {
-                    let byte = buf[0];
-                    self.stream.consume(1);
-                    self.update_pos(byte as char);
-                    Ok(Some(byte as char))
-                }
-            }
-        }
-
-    }
     pub fn skip_whitespace(&mut self) -> anyhow::Result<()> {
         panic!("Write function!")
     }
@@ -126,3 +115,90 @@ impl<B: BufRead> InputStream<B> {
         panic!("Finish writing function!")
     }
 }
+
+#[cfg(test)]
+mod test {
+    use std::io::Cursor;
+    use super::*;
+    use crate::scene_file::TEST_FILE;
+
+    fn setup1() -> InputStream<Cursor<&'static str>> {
+        let stream = std::io::Cursor::new(TEST_FILE);
+        InputStream::new(stream, 0, 8)
+    }
+
+    #[test]
+    fn test_constructor() {
+        let input_stream = setup1();
+        assert_eq!(input_stream.saved_char, None);
+        assert!(input_stream.saved_location.is_none());
+        assert_eq!(input_stream.tabulation, 8);
+        let pos = input_stream.source_location;
+        assert_eq!(pos.line_number, 0);
+        assert_eq!(pos.col_number, 0);
+        assert_eq!(pos.file_index, 0);
+    }
+    #[test]
+    fn test_update_pos_n() {
+        let mut input_stream = setup1();
+        input_stream.update_pos('\n');
+        let pos = input_stream.source_location;
+        assert_eq!(pos.line_number, 1);
+        assert_eq!(pos.col_number, 0);
+        assert_eq!(pos.file_index, 0);
+        assert_eq!(input_stream.source_location, pos);
+    }
+    #[test]
+    fn test_update_pos_t() {
+        let mut input_stream = setup1();
+        input_stream.update_pos('\t');
+        let pos = input_stream.source_location;
+        assert_eq!(pos.line_number, 0);
+        assert_eq!(pos.col_number, 8);
+        assert_eq!(pos.file_index, 0);
+    }
+    #[test]
+    fn test_update_pos_() {
+        let mut input_stream = setup1();
+        input_stream.update_pos('2');
+        let pos = input_stream.source_location;
+        assert_eq!(pos.line_number, 0);
+        assert_eq!(pos.col_number, 1);
+        assert_eq!(pos.file_index, 0);
+        
+        input_stream.update_pos('a');
+        let pos = input_stream.source_location;
+        assert_eq!(pos.line_number, 0);
+        assert_eq!(pos.col_number, 2);
+        assert_eq!(pos.file_index, 0);
+    }
+}
+
+static TEST_FILE: &str = "float clock(150)
+
+material sky_material(
+    diffuse(uniform(<0, 0, 0>)),
+    uniform(<0.7, 0.5, 1>)
+)
+
+# Here is a comment
+
+material ground_material(
+    diffuse(checkered(<0.3, 0.5, 0.1>,
+                      <0.1, 0.2, 0.5>, 4)),
+    uniform(<0, 0, 0>)
+)
+
+material sphere_material(
+    specular(uniform(<0.5, 0.5, 0.5>)),
+    uniform(<0, 0, 0>)
+)
+
+point_light([10, 10, 10], <1, 1, 1>, 1)
+
+plane (sky_material, translation([0, 0, 100]) * rotation_y(clock))
+plane (ground_material, identity)
+
+sphere(sphere_material, translation([0, 0, 1]))
+
+camera(perspective, rotation_z(30) * translation([-4, 0, 1]), 1.0, 1.0)";

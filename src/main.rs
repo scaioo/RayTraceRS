@@ -133,7 +133,7 @@ fn main() -> Result<()> {
                 imagetracer
                     .fire_all_rays(&world, color_image)
                     .expect("error firing all rays");
-                let filename = "outputs/".to_string() + &file_name + &".pfm".to_string();
+                let filename = format!("outputs/{}.pfm", file_name);
                 let file = File::create(&filename)?;
                 let disk_writer = BufWriter::new(&file);
                 imagetracer
@@ -144,10 +144,7 @@ fn main() -> Result<()> {
                     filename,
                     0.18,
                     2.2,
-                    "outputs/".to_string()
-                        + &file_name
-                        + &".".to_string()
-                        + &cli.format.to_string(),
+                    "outputs/".to_string() + &file_name + "." + &cli.format.to_string(),
                 )
                 .expect("error converting file from pfm");
             } else {
@@ -160,7 +157,7 @@ fn main() -> Result<()> {
                 imagetracer
                     .fire_all_rays(&world, color_image)
                     .expect("error firing all rays");
-                let filename = "outputs/".to_string() + &file_name + &".pfm".to_string();
+                let filename = format!("outputs/{}.pfm", file_name);
                 println!("filename {}", &filename);
 
                 let file = File::create(&filename)?;
@@ -174,10 +171,7 @@ fn main() -> Result<()> {
                     filename,
                     0.18,
                     2.2,
-                    "outputs/".to_string()
-                        + &file_name
-                        + &".".to_string()
-                        + &cli.format.to_string(),
+                    "outputs/".to_string() + &file_name + "." + &cli.format.to_string(),
                 )
                 .expect("error converting file from pfm");
             }

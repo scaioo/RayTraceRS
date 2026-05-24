@@ -281,6 +281,19 @@ camera(perspective, rotation_z(30) * translation([-4, 0, 1]), 1.0, 1.0)";
         assert_eq!(stream.saved_char, None);
         assert_eq!(stream.saved_location.unwrap(), SourceLocation::new(0, 0, 1));
         assert_eq!(stream.source_location, SourceLocation::new(0, 0, 2));
-        panic!("Finish covering all possibilities!!!")
+
+        let str = String::from("oat clock(150)");
+        for _ in str.chars() {
+            stream.read_char().unwrap();
+        }
+
+        let ch = stream.read_char().unwrap();
+        assert_eq!(ch, Some('\n'));
+        assert_eq!(stream.saved_char, None);
+        assert_eq!(
+            stream.saved_location.unwrap(),
+            SourceLocation::new(0, 0, 16)
+        );
+        assert_eq!(stream.source_location, SourceLocation::new(0, 1, 0));
     }
 }

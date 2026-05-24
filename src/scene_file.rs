@@ -103,33 +103,43 @@ impl<B: BufRead> InputStream<B> {
             Err(anyhow!("Cannot unread more than one character!"))
         }
     }
-    // To be reviewed
-    pub fn skip_whitespace(&mut self) -> anyhow::Result<()> {
-        let new_line : String = String::from("\n\r");
-        let pass_ch : String = String::from(" \n\t\r");
 
-        let mut ch = self.read_char()?.unwrap();
-        loop {
-            if ch == '#' {
+    /// TODO: write properly this doc!
+    /// Returns true if EOF, else returns false.
+    pub fn skip_whitespace(&mut self) -> anyhow::Result<bool> {
+        let new_line: String = String::from("\n");
+        let pass_ch: String = String::from(" \n\t");
+
+        let op = self.read_char()?;
+        match op {
+            None => Ok(true),
+            Some(a) => {
+                let mut ch = a;
                 loop {
-                    if new_line.chars().any(|c| c == ch) {
-                        break;
-                    } else {
+                    if ch == '#' {
+                        loop {
+                            if new_line.chars().any(|c| c == ch) {
+                                break;
+                            } else {
+                                match self.read_char()? {
+                                    None => return Ok(true),
+                                    Some(a) => ch = a,
+                                }
+                            }
+                        }
+                    } else if pass_ch.chars().any(|c| c == ch) {
                         match self.read_char()? {
-                            None => { return Ok(()) },
+                            None => return Ok(true),
                             Some(a) => ch = a,
                         }
+                    } else {
+                        break;
                     }
                 }
-            } else if pass_ch.chars().any(|c| c == ch) {
-                match self.read_char()? {
-                    None => { return Ok(()) },
-                    Some(a) => ch = a,
-                }
-            } else { break; }
+                self.unread_char(ch)?;
+                Ok(false)
+            }
         }
-        self.unread_char(ch)?;
-        Ok(())
     }
 }
 
@@ -320,5 +330,31 @@ camera(perspective, rotation_z(30) * translation([-4, 0, 1]), 1.0, 1.0)";
             SourceLocation::new(0, 0, 16)
         );
         assert_eq!(stream.source_location, SourceLocation::new(0, 1, 0));
+    }
+
+    #[test]
+    fn test_skip_whitespace() {
+        let text: String =
+            String::from("# This is a comment\n# This is a comment too!\n\t   This must be read!");
+        let cursor = Cursor::new(text);
+        let mut stream = InputStream::new(cursor, 0, 4);
+        assert_eq!(stream.skip_whitespace().unwrap(), false);
+        assert_eq!(stream.source_location, SourceLocation::new(0, 2, 8));
+        assert_eq!(stream.saved_char.unwrap(), 'T');
+        assert_eq!(stream.saved_location.unwrap(), SourceLocation::new(0, 2, 8));
+
+        for _ in String::from("This must be read!").chars() {
+            let _ = stream.read_char();
+        }
+
+        assert_eq!(stream.skip_whitespace().unwrap(), true);
+    }
+
+    #[test]
+    fn test_skip_whitespace_empty() {
+        let text: String = String::from("# This is a comment\n# This is a comment too!\n\t   ");
+        let cursor = Cursor::new(text);
+        let mut stream = InputStream::new(cursor, 0, 4);
+        assert_eq!(stream.skip_whitespace().unwrap(), true);
     }
 }

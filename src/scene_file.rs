@@ -1,5 +1,6 @@
 //! This module defines the architecture to read the files that describe the scene to be renderer.
 
+use crate::scene_file::TokenKind::StopToken;
 use anyhow::anyhow;
 use std::io::BufRead;
 
@@ -60,6 +61,7 @@ impl<B: BufRead> InputStream<B> {
 
 impl<B: BufRead> InputStream<B> {
     fn update_pos(&mut self, ch: char) {
+        // Not included \r handling! Ask Tomasi!!!
         match ch {
             '\n' => {
                 self.source_location.line_number += 1;
@@ -107,8 +109,8 @@ impl<B: BufRead> InputStream<B> {
     /// TODO: write properly this doc!
     /// Returns true if EOF, else returns false.
     pub fn skip_whitespace(&mut self) -> anyhow::Result<bool> {
+        // Not included \r handling! Ask Tomasi!!!
         let new_line: String = String::from("\n");
-        let pass_ch: String = String::from(" \n\t");
 
         let op = self.read_char()?;
         match op {
@@ -127,7 +129,7 @@ impl<B: BufRead> InputStream<B> {
                                 }
                             }
                         }
-                    } else if pass_ch.chars().any(|c| c == ch) {
+                    } else if WHITESPACE.contains(ch) {
                         match self.read_char()? {
                             None => return Ok(true),
                             Some(a) => ch = a,
@@ -162,19 +164,106 @@ pub struct Token {
 }
 
 pub enum Keyword {
-    // This is to be filled next lesson
+    NEW,
+    MATERIAL,
+    PLANE,
+    SPHERE,
+    DIFFUSE,
+    SPECULAR,
+    UNIFORM,
+    CHECKERED,
+    IMAGE,
+    IDENTITY,
+    TRANSLATION,
+    RotationX,
+    RotationY,
+    RotationZ,
+    SCALING,
+    CAMERA,
+    ORTHOGONAL,
+    PERSPECTIVE,
+    FLOAT,
+    PointLight,
 }
+
+static SYMBOLS: &str = "()<>[],*";
+static WHITESPACE: &str = " \t\r\n";
 
 // ==========================================
 // read_token
 // ==========================================
 
 impl<B: BufRead> InputStream<B> {
-    pub fn read_token(&mut self) -> Token {
-        // 1. Skip White spaces
 
-        // 2. If cascade - can we match?
-        panic!("Finish writing function!")
+    pub fn read_string(&mut self, ch: char) -> anyhow::Result<String> {
+        if ch.is_alphabetic() || ch == '_' {
+            let mut s = String::from(ch);
+            let mut new_ch : char;
+            loop {
+                match self.read_char()? {
+                    None => return Ok(s),
+                    Some(a) => new_ch = a,
+                }
+                if !WHITESPACE.contains(new_ch) && !SYMBOLS.contains(new_ch) {
+                    s.push(new_ch);
+                } else { self.unread_char(new_ch)?; break }
+            }
+            Ok(s)
+        } else {
+            Err(anyhow!("Unexpected character in string!"))
+        }
+
+    }
+
+    pub fn parse_string_token(&mut self, ch: char, loc: SourceLocation) -> anyhow::Result<Token> {
+        let kind = match self.read_string(ch)?.as_str() {
+            "new"         => TokenKind::Keyword(Keyword::NEW),
+            "material"    => TokenKind::Keyword(Keyword::MATERIAL),
+            "plane"       => TokenKind::Keyword(Keyword::PLANE),
+            "sphere"      => TokenKind::Keyword(Keyword::SPHERE),
+            "diffuse"     => TokenKind::Keyword(Keyword::DIFFUSE),
+            "specular"    => TokenKind::Keyword(Keyword::SPECULAR),
+            "uniform"     => TokenKind::Keyword(Keyword::UNIFORM),
+            "checkered"   => TokenKind::Keyword(Keyword::CHECKERED),
+            "image"       => TokenKind::Keyword(Keyword::IMAGE),
+            "identity"    => TokenKind::Keyword(Keyword::IDENTITY),
+            "translation" => TokenKind::Keyword(Keyword::TRANSLATION),
+            "rotation_x"  => TokenKind::Keyword(Keyword::RotationX),
+            "rotation_y"  => TokenKind::Keyword(Keyword::RotationY),
+            "rotation_z"  => TokenKind::Keyword(Keyword::RotationZ),
+            "scaling"     => TokenKind::Keyword(Keyword::SCALING),
+            "camera"      => TokenKind::Keyword(Keyword::CAMERA),
+            "orthogonal"  => TokenKind::Keyword(Keyword::ORTHOGONAL),
+            "perspective" => TokenKind::Keyword(Keyword::PERSPECTIVE),
+            "float"       => TokenKind::Keyword(Keyword::FLOAT),
+            "point_light" => TokenKind::Keyword(Keyword::PointLight),
+            s             => TokenKind::Identifier(s.to_string()),
+        };
+        Ok(Token {
+            kind, loc
+        })
+    }
+
+    pub fn read_token(&mut self) -> anyhow::Result<Token> {
+        let mut ch: char;
+        match self.skip_whitespace() {
+            Ok(true) => Ok(Token {
+                kind: StopToken,
+                loc: self.source_location, // Check it
+            }),
+            Err(err) => Err(anyhow!("Error reading token: {}", err)),
+            Ok(false) => {
+                ch = self.read_char()?.unwrap();
+                if ch.is_alphabetic() {
+                    self.parse_string_token(ch, self.source_location)?;
+                } else if ch.is_numeric() {
+                    panic!("TO BE WRITTEN!")
+                } else if SYMBOLS.contains(ch) {
+                    panic!("TO BE WRITTEN!")
+                }
+                Err(anyhow!("NOT AN ERR IN THE LOGIC: ADDED THIS TO RUN TESTS!"))
+            }
+        }
     }
 }
 
@@ -356,5 +445,30 @@ camera(perspective, rotation_z(30) * translation([-4, 0, 1]), 1.0, 1.0)";
         let cursor = Cursor::new(text);
         let mut stream = InputStream::new(cursor, 0, 4);
         assert_eq!(stream.skip_whitespace().unwrap(), true);
+    }
+
+    #[test]
+    fn test_read_string() {
+        let mut stream = setup1();
+        let ch = stream.read_char().unwrap().unwrap();
+        let s = stream.read_string(ch).unwrap();
+        assert_eq!(s.as_str(), "float");
+        assert_eq!(stream.skip_whitespace().unwrap(), false);
+        let ch = stream.read_char().unwrap().unwrap();
+        let s = stream.read_string(ch).unwrap();
+        assert_eq!(s.as_str(), "clock");
+    }
+
+    #[test]
+    #[should_panic(expected = "Unexpected character in string!")]
+    fn test_read_string_err() {
+        let mut stream = setup1();
+        let ch = stream.read_char().unwrap().unwrap();
+        let _ = stream.read_string(ch).unwrap();
+        let _ = stream.skip_whitespace().unwrap();
+        let ch = stream.read_char().unwrap().unwrap();
+        let _ = stream.read_string(ch).unwrap();
+        let ch = stream.read_char().unwrap().unwrap();
+        let _ = stream.read_string(ch).unwrap();
     }
 }

@@ -103,8 +103,33 @@ impl<B: BufRead> InputStream<B> {
             Err(anyhow!("Cannot unread more than one character!"))
         }
     }
+    // To be reviewed
     pub fn skip_whitespace(&mut self) -> anyhow::Result<()> {
-        panic!("Write function!")
+        let new_line : String = String::from("\n\r");
+        let pass_ch : String = String::from(" \n\t\r");
+
+        let mut ch = self.read_char()?.unwrap();
+        loop {
+            if ch == '#' {
+                loop {
+                    if new_line.chars().any(|c| c == ch) {
+                        break;
+                    } else {
+                        match self.read_char()? {
+                            None => { return Ok(()) },
+                            Some(a) => ch = a,
+                        }
+                    }
+                }
+            } else if pass_ch.chars().any(|c| c == ch) {
+                match self.read_char()? {
+                    None => { return Ok(()) },
+                    Some(a) => ch = a,
+                }
+            } else { break; }
+        }
+        self.unread_char(ch)?;
+        Ok(())
     }
 }
 

@@ -49,7 +49,7 @@ impl<B: BufRead> InputStream<B> {
             stream,
             source_location: SourceLocation {
                 file_index,
-                line_number: 0, // Is the convention right? Check Tomasi's
+                line_number: 1, // Is the convention right? Check Tomasi's
                 col_number: 0,
             },
             saved_char: None,
@@ -376,7 +376,7 @@ camera(perspective, rotation_z(30) * translation([-4, 0, 1]), 1.0, 1.0)";
         assert!(input_stream.saved_location.is_none());
         assert_eq!(input_stream.tabulation, 8);
         let pos = input_stream.source_location;
-        assert_eq!(pos.line_number, 0);
+        assert_eq!(pos.line_number, 1);
         assert_eq!(pos.col_number, 0);
         assert_eq!(pos.file_index, 0);
     }
@@ -385,7 +385,7 @@ camera(perspective, rotation_z(30) * translation([-4, 0, 1]), 1.0, 1.0)";
         let mut input_stream = setup1();
         input_stream.update_pos('\n');
         let pos = input_stream.source_location;
-        assert_eq!(pos.line_number, 1);
+        assert_eq!(pos.line_number, 2);
         assert_eq!(pos.col_number, 0);
         assert_eq!(pos.file_index, 0);
         assert_eq!(input_stream.source_location, pos);
@@ -395,7 +395,7 @@ camera(perspective, rotation_z(30) * translation([-4, 0, 1]), 1.0, 1.0)";
         let mut input_stream = setup1();
         input_stream.update_pos('\t');
         let pos = input_stream.source_location;
-        assert_eq!(pos.line_number, 0);
+        assert_eq!(pos.line_number, 1);
         assert_eq!(pos.col_number, 8);
         assert_eq!(pos.file_index, 0);
     }
@@ -404,13 +404,13 @@ camera(perspective, rotation_z(30) * translation([-4, 0, 1]), 1.0, 1.0)";
         let mut input_stream = setup1();
         input_stream.update_pos('2');
         let pos = input_stream.source_location;
-        assert_eq!(pos.line_number, 0);
+        assert_eq!(pos.line_number, 1);
         assert_eq!(pos.col_number, 1);
         assert_eq!(pos.file_index, 0);
 
         input_stream.update_pos('a');
         let pos = input_stream.source_location;
-        assert_eq!(pos.line_number, 0);
+        assert_eq!(pos.line_number, 1);
         assert_eq!(pos.col_number, 2);
         assert_eq!(pos.file_index, 0);
     }
@@ -433,20 +433,20 @@ camera(perspective, rotation_z(30) * translation([-4, 0, 1]), 1.0, 1.0)";
         let output = stream.read_char();
         assert!(output.is_ok());
         assert_eq!(output.unwrap(), Some('f'));
-        assert_eq!(stream.saved_location.unwrap(), SourceLocation::new(0, 0, 0));
-        assert_eq!(stream.source_location, SourceLocation::new(0, 0, 1));
+        assert_eq!(stream.saved_location.unwrap(), SourceLocation::new(0, 1, 0));
+        assert_eq!(stream.source_location, SourceLocation::new(0, 1, 1));
 
         let output = stream.read_char();
         assert!(output.is_ok());
         assert_eq!(output.unwrap(), Some('l'));
-        assert_eq!(stream.saved_location.unwrap(), SourceLocation::new(0, 0, 1));
-        assert_eq!(stream.source_location, SourceLocation::new(0, 0, 2));
+        assert_eq!(stream.saved_location.unwrap(), SourceLocation::new(0, 1, 1));
+        assert_eq!(stream.source_location, SourceLocation::new(0, 1, 2));
 
         let output = stream.read_char();
         assert!(output.is_ok());
         assert_eq!(output.unwrap(), Some('o'));
-        assert_eq!(stream.saved_location.unwrap(), SourceLocation::new(0, 0, 2));
-        assert_eq!(stream.source_location, SourceLocation::new(0, 0, 3));
+        assert_eq!(stream.saved_location.unwrap(), SourceLocation::new(0, 1, 2));
+        assert_eq!(stream.source_location, SourceLocation::new(0, 1, 3));
     }
 
     #[test]
@@ -467,8 +467,8 @@ camera(perspective, rotation_z(30) * translation([-4, 0, 1]), 1.0, 1.0)";
         let ch = stream.read_char().unwrap();
         assert_eq!(ch, Some('l'));
         assert_eq!(stream.saved_char, None);
-        assert_eq!(stream.saved_location.unwrap(), SourceLocation::new(0, 0, 1));
-        assert_eq!(stream.source_location, SourceLocation::new(0, 0, 2));
+        assert_eq!(stream.saved_location.unwrap(), SourceLocation::new(0, 1, 1));
+        assert_eq!(stream.source_location, SourceLocation::new(0, 1, 2));
 
         let str = String::from("oat clock(150)");
         for _ in str.chars() {
@@ -480,9 +480,9 @@ camera(perspective, rotation_z(30) * translation([-4, 0, 1]), 1.0, 1.0)";
         assert_eq!(stream.saved_char, None);
         assert_eq!(
             stream.saved_location.unwrap(),
-            SourceLocation::new(0, 0, 16)
+            SourceLocation::new(0, 1, 16)
         );
-        assert_eq!(stream.source_location, SourceLocation::new(0, 1, 0));
+        assert_eq!(stream.source_location, SourceLocation::new(0, 2, 0));
     }
 
     #[test]
@@ -492,9 +492,9 @@ camera(perspective, rotation_z(30) * translation([-4, 0, 1]), 1.0, 1.0)";
         let cursor = Cursor::new(text);
         let mut stream = InputStream::new(cursor, 0, 4);
         assert_eq!(stream.skip_whitespace().unwrap(), false);
-        assert_eq!(stream.source_location, SourceLocation::new(0, 2, 8));
+        assert_eq!(stream.source_location, SourceLocation::new(0, 3, 8));
         assert_eq!(stream.saved_char.unwrap(), 'T');
-        assert_eq!(stream.saved_location.unwrap(), SourceLocation::new(0, 2, 8));
+        assert_eq!(stream.saved_location.unwrap(), SourceLocation::new(0, 3, 8));
 
         for _ in String::from("This must be read!").chars() {
             let _ = stream.read_char();
@@ -625,7 +625,7 @@ camera(perspective, rotation_z(30) * translation([-4, 0, 1]), 1.0, 1.0)";
         );
         assert_eq!(
             token.loc,
-            SourceLocation::new(0, 0, 1),
+            SourceLocation::new(0, 1, 1),
             "token.loc = {:?}",
             token.loc
         );
@@ -639,7 +639,7 @@ camera(perspective, rotation_z(30) * translation([-4, 0, 1]), 1.0, 1.0)";
         );
         assert_eq!(
             token.loc,
-            SourceLocation::new(0, 0, 7),
+            SourceLocation::new(0, 1, 7),
             "token.loc = {:?}",
             token.loc
         );
@@ -653,7 +653,7 @@ camera(perspective, rotation_z(30) * translation([-4, 0, 1]), 1.0, 1.0)";
         );
         assert_eq!(
             token.loc,
-            SourceLocation::new(0, 0, 12),
+            SourceLocation::new(0, 1, 12),
             "token.loc = {:?}",
             token.loc
         );
@@ -667,7 +667,7 @@ camera(perspective, rotation_z(30) * translation([-4, 0, 1]), 1.0, 1.0)";
         );
         assert_eq!(
             token.loc,
-            SourceLocation::new(0, 0, 13),
+            SourceLocation::new(0, 1, 13),
             "token.loc = {:?}",
             token.loc
         );
@@ -681,7 +681,7 @@ camera(perspective, rotation_z(30) * translation([-4, 0, 1]), 1.0, 1.0)";
         );
         assert_eq!(
             token.loc,
-            SourceLocation::new(0, 0, 16),
+            SourceLocation::new(0, 1, 16),
             "token.loc = {:?}",
             token.loc
         );
@@ -695,7 +695,7 @@ camera(perspective, rotation_z(30) * translation([-4, 0, 1]), 1.0, 1.0)";
         );
         assert_eq!(
             token.loc,
-            SourceLocation::new(0, 2, 1),
+            SourceLocation::new(0, 3, 1),
             "token.loc = {:?}",
             token.loc
         );
@@ -713,7 +713,7 @@ camera(perspective, rotation_z(30) * translation([-4, 0, 1]), 1.0, 1.0)";
         );
         assert_eq!(
             token.loc,
-            SourceLocation::new(0, 3, 21),
+            SourceLocation::new(0, 4, 21),
             "token.loc = {:?}",
             token.loc
         );
@@ -728,7 +728,7 @@ camera(perspective, rotation_z(30) * translation([-4, 0, 1]), 1.0, 1.0)";
         assert_eq!(token.kind, StopToken, "token.kind = {:?}", token.kind);
         assert_eq!(
             token.loc,
-            SourceLocation::new(0, 1, 0),
+            SourceLocation::new(0, 2, 0),
             "token.loc = {:?}",
             token.loc
         );

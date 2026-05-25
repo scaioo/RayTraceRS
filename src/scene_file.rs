@@ -149,6 +149,7 @@ impl<B: BufRead> InputStream<B> {
 // Tokens
 // ==========================================
 
+#[derive(Debug, PartialEq)]
 pub enum TokenKind {
     Keyword(Keyword),
     Identifier(String),
@@ -158,11 +159,13 @@ pub enum TokenKind {
     StopToken,
 }
 
+#[derive(Debug, PartialEq)]
 pub struct Token {
     pub kind: TokenKind,
     pub loc: SourceLocation,
 }
 
+#[derive(Debug, PartialEq)]
 pub enum Keyword {
     NEW,
     MATERIAL,
@@ -194,11 +197,10 @@ static WHITESPACE: &str = " \t\r\n";
 // ==========================================
 
 impl<B: BufRead> InputStream<B> {
-
     pub fn read_string(&mut self, ch: char) -> anyhow::Result<String> {
         if ch.is_alphabetic() || ch == '_' {
             let mut s = String::from(ch);
-            let mut new_ch : char;
+            let mut new_ch: char;
             loop {
                 match self.read_char()? {
                     None => return Ok(s),
@@ -206,52 +208,55 @@ impl<B: BufRead> InputStream<B> {
                 }
                 if new_ch.is_alphanumeric() || new_ch == '_' {
                     s.push(new_ch);
-                } else { self.unread_char(new_ch)?; break }
+                } else {
+                    self.unread_char(new_ch)?;
+                    break;
+                }
             }
             Ok(s)
         } else {
             Err(anyhow!("Unexpected input character in string!"))
         }
-
     }
 
     pub fn parse_string_token(&mut self, ch: char, loc: SourceLocation) -> anyhow::Result<Token> {
         let kind = match self.read_string(ch)?.as_str() {
-            "new"         => TokenKind::Keyword(Keyword::NEW),
-            "material"    => TokenKind::Keyword(Keyword::MATERIAL),
-            "plane"       => TokenKind::Keyword(Keyword::PLANE),
-            "sphere"      => TokenKind::Keyword(Keyword::SPHERE),
-            "diffuse"     => TokenKind::Keyword(Keyword::DIFFUSE),
-            "specular"    => TokenKind::Keyword(Keyword::SPECULAR),
-            "uniform"     => TokenKind::Keyword(Keyword::UNIFORM),
-            "checkered"   => TokenKind::Keyword(Keyword::CHECKERED),
-            "image"       => TokenKind::Keyword(Keyword::IMAGE),
-            "identity"    => TokenKind::Keyword(Keyword::IDENTITY),
+            "new" => TokenKind::Keyword(Keyword::NEW),
+            "material" => TokenKind::Keyword(Keyword::MATERIAL),
+            "plane" => TokenKind::Keyword(Keyword::PLANE),
+            "sphere" => TokenKind::Keyword(Keyword::SPHERE),
+            "diffuse" => TokenKind::Keyword(Keyword::DIFFUSE),
+            "specular" => TokenKind::Keyword(Keyword::SPECULAR),
+            "uniform" => TokenKind::Keyword(Keyword::UNIFORM),
+            "checkered" => TokenKind::Keyword(Keyword::CHECKERED),
+            "image" => TokenKind::Keyword(Keyword::IMAGE),
+            "identity" => TokenKind::Keyword(Keyword::IDENTITY),
             "translation" => TokenKind::Keyword(Keyword::TRANSLATION),
-            "rotation_x"  => TokenKind::Keyword(Keyword::RotationX),
-            "rotation_y"  => TokenKind::Keyword(Keyword::RotationY),
-            "rotation_z"  => TokenKind::Keyword(Keyword::RotationZ),
-            "scaling"     => TokenKind::Keyword(Keyword::SCALING),
-            "camera"      => TokenKind::Keyword(Keyword::CAMERA),
-            "orthogonal"  => TokenKind::Keyword(Keyword::ORTHOGONAL),
+            "rotation_x" => TokenKind::Keyword(Keyword::RotationX),
+            "rotation_y" => TokenKind::Keyword(Keyword::RotationY),
+            "rotation_z" => TokenKind::Keyword(Keyword::RotationZ),
+            "scaling" => TokenKind::Keyword(Keyword::SCALING),
+            "camera" => TokenKind::Keyword(Keyword::CAMERA),
+            "orthogonal" => TokenKind::Keyword(Keyword::ORTHOGONAL),
             "perspective" => TokenKind::Keyword(Keyword::PERSPECTIVE),
-            "float"       => TokenKind::Keyword(Keyword::FLOAT),
+            "float" => TokenKind::Keyword(Keyword::FLOAT),
             "point_light" => TokenKind::Keyword(Keyword::PointLight),
-            s             => TokenKind::Identifier(s.to_string()),
+            s => TokenKind::Identifier(s.to_string()),
         };
-        Ok(Token {
-            kind, loc
-        })
+        Ok(Token { kind, loc })
     }
 
     pub fn read_number(&mut self, ch: char) -> anyhow::Result<f32> {
         let mut new_ch: char = ch;
-        let mut s : String = String::new();
+        let mut s: String = String::new();
         if ch == '-' {
             match self.read_char()? {
                 None => return Err(anyhow!("Expected number is not a number: '-' found!")),
                 Some('.') => return Err(anyhow!("Expected number is not a number: '-.' found!")),
-                Some(a) => { s.push(ch); new_ch = a },
+                Some(a) => {
+                    s.push(ch);
+                    new_ch = a
+                }
             }
         }
         let mut not_found_dot: bool = true;
@@ -274,10 +279,13 @@ impl<B: BufRead> InputStream<B> {
                             not_found_dot = false;
                         } else if SYMBOLS.contains(a) || WHITESPACE.contains(a) {
                             self.unread_char(a)?;
-                            return Ok(s.parse::<f32>()?)
+                            return Ok(s.parse::<f32>()?);
                         } else {
                             s.push(a);
-                            return Err(anyhow!("Unexpected character in number: '{}'!", s.as_str()))
+                            return Err(anyhow!(
+                                "Unexpected character in number: '{}'!",
+                                s.as_str()
+                            ));
                         }
                     }
                 }
@@ -303,17 +311,17 @@ impl<B: BufRead> InputStream<B> {
                 } else if ch.is_ascii_digit() || ch == '-' {
                     let num = self.read_number(ch)?;
                     let kind = TokenKind::LiteralNumber(num);
-                    let token = Token {
-                        kind,
-                        loc,
-                    };
+                    let token = Token { kind, loc };
                     Ok(token)
                 } else if SYMBOLS.contains(ch) {
                     let kind = TokenKind::Symbol(ch);
-                    let token = Token { kind, loc, };
+                    let token = Token { kind, loc };
                     Ok(token)
                 } else {
-                    Err(anyhow!("NOT ALL POSSIBILITIES COVERED! The char is '{}'", ch))
+                    Err(anyhow!(
+                        "NOT ALL POSSIBILITIES COVERED! The char is '{}'",
+                        ch
+                    ))
                 }
             }
         }
@@ -323,7 +331,10 @@ impl<B: BufRead> InputStream<B> {
 #[cfg(test)]
 mod test {
     use super::*;
+    use crate::scene_file::Keyword::{FLOAT, MATERIAL};
+    use crate::scene_file::TokenKind;
     use std::io::Cursor;
+
     static TEST_FILE: &str = "float clock(150)
 
 material sky_material(
@@ -537,7 +548,7 @@ camera(perspective, rotation_z(30) * translation([-4, 0, 1]), 1.0, 1.0)";
 
     #[test]
     fn test_read_number() {
-        let text: String ="832\na".to_string();
+        let text: String = "832\na".to_string();
         let cursor = Cursor::new(text);
         let mut stream = InputStream::new(cursor, 0, 4);
         let ch = stream.read_char().unwrap().unwrap();
@@ -557,7 +568,7 @@ camera(perspective, rotation_z(30) * translation([-4, 0, 1]), 1.0, 1.0)";
 
     #[test]
     fn test_negative_read_number() {
-        let text: String ="-8322.3 ".to_string();
+        let text: String = "-8322.3 ".to_string();
         let cursor = Cursor::new(text);
         let mut stream = InputStream::new(cursor, 0, 4);
         let ch = stream.read_char().unwrap().unwrap();
@@ -600,5 +611,126 @@ camera(perspective, rotation_z(30) * translation([-4, 0, 1]), 1.0, 1.0)";
     fn test_read_number_input_err() {
         let mut stream = setup1();
         let _ = stream.read_number('a').unwrap();
+    }
+
+    #[test]
+    fn test_read_token() {
+        let mut stream = setup1();
+        let token = stream.read_token().unwrap();
+        assert_eq!(
+            token.kind,
+            TokenKind::Keyword(FLOAT),
+            "token.kind = {:?}",
+            token.kind
+        );
+        assert_eq!(
+            token.loc,
+            SourceLocation::new(0, 0, 1),
+            "token.loc = {:?}",
+            token.loc
+        );
+
+        let token = stream.read_token().unwrap();
+        assert_eq!(
+            token.kind,
+            TokenKind::Identifier("clock".to_string()),
+            "token.kind = {:?}",
+            token.kind
+        );
+        assert_eq!(
+            token.loc,
+            SourceLocation::new(0, 0, 7),
+            "token.loc = {:?}",
+            token.loc
+        );
+
+        let token = stream.read_token().unwrap();
+        assert_eq!(
+            token.kind,
+            TokenKind::Symbol('('),
+            "token.kind = {:?}",
+            token.kind
+        );
+        assert_eq!(
+            token.loc,
+            SourceLocation::new(0, 0, 12),
+            "token.loc = {:?}",
+            token.loc
+        );
+
+        let token = stream.read_token().unwrap();
+        assert_eq!(
+            token.kind,
+            TokenKind::LiteralNumber(150.0),
+            "token.kind = {:?}",
+            token.kind
+        );
+        assert_eq!(
+            token.loc,
+            SourceLocation::new(0, 0, 13),
+            "token.loc = {:?}",
+            token.loc
+        );
+
+        let token = stream.read_token().unwrap();
+        assert_eq!(
+            token.kind,
+            TokenKind::Symbol(')'),
+            "token.kind = {:?}",
+            token.kind
+        );
+        assert_eq!(
+            token.loc,
+            SourceLocation::new(0, 0, 16),
+            "token.loc = {:?}",
+            token.loc
+        );
+
+        let token = stream.read_token().unwrap();
+        assert_eq!(
+            token.kind,
+            TokenKind::Keyword(MATERIAL),
+            "token.kind = {:?}",
+            token.kind
+        );
+        assert_eq!(
+            token.loc,
+            SourceLocation::new(0, 2, 1),
+            "token.loc = {:?}",
+            token.loc
+        );
+
+        for _ in 0..6 {
+            let _ = stream.read_token();
+        }
+
+        let token = stream.read_token().unwrap();
+        assert_eq!(
+            token.kind,
+            TokenKind::Symbol('<'),
+            "token.kind = {:?}",
+            token.kind
+        );
+        assert_eq!(
+            token.loc,
+            SourceLocation::new(0, 3, 21),
+            "token.loc = {:?}",
+            token.loc
+        );
+    }
+
+    #[test]
+    fn test_read_token_eof() {
+        let s = String::from("\n");
+        let cursor = Cursor::new(s);
+        let mut stream = InputStream::new(cursor, 0, 4);
+        let token = stream.read_token().unwrap();
+        assert_eq!(token.kind, StopToken, "token.kind = {:?}", token.kind);
+        assert_eq!(
+            token.loc,
+            SourceLocation::new(0, 1, 0),
+            "token.loc = {:?}",
+            token.loc
+        );
     }
 }

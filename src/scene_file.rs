@@ -1,4 +1,8 @@
-//! This module defines the architecture to read the files that describe the scene to be renderer.
+//! Lexer for the raytracer scene files.
+//!
+//! Defines the structures to read and tokenize a scene file,
+//! converting raw text into a sequence of [`Token`]s ready
+//! for the parser.
 
 use crate::scene_file::TokenKind::StopToken;
 use anyhow::anyhow;
@@ -7,10 +11,17 @@ use std::io::BufRead;
 // ==========================================
 // SourceLocation
 // ==========================================
+
+/// Position of a character within the source files.
+///
+/// Used to produce precise error messages during parsing.
 #[derive(Debug, Copy, Clone, PartialEq)]
 pub struct SourceLocation {
+    /// Index of the source file.
     pub file_index: usize,
+    /// Line number (starts at 1).
     pub line_number: usize,
+    /// Column number (starts at 0, incremented after each character is read).
     pub col_number: usize,
 }
 
@@ -29,6 +40,11 @@ impl SourceLocation {
 // STATUS : DRAFT
 // ==========================================
 
+/// A source-location-aware input stream.
+///
+/// Reads characters from a [`BufRead`] one at a time, updating
+/// [`source_location`](InputStream::source_location) on each read.
+/// Supports a single character of lookahead via [`saved_char`](InputStream::saved_char).
 pub struct InputStream<B: BufRead> {
     /// The bufreader.
     pub stream: B,
@@ -60,6 +76,13 @@ impl<B: BufRead> InputStream<B> {
 }
 
 impl<B: BufRead> InputStream<B> {
+    /// Updates the current position based on the character just read.
+    ///
+    /// - `\n` → increments the line number, resets the column to 0
+    /// - `\t` → advances the column by [`tabulation`](InputStream::tabulation) spaces
+    /// - any other character → advances the column by 1
+    ///
+    /// This function does not handle `\r`.
     fn update_pos(&mut self, ch: char) {
         // Not included \r handling! Ask Tomasi!!!
         match ch {
@@ -77,6 +100,16 @@ impl<B: BufRead> InputStream<B> {
         }
     }
 
+    /// Reads the next character from the stream.
+    ///
+    /// If a character was pushed back via [`unread_char`](Self::unread_char),
+    /// that character is returned without consuming the underlying stream.
+    /// Updates [`source_location`] after each read from the stream.
+    ///
+    /// Returns `Ok(None)` at end of file.
+    ///
+    /// # Errors
+    /// Propagates I/O errors from the underlying [`BufRead`].
     pub fn read_char(&mut self) -> anyhow::Result<Option<char>> {
         let ch: char;
         if self.saved_char.is_some() {
@@ -96,6 +129,13 @@ impl<B: BufRead> InputStream<B> {
 
         Ok(Some(ch))
     }
+
+    /// Pushes a character back onto the stream, so that the next call to
+    /// [`read_char`](Self::read_char) returns it.
+    ///
+    /// # Errors
+    /// Returns an error if a character is already saved
+    /// (only one character of lookahead is supported).
     pub fn unread_char(&mut self, ch: char) -> anyhow::Result<()> {
         if self.saved_char.is_none() {
             self.saved_char = Some(ch);
@@ -106,8 +146,15 @@ impl<B: BufRead> InputStream<B> {
         }
     }
 
-    /// TODO: write properly this doc!
-    /// Returns true if EOF, else returns false.
+    /// Advances the stream past whitespace and comments (`#` through end of line).
+    ///
+    /// After returning, the first non-whitespace character has been read
+    /// and saved in [`saved_char`](InputStream::saved_char).
+    ///
+    /// Returns `Ok(true)` if end of file is reached, `Ok(false)` otherwise.
+    ///
+    /// # Errors
+    /// Propagates I/O errors from [`read_char`](Self::read_char).
     pub fn skip_whitespace(&mut self) -> anyhow::Result<bool> {
         // Not included \r handling! Ask Tomasi!!!
         let new_line: String = String::from("\n");
@@ -143,60 +190,15 @@ impl<B: BufRead> InputStream<B> {
             }
         }
     }
-}
 
-// ==========================================
-// Tokens
-// ==========================================
-
-#[derive(Debug, PartialEq)]
-pub enum TokenKind {
-    Keyword(Keyword),
-    Identifier(String),
-    LiteralString(String),
-    LiteralNumber(f32),
-    Symbol(char),
-    StopToken,
-}
-
-#[derive(Debug, PartialEq)]
-pub struct Token {
-    pub kind: TokenKind,
-    pub loc: SourceLocation,
-}
-
-#[derive(Debug, PartialEq)]
-pub enum Keyword {
-    NEW,
-    MATERIAL,
-    PLANE,
-    SPHERE,
-    DIFFUSE,
-    SPECULAR,
-    UNIFORM,
-    CHECKERED,
-    IMAGE,
-    IDENTITY,
-    TRANSLATION,
-    RotationX,
-    RotationY,
-    RotationZ,
-    SCALING,
-    CAMERA,
-    ORTHOGONAL,
-    PERSPECTIVE,
-    FLOAT,
-    PointLight,
-}
-
-static SYMBOLS: &str = "()<>[],*";
-static WHITESPACE: &str = " \t\r\n";
-
-// ==========================================
-// read_token
-// ==========================================
-
-impl<B: BufRead> InputStream<B> {
+    /// Reads a sequence of alphanumeric characters or `_`, starting from `ch`.
+    ///
+    /// `ch` must be alphabetic or `_`; subsequent characters may also be digits.
+    /// Reading stops at the first invalid character, which is pushed back
+    /// via [`unread_char`](Self::unread_char).
+    ///
+    /// # Errors
+    /// Returns an error if `ch` is not alphabetic or `_`.
     pub fn read_string(&mut self, ch: char) -> anyhow::Result<String> {
         if ch.is_alphabetic() || ch == '_' {
             let mut s = String::from(ch);
@@ -219,6 +221,13 @@ impl<B: BufRead> InputStream<B> {
         }
     }
 
+    /// Reads a string and converts it into the corresponding [`Token`].
+    ///
+    /// If the string matches a reserved keyword of the scene language
+    /// (e.g. `"new"`, `"sphere"`, `"camera"`), produces a [`TokenKind::Keyword`];
+    /// otherwise produces a [`TokenKind::Identifier`].
+    ///
+    /// `loc` is the position of the first character of the token.
     pub fn parse_string_token(&mut self, ch: char, loc: SourceLocation) -> anyhow::Result<Token> {
         let kind = match self.read_string(ch)?.as_str() {
             "new" => TokenKind::Keyword(Keyword::NEW),
@@ -246,6 +255,15 @@ impl<B: BufRead> InputStream<B> {
         Ok(Token { kind, loc })
     }
 
+    /// Reads a floating-point number (including negative values) starting from `ch`.
+    ///
+    /// Handles integers, decimals, and the `-` sign. A trailing dot (e.g. `"832."`)
+    /// is normalized to `832.0`. Reading stops at the first whitespace or symbol,
+    /// which is pushed back onto the stream.
+    ///
+    /// # Errors
+    /// - `ch` is `-` but is not followed by a digit
+    /// - non-numeric characters are found within the number
     pub fn read_number(&mut self, ch: char) -> anyhow::Result<f32> {
         let mut new_ch: char = ch;
         let mut s: String = String::new();
@@ -295,6 +313,17 @@ impl<B: BufRead> InputStream<B> {
         }
     }
 
+    /// Reads the next token from the stream.
+    ///
+    /// Skips whitespace and comments, then classifies the current character:
+    /// - letter or `_` → [`TokenKind::Keyword`] or [`TokenKind::Identifier`]
+    /// - digit or `-` → [`TokenKind::LiteralNumber`]
+    /// - symbol (`()[]<>,*`) → [`TokenKind::Symbol`]
+    /// - end of file → [`TokenKind::StopToken`]
+    ///
+    /// # Errors
+    /// Returns an error if the character does not belong to any of the
+    /// categories above, or if an internal read fails.
     pub fn read_token(&mut self) -> anyhow::Result<Token> {
         let ch: char;
         match self.skip_whitespace() {
@@ -327,6 +356,67 @@ impl<B: BufRead> InputStream<B> {
         }
     }
 }
+
+// ==========================================
+// Token and TokenKind
+// ==========================================
+
+/// The type of token recognised by the lexer.
+#[derive(Debug, PartialEq)]
+pub enum TokenKind {
+    /// A reserved keyword of the scene language (e.g. `new`, `sphere`, `camera`).
+    Keyword(Keyword),
+    /// A user-defined identifier (e.g. a material name).
+    Identifier(String),
+    /// A string literal (not yet produced by the current lexer).
+    LiteralString(String),
+    /// A floating-point literal (e.g. `3.14`, `-1.0`).
+    LiteralNumber(f32),
+    /// A single symbol belonging to `()[]<>,*`.
+    Symbol(char),
+    /// End-of-file sentinel.
+    StopToken,
+}
+
+/// A token produced by the lexer, carrying its type and position in the source.
+#[derive(Debug, PartialEq)]
+pub struct Token {
+    /// Type and value of the token.
+    pub kind: TokenKind,
+    /// Position of the token's first character in the source file.
+    pub loc: SourceLocation,
+}
+
+/// Reserved keywords of the scene language.
+///
+/// Identify the constructs of a scene file:
+/// object types, materials, transformations, and cameras.
+#[derive(Debug, PartialEq)]
+pub enum Keyword {
+    NEW,
+    MATERIAL,
+    PLANE,
+    SPHERE,
+    DIFFUSE,
+    SPECULAR,
+    UNIFORM,
+    CHECKERED,
+    IMAGE,
+    IDENTITY,
+    TRANSLATION,
+    RotationX,
+    RotationY,
+    RotationZ,
+    SCALING,
+    CAMERA,
+    ORTHOGONAL,
+    PERSPECTIVE,
+    FLOAT,
+    PointLight,
+}
+
+static SYMBOLS: &str = "()<>[],*";
+static WHITESPACE: &str = " \t\r\n";
 
 #[cfg(test)]
 mod test {

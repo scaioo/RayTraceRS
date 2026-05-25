@@ -23,8 +23,10 @@ use crate::ray::Ray;
 /// ```rust,no_run
 /// # use rstrace::hit_record::HitRecord;
 /// # use rstrace::geometry::{Point, Normal, Vec2D, Vector};
+/// use rstrace::materials::Material;
 /// # use rstrace::ray::Ray;
 /// let incident_ray = Ray::new(Point::new(0.0, 0.0, 0.0), Vector::new(0.0, 0.0, 1.0));
+/// let material = Material::default();
 ///
 /// let record = HitRecord {
 ///     world_point: Point::new(0.0, 0.0, 5.0),
@@ -32,6 +34,7 @@ use crate::ray::Ray;
 ///     uv: Vec2D::new(0.5, 0.5),
 ///     t: 5.0,
 ///     ray: incident_ray,
+///     material: &material
 /// };
 /// ```
 pub struct HitRecord<'a> {

@@ -1,6 +1,6 @@
 //! This module contains the various renderers this raytracer implements
 
-use crate::color::Color;
+use crate::color::{BLACK, Color, WHITE};
 use crate::pcg::PCG;
 use crate::ray::Ray;
 use crate::world::World;
@@ -29,8 +29,8 @@ impl OnOffRenderer {
 impl Default for OnOffRenderer {
     fn default() -> Self {
         Self {
-            color: Color::new(1.0, 1.0, 1.0),            //WHITE
-            background_color: Color::new(0.0, 0.0, 0.0), //BLACK
+            color: WHITE,
+            background_color: BLACK,
         }
     }
 }
@@ -65,7 +65,7 @@ impl FlatRenderer {
 impl Default for FlatRenderer {
     fn default() -> Self {
         Self {
-            background_color: Color::new(0.0, 0.0, 0.0), //BLACK
+            background_color: BLACK,
         }
     }
 }
@@ -101,7 +101,6 @@ pub struct PathTracer {
     pub max_depth: usize,
     pub depth_russian_roulette: usize,
 }
-
 impl PathTracer {
     pub fn new(
         background_color: Color,
@@ -117,7 +116,6 @@ impl PathTracer {
         }
     }
 }
-
 impl Renderer for PathTracer {
     fn render(&self, ray: &Ray, world: &World, pcg: &mut PCG) -> Result<Color> {
         // 1. Termination fot max depth
@@ -188,7 +186,7 @@ mod tests {
     use crate::camera::OrthogonalCamera;
     use crate::color::{BLACK, Color, WHITE};
     use crate::functions::IDENTITY_4X4;
-    use crate::geometry::Vector;
+    use crate::geometry::{Point, Vector};
     use crate::hdr_image::HDR;
     use crate::image_tracer::ImageTracer;
     use crate::materials::Material;
@@ -197,15 +195,16 @@ mod tests {
     use crate::shapes::Sphere;
     use crate::transformations::{Scaling, Transformation, Translation};
     use anyhow::Result;
-
+    use approx::assert_relative_eq;
     #[test]
     fn test_on_off_renderer() -> Result<()> {
         // Define variables
         let scaling = Scaling::new([0.2, 0.2, 0.2]);
         let translation = Translation::new(Vector::new(2., 0., 0.));
-        let pigment = UniformPigment::new(Color::new(1., 1., 1.));
+        let pigment = UniformPigment::new(WHITE);
+        let emitted_radiance = UniformPigment::new(BLACK);
         let brdf = DiffusiveBrdf {};
-        let material = Material::new(pigment, brdf);
+        let material = Material::new(pigment, brdf, emitted_radiance);
         let sphere = Sphere::new(translation * scaling, material);
 
         let image = HDR::new(3, 3);
@@ -221,7 +220,6 @@ mod tests {
         let _ =
             tracer.fire_all_rays(&world, |ray, world| renderer.render(&ray, world, &mut pcg))?;
 
-        // Iterazione esplicita con messaggi chiari
         assert!(
             tracer
                 .image
@@ -300,18 +298,17 @@ mod tests {
     }
     #[test]
     fn test_flat_renderer() -> Result<()> {
-        // Definiamo il colore personalizzato dello sphere
         let sphere_color = Color::new(1.0, 2.0, 3.0);
-
-        // Setup della sfera con il colore specificato
+        // Setup sphere and color specified
         let scaling = Scaling::new([0.2, 0.2, 0.2]);
         let translation = Translation::new(Vector::new(2., 0., 0.));
         let pigment = UniformPigment::new(sphere_color);
-        let brdf = DiffusiveBrdf {}; // Assumendo che il BRDF sia irrilevante per il FlatRenderer
-        let material = Material::new(pigment, brdf);
+        let brdf = DiffusiveBrdf {};
+        let emitted_radiance = UniformPigment::new(BLACK);
+        let material = Material::new(pigment, brdf, emitted_radiance);
         let sphere = Sphere::new(translation * scaling, material);
         let mut pcg = PCG::new();
-        // Setup della scena e del tracer
+        // Setup scene & raytracer
         let image = HDR::new(3, 3);
         let camera = OrthogonalCamera::new(Transformation::new(IDENTITY_4X4));
         let mut tracer = ImageTracer::new(image, camera);
@@ -324,7 +321,6 @@ mod tests {
         let _ =
             tracer.fire_all_rays(&world, |ray, world| renderer.render(&ray, world, &mut pcg))?;
 
-        // Asserzioni (usiamo il colore personalizzato per il centro)
         assert!(
             tracer
                 .image
@@ -358,7 +354,7 @@ mod tests {
                 .is_close(&BLACK),
             "Mismatch at (0,1)"
         );
-        // Qui verifichiamo che il FlatRenderer restituisca proprio il colore della sfera
+        // Verify that flat_renderer return the color of the sphere
         assert!(
             tracer
                 .image
@@ -401,6 +397,34 @@ mod tests {
             "Mismatch at (2,2)"
         );
 
+        Ok(())
+    }
+    #[test]
+    fn furnace_test() -> Result<()> {
+        let mut pcg = PCG::new();
+        // Run the furnace test several times using random values of L_e and ρ_d
+        for _i in 0..5 {
+            let emitted_radiance = pcg.random_float();
+            let reflectance = pcg.random_float() * 0.9; // Avoid numbers that are too close to 1
+
+            let enclosure_material = Material::new(
+                UniformPigment::new(WHITE * reflectance),
+                DiffusiveBrdf {},
+                UniformPigment::new(WHITE * emitted_radiance),
+            );
+            let sphere = Sphere::new(Transformation::new(IDENTITY_4X4), enclosure_material);
+            let world = World {
+                objects: vec![Box::new(sphere)],
+            };
+            let path_tracer = PathTracer::new(WHITE, 1, 100, 101);
+            let ray = Ray::new(Point::new(0.0, 0.0, 0.0), Vector::new(1., 0., 0.));
+            let color = path_tracer.render(&ray, &world, &mut pcg)?;
+            let expected = emitted_radiance / (1. - reflectance);
+
+            assert_relative_eq!(color.r, expected, epsilon = 1e-3);
+            assert_relative_eq!(color.g, expected, epsilon = 1e-3);
+            assert_relative_eq!(color.b, expected, epsilon = 1e-3);
+        }
         Ok(())
     }
 }

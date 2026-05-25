@@ -5,11 +5,7 @@ edition = "2024"
 
 [dependencies]
 anyhow = "1.0.102"
-image = "0.25.10"
-
-endianness = "0.2"
-buffered-reader = "1.4.0"
-as-bytes = "0.2.0"
+approx = "0.5"
 byteorder = "1.5.0"
 clap = { version = "4.6.1", features = ["derive"] }
 

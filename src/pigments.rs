@@ -5,7 +5,7 @@
 //! The material is described by `Pigment` and `BRDF`. The first gives the color and the second one
 //! returns the reflected rays. This module focuses on the `Pigment`.
 
-use crate::color::Color;
+use crate::color::{Color, WHITE};
 use crate::geometry::Vec2D;
 use crate::hdr_image::HDR;
 // ===============================================
@@ -27,11 +27,18 @@ pub trait Pigment {
 pub struct UniformPigment {
     pub color: Color,
 }
+
 impl UniformPigment {
     pub fn new(color: Color) -> Self {
         UniformPigment { color }
     }
 }
+impl Default for UniformPigment {
+    fn default() -> Self {
+        Self::new(WHITE)
+    }
+}
+
 impl Pigment for UniformPigment {
     fn get_color(&self, _uv: &Vec2D) -> Color {
         self.color

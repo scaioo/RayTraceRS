@@ -4,7 +4,7 @@
 //! converting raw text into a sequence of [`Token`]s ready
 //! for the parser.
 
-use crate::scene_file::TokenKind::StopToken;
+use crate::lexer::TokenKind::StopToken;
 use anyhow::anyhow;
 use std::io::BufRead;
 
@@ -421,8 +421,8 @@ static WHITESPACE: &str = " \t\r\n";
 #[cfg(test)]
 mod test {
     use super::*;
-    use crate::scene_file::Keyword::{FLOAT, MATERIAL};
-    use crate::scene_file::TokenKind;
+    use crate::lexer::Keyword::{FLOAT, MATERIAL};
+    use crate::lexer::TokenKind;
     use std::io::Cursor;
 
     static TEST_FILE: &str = "float clock(150)

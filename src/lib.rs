@@ -28,7 +28,7 @@ pub mod hit_record;
 pub mod image_tracer;
 pub mod pfm_func;
 pub mod ray;
-pub mod scene_file;
+pub mod lexer;
 pub mod shapes;
 pub mod transformations;
 pub mod world;

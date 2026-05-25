@@ -204,13 +204,13 @@ impl<B: BufRead> InputStream<B> {
                     None => return Ok(s),
                     Some(a) => new_ch = a,
                 }
-                if !WHITESPACE.contains(new_ch) && !SYMBOLS.contains(new_ch) {
+                if new_ch.is_alphanumeric() || new_ch == '_' {
                     s.push(new_ch);
                 } else { self.unread_char(new_ch)?; break }
             }
             Ok(s)
         } else {
-            Err(anyhow!("Unexpected character in string!"))
+            Err(anyhow!("Unexpected input character in string!"))
         }
 
     }
@@ -244,8 +244,51 @@ impl<B: BufRead> InputStream<B> {
         })
     }
 
+    pub fn read_number(&mut self, ch: char) -> anyhow::Result<f32> {
+        let mut new_ch: char = ch;
+        let mut s : String = String::new();
+        if ch == '-' {
+            match self.read_char()? {
+                None => return Err(anyhow!("Expected number is not a number: '-' found!")),
+                Some('.') => return Err(anyhow!("Expected number is not a number: '-.' found!")),
+                Some(a) => { s.push(ch); new_ch = a },
+            }
+        }
+        let mut not_found_dot: bool = true;
+
+        if new_ch.is_ascii_digit() {
+            s.push(new_ch);
+            loop {
+                match self.read_char()? {
+                    None => {
+                        if s.ends_with('.') {
+                            s.push('0');
+                        }
+                        return Ok(s.parse::<f32>()?);
+                    }
+                    Some(a) => {
+                        if a.is_ascii_digit() {
+                            s.push(a);
+                        } else if a == '.' && not_found_dot {
+                            s.push(a);
+                            not_found_dot = false;
+                        } else if SYMBOLS.contains(a) || WHITESPACE.contains(a) {
+                            self.unread_char(a)?;
+                            return Ok(s.parse::<f32>()?)
+                        } else {
+                            s.push(a);
+                            return Err(anyhow!("Unexpected character in number: '{}'!", s.as_str()))
+                        }
+                    }
+                }
+            }
+        } else {
+            Err(anyhow!("Number not found: '{}' found!", s))
+        }
+    }
+
     pub fn read_token(&mut self) -> anyhow::Result<Token> {
-        let mut ch: char;
+        let ch: char;
         match self.skip_whitespace() {
             Ok(true) => Ok(Token {
                 kind: StopToken,
@@ -254,14 +297,24 @@ impl<B: BufRead> InputStream<B> {
             Err(err) => Err(anyhow!("Error reading token: {}", err)),
             Ok(false) => {
                 ch = self.read_char()?.unwrap();
+                let loc = self.saved_location.unwrap_or(self.source_location);
                 if ch.is_alphabetic() {
-                    self.parse_string_token(ch, self.source_location)?;
-                } else if ch.is_numeric() {
-                    panic!("TO BE WRITTEN!")
+                    self.parse_string_token(ch, loc)
+                } else if ch.is_ascii_digit() || ch == '-' {
+                    let num = self.read_number(ch)?;
+                    let kind = TokenKind::LiteralNumber(num);
+                    let token = Token {
+                        kind,
+                        loc,
+                    };
+                    Ok(token)
                 } else if SYMBOLS.contains(ch) {
-                    panic!("TO BE WRITTEN!")
+                    let kind = TokenKind::Symbol(ch);
+                    let token = Token { kind, loc, };
+                    Ok(token)
+                } else {
+                    Err(anyhow!("NOT ALL POSSIBILITIES COVERED! The char is '{}'", ch))
                 }
-                Err(anyhow!("NOT AN ERR IN THE LOGIC: ADDED THIS TO RUN TESTS!"))
             }
         }
     }
@@ -460,7 +513,7 @@ camera(perspective, rotation_z(30) * translation([-4, 0, 1]), 1.0, 1.0)";
     }
 
     #[test]
-    #[should_panic(expected = "Unexpected character in string!")]
+    #[should_panic(expected = "Unexpected input character in string!")]
     fn test_read_string_err() {
         let mut stream = setup1();
         let ch = stream.read_char().unwrap().unwrap();
@@ -470,5 +523,82 @@ camera(perspective, rotation_z(30) * translation([-4, 0, 1]), 1.0, 1.0)";
         let _ = stream.read_string(ch).unwrap();
         let ch = stream.read_char().unwrap().unwrap();
         let _ = stream.read_string(ch).unwrap();
+    }
+
+    #[test]
+    fn test_identifier_with_number() {
+        let text: String = "a_b_8".to_string();
+        let cursor = Cursor::new(text);
+        let mut stream = InputStream::new(cursor, 0, 4);
+        let ch = stream.read_char().unwrap().unwrap();
+        let s = stream.read_string(ch).unwrap();
+        assert_eq!(s.as_str(), "a_b_8");
+    }
+
+    #[test]
+    fn test_read_number() {
+        let text: String ="832\na".to_string();
+        let cursor = Cursor::new(text);
+        let mut stream = InputStream::new(cursor, 0, 4);
+        let ch = stream.read_char().unwrap().unwrap();
+        let number = stream.read_number(ch).unwrap();
+        assert_eq!(number, 832.0);
+    }
+
+    #[test]
+    fn test_read_number_final_dot() {
+        let text: String = "832.\t".to_string();
+        let cursor = Cursor::new(text);
+        let mut stream = InputStream::new(cursor, 0, 4);
+        let ch = stream.read_char().unwrap().unwrap();
+        let number = stream.read_number(ch).unwrap();
+        assert_eq!(number, 832.0);
+    }
+
+    #[test]
+    fn test_negative_read_number() {
+        let text: String ="-8322.3 ".to_string();
+        let cursor = Cursor::new(text);
+        let mut stream = InputStream::new(cursor, 0, 4);
+        let ch = stream.read_char().unwrap().unwrap();
+        let number = stream.read_number(ch).unwrap();
+        assert_eq!(number, -8322.3);
+    }
+
+    #[test]
+    #[should_panic(expected = "Expected number is not a number: '-' found!")]
+    fn test_read_number_minus_fail() {
+        let text: String = "-".to_string();
+        let cursor = Cursor::new(text);
+        let mut stream = InputStream::new(cursor, 0, 4);
+        let ch = stream.read_char().unwrap().unwrap();
+        let _ = stream.read_number(ch).unwrap();
+    }
+
+    #[test]
+    #[should_panic(expected = "Expected number is not a number: '-.' found!")]
+    fn test_read_number_minus_dot_fail() {
+        let text: String = "-.".to_string();
+        let cursor = Cursor::new(text);
+        let mut stream = InputStream::new(cursor, 0, 4);
+        let ch = stream.read_char().unwrap().unwrap();
+        let _ = stream.read_number(ch).unwrap();
+    }
+
+    #[test]
+    #[should_panic(expected = "Unexpected character in number")]
+    fn test_read_number_read_fail_character_in_number() {
+        let text: String = "8322.3a".to_string();
+        let cursor = Cursor::new(text);
+        let mut stream = InputStream::new(cursor, 0, 4);
+        let ch = stream.read_char().unwrap().unwrap();
+        let _ = stream.read_number(ch).unwrap();
+    }
+
+    #[test]
+    #[should_panic(expected = "Number not found")]
+    fn test_read_number_input_err() {
+        let mut stream = setup1();
+        let _ = stream.read_number('a').unwrap();
     }
 }

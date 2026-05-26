@@ -27,7 +27,6 @@ pub trait Pigment {
 pub struct UniformPigment {
     pub color: Color,
 }
-
 impl UniformPigment {
     pub fn new(color: Color) -> Self {
         UniformPigment { color }
@@ -38,7 +37,6 @@ impl Default for UniformPigment {
         Self::new(WHITE)
     }
 }
-
 impl Pigment for UniformPigment {
     fn get_color(&self, _uv: &Vec2D) -> Color {
         self.color
@@ -82,7 +80,6 @@ impl Pigment for CheckeredPigment {
         }
     }
 }
-
 // ===============================================
 // ImagePigment
 // ==============================================

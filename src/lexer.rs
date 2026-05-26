@@ -372,17 +372,16 @@ impl<B: BufRead> InputStream<B> {
                 } else if ch.is_ascii_digit() || ch == '-' {
                     let num = self.read_number(ch)?;
                     let kind = TokenKind::LiteralNumber(num);
-                    let token = Token { kind, loc };
-                    Ok(token)
+                    Ok(Token { kind, loc })
                 } else if SYMBOLS.contains(ch) {
                     let kind = TokenKind::Symbol(ch);
-                    let token = Token { kind, loc };
-                    Ok(token)
+                    Ok(Token { kind, loc })
+                } else if ch == '"' || ch == '\'' {
+                    let s = self.read_string_literal(ch)?;
+                    let kind = TokenKind::LiteralString(s);
+                    Ok(Token { kind, loc })
                 } else {
-                    Err(anyhow!(
-                        "NOT ALL POSSIBILITIES COVERED! The char is '{}'",
-                        ch
-                    ))
+                    panic!("NOT ALL POSSIBILITIES COVERED! The char is '{}'", ch)
                 }
             }
         }

@@ -26,7 +26,7 @@ pub struct SourceLocation {
 }
 
 impl SourceLocation {
-    fn new(file_index: usize, line_number: usize, col_number: usize) -> Self {
+    pub fn new(file_index: usize, line_number: usize, col_number: usize) -> Self {
         Self {
             file_index,
             line_number,
@@ -260,7 +260,11 @@ impl<B: BufRead> InputStream<B> {
     /// otherwise produces a [`TokenKind::Identifier`].
     ///
     /// `loc` is the position of the first character of the token.
-    pub fn parse_string_token(&mut self, ch: char, loc: SourceLocation) -> anyhow::Result<Token> {
+    pub fn parse_identifier_token(
+        &mut self,
+        ch: char,
+        loc: SourceLocation,
+    ) -> anyhow::Result<Token> {
         let kind = match self.read_identifier(ch)?.as_str() {
             "new" => TokenKind::Keyword(Keyword::NEW),
             "material" => TokenKind::Keyword(Keyword::MATERIAL),
@@ -350,6 +354,7 @@ impl<B: BufRead> InputStream<B> {
     /// Skips whitespace and comments, then classifies the current character:
     /// - letter or `_` → [`TokenKind::Keyword`] or [`TokenKind::Identifier`]
     /// - digit or `-` → [`TokenKind::LiteralNumber`]
+    /// - single or double quotes -> [`TokenKind::LiteralString`]
     /// - symbol (`()[]<>,*`) → [`TokenKind::Symbol`]
     /// - end of file → [`TokenKind::StopToken`]
     ///
@@ -368,7 +373,7 @@ impl<B: BufRead> InputStream<B> {
                 ch = self.read_char()?.unwrap();
                 let loc = self.saved_location.unwrap_or(self.source_location);
                 if ch.is_alphabetic() {
-                    self.parse_string_token(ch, loc)
+                    self.parse_identifier_token(ch, loc)
                 } else if ch.is_ascii_digit() || ch == '-' {
                     let num = self.read_number(ch)?;
                     let kind = TokenKind::LiteralNumber(num);
@@ -381,7 +386,12 @@ impl<B: BufRead> InputStream<B> {
                     let kind = TokenKind::LiteralString(s);
                     Ok(Token { kind, loc })
                 } else {
-                    panic!("NOT ALL POSSIBILITIES COVERED! The char is '{}'", ch)
+                    Err(anyhow!(
+                        "Unexpected character '{}' at {}:{}",
+                        ch,
+                        self.source_location.line_number,
+                        self.source_location.col_number
+                    ))
                 }
             }
         }
@@ -399,7 +409,7 @@ pub enum TokenKind {
     Keyword(Keyword),
     /// A user-defined identifier (e.g. a material name).
     Identifier(String),
-    /// A string literal (not yet produced by the current lexer).
+    /// A quoted string literal, delimited by \'` or `"`.
     LiteralString(String),
     /// A floating-point literal (e.g. `3.14`, `-1.0`).
     LiteralNumber(f32),
@@ -875,6 +885,16 @@ camera(perspective, rotation_z(30) * translation([-4, 0, 1]), 1.0, 1.0)";
             "token.loc = {:?}",
             token.loc
         );
+    }
+
+    #[test]
+    fn test_read_token_string_literal() {
+        let text = String::from("\"hello_world\"\n\"");
+        let cursor = Cursor::new(text);
+        let mut stream = InputStream::new(cursor, 0, 4);
+        let token = stream.read_token().unwrap();
+        assert_eq!(token.kind, TokenKind::LiteralString("hello_world".to_string()));
+        assert_eq!(token.loc, SourceLocation::new(0, 1, 1));
     }
 
     #[test]

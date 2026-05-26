@@ -191,6 +191,29 @@ impl<B: BufRead> InputStream<B> {
         }
     }
 
+    pub fn read_string(&mut self, ch: char) -> anyhow::Result<String> {
+        if ch != '\'' && ch != '"' {
+            Err(anyhow!(
+                "Wrong input character in read_string!\n Read char: '{}'",
+                ch
+            ))
+        } else {
+            let mut s = String::new();
+            loop {
+                match self.read_char()? {
+                    None => return Err(anyhow!("Unexpected EOF!")),
+                    Some(a) => {
+                        if a == ch {
+                            return Ok(s);
+                        } else {
+                            s.push(a);
+                        }
+                    }
+                }
+            }
+        }
+    }
+
     /// Reads a sequence of alphanumeric characters or `_`, starting from `ch`.
     ///
     /// `ch` must be alphabetic or `_`; subsequent characters may also be digits.
@@ -199,7 +222,7 @@ impl<B: BufRead> InputStream<B> {
     ///
     /// # Errors
     /// Returns an error if `ch` is not alphabetic or `_`.
-    pub fn read_string(&mut self, ch: char) -> anyhow::Result<String> {
+    pub fn read_literal(&mut self, ch: char) -> anyhow::Result<String> {
         if ch.is_alphabetic() || ch == '_' {
             let mut s = String::from(ch);
             let mut new_ch: char;
@@ -229,7 +252,7 @@ impl<B: BufRead> InputStream<B> {
     ///
     /// `loc` is the position of the first character of the token.
     pub fn parse_string_token(&mut self, ch: char, loc: SourceLocation) -> anyhow::Result<Token> {
-        let kind = match self.read_string(ch)?.as_str() {
+        let kind = match self.read_literal(ch)?.as_str() {
             "new" => TokenKind::Keyword(Keyword::NEW),
             "material" => TokenKind::Keyword(Keyword::MATERIAL),
             "plane" => TokenKind::Keyword(Keyword::PLANE),
@@ -605,11 +628,11 @@ camera(perspective, rotation_z(30) * translation([-4, 0, 1]), 1.0, 1.0)";
     fn test_read_string() {
         let mut stream = setup1();
         let ch = stream.read_char().unwrap().unwrap();
-        let s = stream.read_string(ch).unwrap();
+        let s = stream.read_literal(ch).unwrap();
         assert_eq!(s.as_str(), "float");
         assert_eq!(stream.skip_whitespace().unwrap(), false);
         let ch = stream.read_char().unwrap().unwrap();
-        let s = stream.read_string(ch).unwrap();
+        let s = stream.read_literal(ch).unwrap();
         assert_eq!(s.as_str(), "clock");
     }
 
@@ -618,12 +641,12 @@ camera(perspective, rotation_z(30) * translation([-4, 0, 1]), 1.0, 1.0)";
     fn test_read_string_err() {
         let mut stream = setup1();
         let ch = stream.read_char().unwrap().unwrap();
-        let _ = stream.read_string(ch).unwrap();
+        let _ = stream.read_literal(ch).unwrap();
         let _ = stream.skip_whitespace().unwrap();
         let ch = stream.read_char().unwrap().unwrap();
-        let _ = stream.read_string(ch).unwrap();
+        let _ = stream.read_literal(ch).unwrap();
         let ch = stream.read_char().unwrap().unwrap();
-        let _ = stream.read_string(ch).unwrap();
+        let _ = stream.read_literal(ch).unwrap();
     }
 
     #[test]
@@ -632,8 +655,45 @@ camera(perspective, rotation_z(30) * translation([-4, 0, 1]), 1.0, 1.0)";
         let cursor = Cursor::new(text);
         let mut stream = InputStream::new(cursor, 0, 4);
         let ch = stream.read_char().unwrap().unwrap();
-        let s = stream.read_string(ch).unwrap();
+        let s = stream.read_literal(ch).unwrap();
         assert_eq!(s.as_str(), "a_b_8");
+    }
+
+    #[test]
+    fn test_read_literal_string_1() {
+        let text = "\"file.txt\"".to_string();
+        let cursor = Cursor::new(text);
+        let mut stream = InputStream::new(cursor, 0, 4);
+        let ch = stream.read_char().unwrap().unwrap();
+        let s = stream.read_string(ch).unwrap();
+        assert_eq!(s.as_str(), "file.txt");
+    }
+
+    #[test]
+    fn test_read_literal_string_2() {
+        let text = "'file.txt'".to_string();
+        let cursor = Cursor::new(text);
+        let mut stream = InputStream::new(cursor, 0, 4);
+        let ch = stream.read_char().unwrap().unwrap();
+        let s = stream.read_string(ch).unwrap();
+        assert_eq!(s.as_str(), "file.txt");
+    }
+
+    #[test]
+    #[should_panic(expected = "Unexpected EOF!")]
+    fn test_read_literal_string_eof() {
+        let text = "'file.txt".to_string();
+        let cursor = Cursor::new(text);
+        let mut stream = InputStream::new(cursor, 0, 4);
+        let ch = stream.read_char().unwrap().unwrap();
+        let _ = stream.read_string(ch).unwrap();
+    }
+
+    #[test]
+    #[should_panic(expected = "Wrong input character in read_string!")]
+    fn test_read_literal_string_err() {
+        let mut stream = setup2();
+        let _ = stream.read_string('k').unwrap();
     }
 
     #[test]

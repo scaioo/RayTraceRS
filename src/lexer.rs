@@ -893,7 +893,10 @@ camera(perspective, rotation_z(30) * translation([-4, 0, 1]), 1.0, 1.0)";
         let cursor = Cursor::new(text);
         let mut stream = InputStream::new(cursor, 0, 4);
         let token = stream.read_token().unwrap();
-        assert_eq!(token.kind, TokenKind::LiteralString("hello_world".to_string()));
+        assert_eq!(
+            token.kind,
+            TokenKind::LiteralString("hello_world".to_string())
+        );
         assert_eq!(token.loc, SourceLocation::new(0, 1, 1));
     }
 

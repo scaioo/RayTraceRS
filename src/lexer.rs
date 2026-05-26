@@ -59,7 +59,7 @@ pub struct InputStream<B: BufRead> {
 }
 
 impl<B: BufRead> InputStream<B> {
-    fn new(stream: B, file_index: usize, tabulation: usize) -> Self {
+    pub fn new(stream: B, file_index: usize, tabulation: usize) -> Self {
         // Might change saved_location definition: it depends on the usage of this struct.
         Self {
             stream,
@@ -372,7 +372,7 @@ impl<B: BufRead> InputStream<B> {
             Ok(false) => {
                 ch = self.read_char()?.unwrap();
                 let loc = self.saved_location.unwrap_or(self.source_location);
-                if ch.is_alphabetic() {
+                if ch.is_alphabetic() || ch == '_' {
                     self.parse_identifier_token(ch, loc)
                 } else if ch.is_ascii_digit() || ch == '-' {
                     let num = self.read_number(ch)?;
@@ -465,7 +465,7 @@ mod test {
     use crate::lexer::Keyword::{FLOAT, MATERIAL};
     use crate::lexer::TokenKind;
     use std::io::Cursor;
-
+    
     static TEST_FILE: &str = "float clock(150)
 
 material sky_material(
@@ -675,6 +675,16 @@ camera(perspective, rotation_z(30) * translation([-4, 0, 1]), 1.0, 1.0)";
         let ch = stream.read_char().unwrap().unwrap();
         let s = stream.read_identifier(ch).unwrap();
         assert_eq!(s.as_str(), "a_b_8");
+    }
+
+    #[test]
+    fn test_read_identifier_with_low_dash_first() {
+        let text: String = "_a".to_string();
+        let cursor = Cursor::new(text);
+        let mut stream = InputStream::new(cursor, 0, 4);
+        let ch = stream.read_char().unwrap().unwrap();
+        let s = stream.read_identifier(ch).unwrap();
+        assert_eq!(s.as_str(), "_a");
     }
 
     #[test]
@@ -897,6 +907,16 @@ camera(perspective, rotation_z(30) * translation([-4, 0, 1]), 1.0, 1.0)";
             token.kind,
             TokenKind::LiteralString("hello_world".to_string())
         );
+        assert_eq!(token.loc, SourceLocation::new(0, 1, 1));
+    }
+    
+    #[test]
+    fn test_read_token_identifier_with_low_dash() {
+        let text = String::from("_identifier()");
+        let cursor = Cursor::new(text);
+        let mut stream = InputStream::new(cursor, 0, 4);
+        let token = stream.read_token().unwrap();
+        assert_eq!(token.kind, TokenKind::Identifier("_identifier".to_string()));
         assert_eq!(token.loc, SourceLocation::new(0, 1, 1));
     }
 

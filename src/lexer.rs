@@ -191,6 +191,15 @@ impl<B: BufRead> InputStream<B> {
         }
     }
 
+    /// Reads a quoted string literal from the stream.
+    ///
+    /// `ch` must be either `'` or `"` and acts as the opening delimiter;
+    /// the function reads characters until the same delimiter is found again.
+    /// The delimiter itself is not included in the returned string.
+    ///
+    /// # Errors
+    /// - `ch` is not `'` or `"`
+    /// - end of file is reached before the closing delimiter
     pub fn read_string_literal(&mut self, ch: char) -> anyhow::Result<String> {
         if ch != '\'' && ch != '"' {
             Err(anyhow!(

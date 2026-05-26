@@ -13,6 +13,7 @@ use crate::hdr_image::HDR;
 use crate::ray::Ray;
 use crate::world::World;
 use anyhow::Result;
+use indicatif::{ProgressBar, ProgressStyle};
 
 /// The engine responsible for shooting rays through the camera and painting the image.
 ///
@@ -85,6 +86,17 @@ impl<C: Camera> ImageTracer<C> {
         // `func` takes a Ray and returns a Color (adjust return type as needed)
         F: FnMut(Ray, &World) -> Result<Color>,
     {
+        // Import and initialize the toolbar tools
+        let total_pixels = (self.image.width * self.image.height) as u64;
+        let pb = ProgressBar::new(total_pixels);
+        // Let’s give the bar a “Pro” look (Elapsed time, Bar, Percentage)
+        pb.set_style(
+            ProgressStyle::with_template(
+                "{spinner:.green} [{elapsed_precise}] [{wide_bar:.cyan/blue}] {percent}% ({pos}/{len} px) - ETA: {eta_precise}"
+            )?
+                .progress_chars("#>-")
+        );
+
         for row in 0..self.image.height {
             for col in 0..self.image.width {
                 // Using 0.5 as the default pixel offsets like in Python
@@ -93,8 +105,13 @@ impl<C: Camera> ImageTracer<C> {
                 let color = renderer(ray, world)?;
 
                 self.image.set_pixel(col, row, color)?;
+
+                // For every pixel calculated, we advance the bar by 1
+                pb.inc(1);
             }
         }
+        pb.finish_with_message("Rendering completed!");
+
         Ok(())
     }
 }

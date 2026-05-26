@@ -1,17 +1,17 @@
 use anyhow::Result;
 use clap::Parser;
-use rstrace::brdf::{DiffusiveBrdf,SpecularBrdf};
+use rstrace::brdf::{DiffusiveBrdf, SpecularBrdf};
 use rstrace::camera::{Camera, OrthogonalCamera, PerspectiveCamera};
-use rstrace::color::{Color, BLACK};
+use rstrace::color::{BLACK, Color};
 use rstrace::geometry::Vector;
 use rstrace::hdr_image::HDR;
 use rstrace::image_tracer::ImageTracer;
 use rstrace::materials::Material;
-use rstrace::pfm_func::{Endianness, pfm_to_ldr};
-use rstrace::pigments::{UniformPigment,CheckeredPigment};
-use rstrace::renderer::{FlatRenderer, OnOffRenderer, PathTracer, Renderer};
 use rstrace::pcg::PCG;
+use rstrace::pfm_func::{Endianness, pfm_to_ldr};
+use rstrace::pigments::{CheckeredPigment, UniformPigment};
 use rstrace::ray::Ray;
+use rstrace::renderer::{FlatRenderer, OnOffRenderer, PathTracer, Renderer};
 use rstrace::shapes::{Plane, Shape, Sphere};
 use rstrace::transformations::{Scaling, Transformation, Translation, ZRotation};
 use rstrace::world::World;
@@ -41,7 +41,6 @@ struct Cli {
 enum Commands {
     Demo {
         file_name: String,
-
 
         #[arg(long, default_value_t = 0.0)]
         angle_deg: f32,
@@ -77,13 +76,18 @@ fn demo_world() -> World {
         brdf: Box::new(DiffusiveBrdf {}),
         emitted_radiance: Box::new(UniformPigment::new(Color::new(0.5, 0.9, 1.0))),
     };
-    let sky_transform = Scaling::new([200.0, 200.0, 200.0]) * Translation::new(Vector::new(0.0, 0.0, 0.4));
+    let sky_transform =
+        Scaling::new([200.0, 200.0, 200.0]) * Translation::new(Vector::new(0.0, 0.0, 0.4));
     objects.push(Box::new(Sphere::new(sky_transform, sky_material)));
 
     // 2. THE FLOOR (An infinite chequered floor)
     let ground_material = Material {
         // Let’s create large squares by setting a low step size (e.g. 10, or depending on the scale)
-        pigment: Box::new(CheckeredPigment::new(Color::new(0.3, 0.5, 0.1), Color::new(0.1, 0.2, 0.5), 5)),
+        pigment: Box::new(CheckeredPigment::new(
+            Color::new(0.3, 0.5, 0.1),
+            Color::new(0.1, 0.2, 0.5),
+            5,
+        )),
         brdf: Box::new(DiffusiveBrdf {}),
         emitted_radiance: Box::new(UniformPigment::new(BLACK)),
     };
@@ -127,8 +131,17 @@ fn main() -> Result<()> {
     }
 
     match cli.command {
-        Commands::Demo { file_name, angle_deg, algorithm, num_of_rays, max_depth } => {
-            println!("Generating a {}x{} image, with the camera tilted by {}°", cli.width, cli.height, angle_deg);
+        Commands::Demo {
+            file_name,
+            angle_deg,
+            algorithm,
+            num_of_rays,
+            max_depth,
+        } => {
+            println!(
+                "Generating a {}x{} image, with the camera tilted by {}°",
+                cli.width, cli.height, angle_deg
+            );
 
             let world = demo_world();
             let mut img = HDR::new(cli.width, cli.height);
@@ -136,7 +149,8 @@ fn main() -> Result<()> {
 
             // Let's apply the camera transformation (Rotation around the Z-axis * Translation)
             let angle_rad = angle_deg.to_radians();
-            let camera_tr = ZRotation::new(angle_rad) * Translation::new(Vector::new(-1.0, 0.0, 1.0));
+            let camera_tr =
+                ZRotation::new(angle_rad) * Translation::new(Vector::new(-1.0, 0.0, 1.0));
 
             // Renderer and randomizer setup
             let flat_renderer = FlatRenderer::new(BLACK);
@@ -179,6 +193,8 @@ fn main() -> Result<()> {
             // ==========================================
             // HDR SAVING and LDR CONVERSION
             // ==========================================
+            std::fs::create_dir_all("outputs")?;
+
             let pfm_filename = format!("outputs/{}.pfm", file_name);
             let ldr_filename = format!("outputs/{}.{}", file_name, cli.format);
 

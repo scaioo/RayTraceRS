@@ -21,7 +21,8 @@ pub struct SourceLocation {
     pub file_index: usize,
     /// Line number (starts at 1).
     pub line_number: usize,
-    /// Column number (starts at 0, incremented after each character is read).
+    /// Column number (1-indexed: the first character of a line is column 1).
+    /// Starts at 0 before any character on the line has been read.
     pub col_number: usize,
 }
 
@@ -52,7 +53,9 @@ pub struct InputStream<B: BufRead> {
     pub source_location: SourceLocation,
     /// The saved char.
     pub saved_char: Option<char>,
-    /// The SourceLocation of the saved char.
+    /// The source location stored at the time of the last [`read_char`](InputStream::read_char)
+    /// or [`unread_char`](InputStream::unread_char) call. Used by [`read_token`](InputStream::read_token)
+    /// to assign the correct position to each token.
     pub saved_location: Option<SourceLocation>,
     /// The `\t` spaces.
     pub tabulation: usize,
@@ -84,7 +87,6 @@ impl<B: BufRead> InputStream<B> {
     ///
     /// This function does not handle `\r`.
     fn update_pos(&mut self, ch: char) {
-        // Not included \r handling! Ask Tomasi!!!
         match ch {
             '\n' => {
                 self.source_location.line_number += 1;
@@ -253,11 +255,13 @@ impl<B: BufRead> InputStream<B> {
         }
     }
 
-    /// Reads a string and converts it into the corresponding [`Token`].
+    /// Reads an identifier or keyword token starting from `ch`.
     ///
-    /// If the string matches a reserved keyword of the scene language
-    /// (e.g. `"new"`, `"sphere"`, `"camera"`), produces a [`TokenKind::Keyword`];
-    /// otherwise produces a [`TokenKind::Identifier`].
+    /// Calls [`read_identifier`](Self::read_identifier) to collect the full word,
+    /// then matches it against the reserved keywords of the scene language.
+    /// Produces a [`TokenKind::Keyword`] if the word is reserved
+    /// (e.g. `"new"`, `"sphere"`, `"camera"`), or a [`TokenKind::Identifier`]
+    /// otherwise.
     ///
     /// `loc` is the position of the first character of the token.
     pub fn parse_identifier_token(
@@ -465,7 +469,7 @@ mod test {
     use crate::lexer::Keyword::{FLOAT, MATERIAL};
     use crate::lexer::TokenKind;
     use std::io::Cursor;
-    
+
     static TEST_FILE: &str = "float clock(150)
 
 material sky_material(
@@ -909,7 +913,7 @@ camera(perspective, rotation_z(30) * translation([-4, 0, 1]), 1.0, 1.0)";
         );
         assert_eq!(token.loc, SourceLocation::new(0, 1, 1));
     }
-    
+
     #[test]
     fn test_read_token_identifier_with_low_dash() {
         let text = String::from("_identifier()");

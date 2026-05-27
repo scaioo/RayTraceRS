@@ -326,16 +326,20 @@ impl HDR {
     /// Samples the image using bilinear interpolation.
     ///
     /// The input coordinates are interpreted in normalized UV space,
-    /// where `(0,0)` corresponds to the top-right texel and values
+    /// where `(0,0)` corresponds to the top-left texel and values
     /// are wrapped periodically into the `[0,1)` range.
     ///
     /// The interpolation is performed using the four neighboring texels.
+    ///
+    /// # Warning
+    ///
+    /// UV coordinate are assumed to be positive. No validation is implemented.
     ///
     /// # Errors
     ///
     /// Returns an error if the image contains no pixels.
     pub fn bilinear_interpolation(&self, uv: &Vec2D) -> Result<Color> {
-        if self.width * self.height == 0 {
+        if self.pixels.is_empty() {
             Err(anyhow!(
                 "bilinear_interpolation(): cannot interpolate an empty image"
             ))
@@ -690,5 +694,63 @@ mod test {
                     .unwrap()
             )
         );
+    }
+
+    #[test]
+    fn test_bilinear_interpolation_00_case() {
+        let hdr_image = setup_test_rainbow();
+        let expected = Color {
+            r: 1.0,
+            g: 1.0,
+            b: 1.0,
+        };
+        assert!(
+            expected.is_close(
+                &hdr_image
+                    .bilinear_interpolation(&Vec2D::new(0.0, 0.0))
+                    .unwrap()
+            )
+        );
+    }
+
+    #[test]
+    fn test_bilinear_interpolation_wrapping() {
+        let hdr_image = setup_test_rainbow();
+
+        let expected = Color {
+            r: 0.5,
+            g: 0.4,
+            b: 0.5,
+        };
+        assert!(
+            expected.is_close(
+                &hdr_image
+                    .bilinear_interpolation(&Vec2D::new(1.2, 3.25))
+                    .unwrap(),
+            )
+        );
+    }
+
+    #[test]
+    #[should_panic(expected = "bilinear_interpolation(): cannot interpolate an empty image")]
+    fn test_bilinear_interpolation_fail() {
+        let hdr_image = HDR::new(0, 0);
+        assert!(
+            hdr_image
+                .bilinear_interpolation(&Vec2D::new(0.1, 0.4))
+                .is_err()
+        );
+
+        let hdr_image = HDR::new(1, 0);
+        assert!(
+            hdr_image
+                .bilinear_interpolation(&Vec2D::new(0.2, 0.42))
+                .is_err()
+        );
+
+        let hdr_image = HDR::new(0, 9);
+        hdr_image
+            .bilinear_interpolation(&Vec2D::new(0.3, 1.5))
+            .unwrap();
     }
 }

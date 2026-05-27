@@ -5,7 +5,7 @@
 //! The material is described by `Pigment` and `BRDF`. The first gives the color and the second one
 //! returns the reflected rays. This module focuses on the `Pigment`.
 
-use crate::color::Color;
+use crate::color::{Color, WHITE};
 use crate::geometry::Vec2D;
 use crate::hdr_image::HDR;
 // ===============================================
@@ -27,13 +27,16 @@ pub trait Pigment {
 pub struct UniformPigment {
     pub color: Color,
 }
-
 impl UniformPigment {
     pub fn new(color: Color) -> Self {
         UniformPigment { color }
     }
 }
-
+impl Default for UniformPigment {
+    fn default() -> Self {
+        Self::new(WHITE)
+    }
+}
 impl Pigment for UniformPigment {
     fn get_color(&self, _uv: &Vec2D) -> Color {
         self.color
@@ -50,7 +53,6 @@ pub struct CheckeredPigment {
     pub color2: Color,
     pub steps: u32,
 }
-
 impl CheckeredPigment {
     pub fn new(color1: Color, color2: Color, steps: u32) -> Self {
         CheckeredPigment {
@@ -60,7 +62,6 @@ impl CheckeredPigment {
         }
     }
 }
-
 impl Pigment for CheckeredPigment {
     /// This function returns the color of a checkered surface for a given coordinate (u,v).
     ///
@@ -79,7 +80,6 @@ impl Pigment for CheckeredPigment {
         }
     }
 }
-
 // ===============================================
 // ImagePigment
 // ==============================================
@@ -88,13 +88,11 @@ impl Pigment for CheckeredPigment {
 pub struct ImagePigment {
     pub image: HDR,
 }
-
 impl ImagePigment {
     pub fn new(image: HDR) -> Self {
         ImagePigment { image }
     }
 }
-
 impl Pigment for ImagePigment {
     fn get_color(&self, uv: &Vec2D) -> Color {
         self.image.bilinear_interpolation(uv)
@@ -115,7 +113,6 @@ pub struct GradientPigment {
     pub color2: Color,
     pub angle: f32, // In Radiant
 }
-
 impl GradientPigment {
     pub fn new(color1: Color, color2: Color, angle: f32) -> Self {
         Self {
@@ -125,7 +122,6 @@ impl GradientPigment {
         }
     }
 }
-
 impl Pigment for GradientPigment {
     /// Returns a linear gradient along a rotated axis.
     ///

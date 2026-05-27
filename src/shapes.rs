@@ -41,7 +41,6 @@ pub struct Sphere<T: IsHomogeneousMatrix> {
     pub transformation: T,
     pub material: Material,
 }
-
 impl<T: IsHomogeneousMatrix> Sphere<T> {
     pub fn new(transformation: T, material: Material) -> Self {
         Self {
@@ -50,7 +49,6 @@ impl<T: IsHomogeneousMatrix> Sphere<T> {
         }
     }
 }
-
 impl<T> Shape for Sphere<T>
 where
     T: IsHomogeneousMatrix
@@ -224,9 +222,7 @@ pub struct Triangle {
     pub c: Point,
     pub material: Material,
 }
-
 //                           For triangle implementation
-
 impl Triangle {
     pub fn new(a: Point, b: Point, c: Point, material: Material) -> Self {
         Self { a, b, c, material }
@@ -272,7 +268,6 @@ impl Triangle {
         }
     }
 }
-
 impl Shape for Triangle {
     fn ray_intersection(&self, ray: &Ray) -> Option<HitRecord<'_>> {
         let (t, beta, gamma) = self._intersection(*ray).ok()?;
@@ -291,7 +286,6 @@ impl Shape for Triangle {
             None
         }
     }
-
     fn normal_at(&self, _point: Point, ray: &Ray) -> Normal {
         let result = (self.b - self.a).cross(&(self.c - self.a));
         let result = Normal {
@@ -306,7 +300,6 @@ impl Shape for Triangle {
             result
         }
     }
-
     fn point_to_uv(&self, point: &Point) -> Result<Vec2D> {
         let normal = (self.b - self.a).cross(&(self.c - self.a));
         let origin = *point - normal;
@@ -317,7 +310,6 @@ impl Shape for Triangle {
 
         Ok(Vec2D { x: beta, y: gamma })
     }
-
     fn material(&self) -> &Material {
         &self.material
     }
@@ -345,7 +337,7 @@ mod tests {
         Material {
             pigment: Box::new(UniformPigment::new(Color::new(10.0, 10.0, 10.0))),
             brdf: Box::new(DiffusiveBrdf {}),
-            emitted_radiance: Box::new(UniformPigment::new(Color::new(0.0, 0.0, 0.0))),
+            emitted_radiance: Box::new(UniformPigment::new(Color::new(10.0, 10.0, 10.0))),
         }
     }
 
@@ -560,7 +552,7 @@ mod tests {
         let material = Material {
             pigment: Box::new(UniformPigment::new(Color::new(10.0, 10.0, 10.0))),
             brdf: Box::new(DiffusiveBrdf {}),
-            emitted_radiance: Box::new(UniformPigment::new(Color::new(0.0, 0.0, 0.0))),
+            emitted_radiance: Box::new(UniformPigment::new(Color::new(10., 10., 10.))),
         };
         let transformation = Transformation::new(IDENTITY_4X4);
         let plane = Plane::new(transformation, material);

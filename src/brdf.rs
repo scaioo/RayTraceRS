@@ -22,7 +22,7 @@ pub trait BRDF {
 // ======================================================
 
 /// DiffusiveBrdf is used for the material that emit light rays for 2π hemisphere.
-#[derive(Copy, Clone, Debug, PartialEq)]
+#[derive(Copy, Clone, Debug, PartialEq, Default)]
 pub struct DiffusiveBrdf {}
 impl BRDF for DiffusiveBrdf {
     /// This function returns a random direction ray scattered from a point in the surface.
@@ -50,15 +50,19 @@ impl BRDF for DiffusiveBrdf {
         }
     }
 }
+impl DiffusiveBrdf {
+    pub fn new() -> Self {
+        Self {}
+    }
+}
 
 // ======================================================
-// DiffusiveBrdf
+// SpecularBrdf
 // ======================================================
 
 /// SpecularBrdf represent the totally reflective materials.
 #[derive(Copy, Clone, Debug, PartialEq)]
 pub struct SpecularBrdf {}
-
 impl BRDF for SpecularBrdf {
     fn scatter_ray(
         &self,

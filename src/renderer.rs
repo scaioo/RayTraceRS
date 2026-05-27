@@ -1,6 +1,6 @@
 //! This module contains the various renderers this raytracer implements
 
-use crate::color::Color;
+use crate::color::{BLACK, Color, WHITE};
 use crate::pcg::PCG;
 use crate::ray::Ray;
 use crate::world::World;
@@ -18,7 +18,6 @@ pub struct OnOffRenderer {
     pub color: Color,
     pub background_color: Color,
 }
-
 impl OnOffRenderer {
     pub fn new(color: Color, background_color: Color) -> Self {
         Self {
@@ -27,12 +26,11 @@ impl OnOffRenderer {
         }
     }
 }
-
 impl Default for OnOffRenderer {
     fn default() -> Self {
         Self {
-            color: Color::new(1.0, 1.0, 1.0),            //WHITE
-            background_color: Color::new(0.0, 0.0, 0.0), //BLACK
+            color: WHITE,
+            background_color: BLACK,
         }
     }
 }
@@ -67,7 +65,7 @@ impl FlatRenderer {
 impl Default for FlatRenderer {
     fn default() -> Self {
         Self {
-            background_color: Color::new(0.0, 0.0, 0.0), //BLACK
+            background_color: BLACK,
         }
     }
 }
@@ -103,7 +101,6 @@ pub struct PathTracer {
     pub max_depth: usize,
     pub depth_russian_roulette: usize,
 }
-
 impl PathTracer {
     pub fn new(
         background_color: Color,
@@ -119,7 +116,6 @@ impl PathTracer {
         }
     }
 }
-
 impl Renderer for PathTracer {
     fn render(&self, ray: &Ray, world: &World, pcg: &mut PCG) -> Result<Color> {
         // 1. Termination fot max depth
@@ -183,3 +179,252 @@ impl Renderer for PathTracer {
 // =================================================================================
 //                                    TESTS
 // =================================================================================
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::brdf::DiffusiveBrdf;
+    use crate::camera::OrthogonalCamera;
+    use crate::color::{BLACK, Color, WHITE};
+    use crate::functions::IDENTITY_4X4;
+    use crate::geometry::{Point, Vector};
+    use crate::hdr_image::HDR;
+    use crate::image_tracer::ImageTracer;
+    use crate::materials::Material;
+    use crate::pcg::PCG;
+    use crate::pigments::UniformPigment;
+    use crate::shapes::Sphere;
+    use crate::transformations::{Scaling, Transformation, Translation};
+    use anyhow::Result;
+    use approx::assert_relative_eq;
+    #[test]
+    fn test_on_off_renderer() -> Result<()> {
+        // Define variables
+        let scaling = Scaling::new([0.2, 0.2, 0.2]);
+        let translation = Translation::new(Vector::new(2., 0., 0.));
+        let pigment = UniformPigment::new(WHITE);
+        let emitted_radiance = UniformPigment::new(BLACK);
+        let brdf = DiffusiveBrdf {};
+        let material = Material::new(pigment, brdf, emitted_radiance);
+        let sphere = Sphere::new(translation * scaling, material);
+
+        let image = HDR::new(3, 3);
+        let camera = OrthogonalCamera::new(Transformation::new(IDENTITY_4X4));
+        let mut tracer = ImageTracer::new(image, camera);
+        let world = World {
+            objects: vec![Box::new(sphere)],
+        };
+
+        let mut pcg = PCG::new();
+        let renderer = OnOffRenderer::default();
+
+        let _ =
+            tracer.fire_all_rays(&world, |ray, world| renderer.render(&ray, world, &mut pcg))?;
+
+        assert!(
+            tracer
+                .image
+                .get_pixel(0, 0)
+                .expect("Pixel (0,0) should exist")
+                .is_close(&BLACK),
+            "Color mismatch at (0,0)"
+        );
+        assert!(
+            tracer
+                .image
+                .get_pixel(1, 0)
+                .expect("Pixel (1,0) should exist")
+                .is_close(&BLACK),
+            "Color mismatch at (1,0)"
+        );
+        assert!(
+            tracer
+                .image
+                .get_pixel(2, 0)
+                .expect("Pixel (2,0) should exist")
+                .is_close(&BLACK),
+            "Color mismatch at (2,0)"
+        );
+
+        assert!(
+            tracer
+                .image
+                .get_pixel(0, 1)
+                .expect("Pixel (0,1) should exist")
+                .is_close(&BLACK),
+            "Color mismatch at (0,1)"
+        );
+        assert!(
+            tracer
+                .image
+                .get_pixel(1, 1)
+                .expect("Pixel (1,1) should exist")
+                .is_close(&WHITE),
+            "Color mismatch at (1,1)"
+        );
+        assert!(
+            tracer
+                .image
+                .get_pixel(2, 1)
+                .expect("Pixel (2,1) should exist")
+                .is_close(&BLACK),
+            "Color mismatch at (2,1)"
+        );
+
+        assert!(
+            tracer
+                .image
+                .get_pixel(0, 2)
+                .expect("Pixel (0,2) should exist")
+                .is_close(&BLACK),
+            "Color mismatch at (0,2)"
+        );
+        assert!(
+            tracer
+                .image
+                .get_pixel(1, 2)
+                .expect("Pixel (1,2) should exist")
+                .is_close(&BLACK),
+            "Color mismatch at (1,2)"
+        );
+        assert!(
+            tracer
+                .image
+                .get_pixel(2, 2)
+                .expect("Pixel (2,2) should exist")
+                .is_close(&BLACK),
+            "Color mismatch at (2,2)"
+        );
+        Ok(())
+    }
+    #[test]
+    fn test_flat_renderer() -> Result<()> {
+        let sphere_color = Color::new(1.0, 2.0, 3.0);
+        // Setup sphere and color specified
+        let scaling = Scaling::new([0.2, 0.2, 0.2]);
+        let translation = Translation::new(Vector::new(2., 0., 0.));
+        let pigment = UniformPigment::new(sphere_color);
+        let brdf = DiffusiveBrdf {};
+        let emitted_radiance = UniformPigment::new(BLACK);
+        let material = Material::new(pigment, brdf, emitted_radiance);
+        let sphere = Sphere::new(translation * scaling, material);
+        let mut pcg = PCG::new();
+        // Setup scene & raytracer
+        let image = HDR::new(3, 3);
+        let camera = OrthogonalCamera::new(Transformation::new(IDENTITY_4X4));
+        let mut tracer = ImageTracer::new(image, camera);
+        let world = World {
+            objects: vec![Box::new(sphere)],
+        };
+
+        let renderer = FlatRenderer::default();
+
+        let _ =
+            tracer.fire_all_rays(&world, |ray, world| renderer.render(&ray, world, &mut pcg))?;
+
+        assert!(
+            tracer
+                .image
+                .get_pixel(0, 0)
+                .expect("Pixel (0,0) should exist")
+                .is_close(&BLACK),
+            "Mismatch at (0,0)"
+        );
+        assert!(
+            tracer
+                .image
+                .get_pixel(1, 0)
+                .expect("Pixel (1,0) should exist")
+                .is_close(&BLACK),
+            "Mismatch at (1,0)"
+        );
+        assert!(
+            tracer
+                .image
+                .get_pixel(2, 0)
+                .expect("Pixel (2,0) should exist")
+                .is_close(&BLACK),
+            "Mismatch at (2,0)"
+        );
+
+        assert!(
+            tracer
+                .image
+                .get_pixel(0, 1)
+                .expect("Pixel (0,1) should exist")
+                .is_close(&BLACK),
+            "Mismatch at (0,1)"
+        );
+        // Verify that flat_renderer return the color of the sphere
+        assert!(
+            tracer
+                .image
+                .get_pixel(1, 1)
+                .expect("Pixel (1,1) should exist")
+                .is_close(&sphere_color),
+            "Mismatch at (1,1)"
+        );
+        assert!(
+            tracer
+                .image
+                .get_pixel(2, 1)
+                .expect("Pixel (2,1) should exist")
+                .is_close(&BLACK),
+            "Mismatch at (2,1)"
+        );
+
+        assert!(
+            tracer
+                .image
+                .get_pixel(0, 2)
+                .expect("Pixel (0,2) should exist")
+                .is_close(&BLACK),
+            "Mismatch at (0,2)"
+        );
+        assert!(
+            tracer
+                .image
+                .get_pixel(1, 2)
+                .expect("Pixel (1,2) should exist")
+                .is_close(&BLACK),
+            "Mismatch at (1,2)"
+        );
+        assert!(
+            tracer
+                .image
+                .get_pixel(2, 2)
+                .expect("Pixel (2,2) should exist")
+                .is_close(&BLACK),
+            "Mismatch at (2,2)"
+        );
+
+        Ok(())
+    }
+    #[test]
+    fn furnace_test() -> Result<()> {
+        let mut pcg = PCG::new();
+        // Run the furnace test several times using random values of L_e and ρ_d
+        for _i in 0..5 {
+            let emitted_radiance = pcg.random_float();
+            let reflectance = pcg.random_float() * 0.9; // Avoid numbers that are too close to 1
+
+            let enclosure_material = Material::new(
+                UniformPigment::new(WHITE * reflectance),
+                DiffusiveBrdf {},
+                UniformPigment::new(WHITE * emitted_radiance),
+            );
+            let sphere = Sphere::new(Transformation::new(IDENTITY_4X4), enclosure_material);
+            let world = World {
+                objects: vec![Box::new(sphere)],
+            };
+            let path_tracer = PathTracer::new(WHITE, 1, 100, 101);
+            let ray = Ray::new(Point::new(0.0, 0.0, 0.0), Vector::new(1., 0., 0.));
+            let color = path_tracer.render(&ray, &world, &mut pcg)?;
+            let expected = emitted_radiance / (1. - reflectance);
+
+            assert_relative_eq!(color.r, expected, epsilon = 1e-3);
+            assert_relative_eq!(color.g, expected, epsilon = 1e-3);
+            assert_relative_eq!(color.b, expected, epsilon = 1e-3);
+        }
+        Ok(())
+    }
+}

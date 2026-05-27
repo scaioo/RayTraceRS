@@ -21,7 +21,6 @@ impl PCG {
         rng
     }
     pub fn new_from_seed(init_state: u64, init_seq: u64) -> Self {
-
         let mut rng = PCG {
             state: 0,
             inc: (init_seq << 1) | 1,

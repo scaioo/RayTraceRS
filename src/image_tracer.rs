@@ -160,6 +160,7 @@ mod tests {
             let material = Material {
                 pigment: Box::new(UniformPigment::new(Color::new(10.0, 10.0, 10.0))),
                 brdf: Box::new(DiffusiveBrdf {}),
+                emitted_radiance: Box::new(UniformPigment::new(Color::new(0.0, 0.0, 0.0))),
             };
             let sphere_scaling = Scaling::new([1.0, 1.0, 1.0]);
 

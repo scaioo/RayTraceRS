@@ -24,6 +24,8 @@ use crate::ray::Ray;
 /// # use rstrace::hit_record::HitRecord;
 /// # use rstrace::geometry::{Point, Normal, Vec2D, Vector};
 /// # use rstrace::ray::Ray;
+/// # use materials::Material;
+/// use rstrace::materials;
 /// let incident_ray = Ray::new(Point::new(0.0, 0.0, 0.0), Vector::new(0.0, 0.0, 1.0));
 ///
 /// let record = HitRecord {
@@ -32,6 +34,7 @@ use crate::ray::Ray;
 ///     uv: Vec2D::new(0.5, 0.5),
 ///     t: 5.0,
 ///     ray: incident_ray,
+///     material: &Material::black_wall(),
 /// };
 /// ```
 pub struct HitRecord<'a> {
@@ -84,7 +87,7 @@ mod tests {
     use crate::brdf::DiffusiveBrdf;
     use crate::color::Color;
     use crate::geometry::{Point, Vec2D, Vector};
-    use crate::pigments::CheckeredPigment;
+    use crate::pigments::{CheckeredPigment, UniformPigment};
 
     fn material() -> Material {
         Material {
@@ -94,6 +97,7 @@ mod tests {
                 steps: 5,
             }),
             brdf: Box::new(DiffusiveBrdf {}),
+            emitted_radiance: Box::new(UniformPigment::new(Color::new(0.0, 0.0, 0.0))),
         }
     }
 

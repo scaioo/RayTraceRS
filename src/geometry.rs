@@ -92,14 +92,15 @@ pub trait TDV {
     fn z(&self) -> f32;
 }
 
-/// This trait maks Vectors and Normals
+/// Marker trait for directional geometric types.
+///
+/// Implemented by [`Vector`] and [`Normal`].
 pub trait VecOrNorm: TDV + Into<Vector> {}
 
 // =======================================================================
 // MACRO DEFINITIONS MARKER TRAITS
 // =======================================================================
 
-#[macro_export] // We could remove this!
 macro_rules! impl_homogeneous {
     ($t:ty, $w:expr) => {
         // Note: this trait implementation works only
@@ -490,7 +491,12 @@ impl_from!(Vector, Point);
 // ==========================================
 // Orthonormal Base function
 // ==========================================
-/// This function returns an orthonormal base with the last of the three being the new Z-Axis.
+/// Builds an orthonormal basis from a normalized direction.
+///
+/// The input vector becomes the third basis vector of the returned frame.
+///
+/// The implementation uses a branchless formulation for numerical stability
+/// and efficiency.
 ///
 /// # Warning
 ///

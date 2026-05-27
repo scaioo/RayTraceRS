@@ -50,3 +50,31 @@ impl Default for PCG {
         Self::new()
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use crate::pcg::PCG;
+
+    #[test]
+    fn test_new_from_seed() {
+        let mut pcg = PCG::new();
+        pcg.state = 1753877967969059832;
+        pcg.inc = 109;
+        for expected in [
+            2707161783, 2068313097, 3122475824, 2211639955, 3215226955, 3421331566,
+        ] {
+            assert_eq!(expected, pcg.random())
+        }
+    }
+
+    #[test]
+    /// checks that pcg is deterministic
+    fn test_deterministic_new_from_seed() {
+        let mut a = PCG::new_from_seed(42, 54);
+        let mut b = PCG::new_from_seed(42, 54);
+
+        for _ in 0..1000 {
+            assert_eq!(a.random(), b.random());
+        }
+    }
+}

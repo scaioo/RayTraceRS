@@ -4,6 +4,7 @@
 //! used to describe how surface colors vary over a geometric object.
 //!
 //! A pigment maps 2D texture coordinates `(u,v)` into a [`Color`].
+//!
 //! Pigments may be:
 //!
 //! - uniform (single constant color)
@@ -30,7 +31,7 @@
 //!
 //! let pigment = UniformPigment::new(Color::new(1.0, 0.0, 0.0));
 //!
-//! let color = pigment.get_color(&Vec2D::new(0.5, 0.5));
+//! let color = pigment.get_color(&Vec2D::new(0.5, 0.5)).unwrap();
 //!
 //! assert_eq!(color.r, 1.0);
 //! ```
@@ -39,6 +40,7 @@
 use crate::color::{Color, WHITE};
 use crate::geometry::Vec2D;
 use crate::hdr_image::HDR;
+use anyhow::Result;
 // ===============================================
 // Pigment type
 // ==============================================
@@ -48,14 +50,14 @@ use crate::hdr_image::HDR;
 /// A `Pigment` maps UV texture coordinates to a [`Color`].
 pub trait Pigment {
     /// Returns the `Color` of a certain point on the surface.
-    fn get_color(&self, uv: &Vec2D) -> Color;
+    fn get_color(&self, uv: &Vec2D) -> Result<Color>;
 }
 
 // ===============================================
 // UniformPigment
 // ==============================================
 
-/// The surface has only one color!
+/// A pigment that returns the same color for every UV coordinate.
 #[derive(Clone, Debug, PartialEq)]
 pub struct UniformPigment {
     pub color: Color,
@@ -63,7 +65,7 @@ pub struct UniformPigment {
 impl UniformPigment {
     /// Creates a pigment with a constant color.
     pub fn new(color: Color) -> Self {
-        UniformPigment { color }
+        Self { color }
     }
 }
 impl Default for UniformPigment {
@@ -72,8 +74,8 @@ impl Default for UniformPigment {
     }
 }
 impl Pigment for UniformPigment {
-    fn get_color(&self, _uv: &Vec2D) -> Color {
-        self.color
+    fn get_color(&self, _uv: &Vec2D) -> Result<Color> {
+        Ok(self.color)
     }
 }
 
@@ -91,10 +93,7 @@ pub struct CheckeredPigment {
     pub steps: u32,
 }
 impl CheckeredPigment {
-    /// A procedural checkerboard pigment.
-    ///
-    /// The UV domain `[0,1] × [0,1]` is subdivided into
-    /// `steps × steps` cells alternating between two colors.
+    /// Creates a checkerboard pigment with the given colors and cell count.
     pub fn new(color1: Color, color2: Color, steps: u32) -> Self {
         CheckeredPigment {
             color1,
@@ -108,17 +107,16 @@ impl Pigment for CheckeredPigment {
     ///
     /// # Warnings
     /// - If `CheckeredPigment` is initialized with `steps = 0` then the output color is always `color1`.
-    /// - The border coordinate `1.0` for `u` or `v` return the same result as `0.0`.
+    /// - The border coordinate `1.0` for `u` or `v` returns the same result as `0.0`.
     /// - UV coordinates are assumed positive.
-    fn get_color(&self, uv: &Vec2D) -> Color {
-        // NOTE: the
+    fn get_color(&self, uv: &Vec2D) -> Result<Color> {
         let int_u = (uv.x * self.steps as f32).floor() as u32;
         let int_v = (uv.y * self.steps as f32).floor() as u32;
 
         if int_u % 2 == int_v % 2 {
-            self.color1
+            Ok(self.color1)
         } else {
-            self.color2
+            Ok(self.color2)
         }
     }
 }
@@ -135,20 +133,20 @@ pub struct ImagePigment {
 }
 impl ImagePigment {
     /// Creates an image pigment from an HDR texture.
-    ///
-    /// # Errors
-    /// Returns an error if the image contains no pixels.
-    pub fn new(image: HDR) -> anyhow::Result<Self> {
-        if image.pixels.is_empty() {
-            Err(anyhow::Error::msg("No pigment image found"))
-        } else {
-            Ok(Self { image })
-        }
+    pub fn new(image: HDR) -> Self {
+        Self { image }
     }
 }
 impl Pigment for ImagePigment {
-    fn get_color(&self, uv: &Vec2D) -> Color {
-        self.image.bilinear_interpolation(uv).unwrap()
+    /// Returns the color of the texture at the given UV coordinates.
+    ///
+    /// Delegates to [`HDR::bilinear_interpolation`], which samples the image
+    /// using bilinear interpolation between the four nearest pixels.
+    ///
+    /// # Errors
+    /// Propagates error if the image contains no pixels.
+    fn get_color(&self, uv: &Vec2D) -> Result<Color> {
+        self.image.bilinear_interpolation(uv)
     }
 }
 
@@ -167,9 +165,14 @@ impl Pigment for ImagePigment {
 pub struct GradientPigment {
     pub color1: Color,
     pub color2: Color,
-    pub angle: f32, // In radians
+    /// Rotation angle of the gradient axis, in radians.
+    pub angle: f32,
 }
 impl GradientPigment {
+    /// Creates a gradient pigment between two colors along a rotated axis.
+    ///
+    /// `angle` is expressed in radians and controls the direction of the
+    /// gradient relative to the U axis.
     pub fn new(color1: Color, color2: Color, angle: f32) -> Self {
         Self {
             color1,
@@ -183,9 +186,9 @@ impl Pigment for GradientPigment {
     ///
     /// The gradient is not clamped, so colors may extrapolate
     /// beyond `color1` and `color2`.
-    fn get_color(&self, uv: &Vec2D) -> Color {
+    fn get_color(&self, uv: &Vec2D) -> Result<Color> {
         let new_x = uv.x * self.angle.cos() + uv.y * self.angle.sin();
-        self.color1 * (1.0 - new_x) + self.color2 * new_x
+        Ok(self.color1 * (1.0 - new_x) + self.color2 * new_x)
     }
 }
 
@@ -213,7 +216,7 @@ mod tests {
     fn test_uniform_pigment_pigments() {
         let color = Color::new(1.0, 2.0, 3.0);
         let pigment = UniformPigment::new(color);
-        assert_eq!(pigment.get_color(&Vec2D { x: 0.0, y: 0.0 }), color);
+        assert_eq!(pigment.get_color(&Vec2D { x: 0.0, y: 0.0 }).unwrap(), color);
     }
 
     // - - - - - - - - - - - - - - - - - - - - - -
@@ -260,7 +263,7 @@ mod tests {
         for i in 0..3 {
             let v = (i * 2 + 1) as f32 / 6.0;
             assert_eq!(
-                &pigment.get_color(&Vec2D { x: u, y: v }),
+                &pigment.get_color(&Vec2D { x: u, y: v }).unwrap(),
                 expected.next().unwrap()
             );
         }
@@ -270,7 +273,7 @@ mod tests {
         for i in 0..3 {
             let v = (i * 2 + 1) as f32 / 6.0;
             assert_eq!(
-                &pigment.get_color(&Vec2D { x: u, y: v }),
+                &pigment.get_color(&Vec2D { x: u, y: v }).unwrap(),
                 expected.next().unwrap()
             );
         }
@@ -280,7 +283,7 @@ mod tests {
         for i in 0..3 {
             let v = (i * 2 + 1) as f32 / 6.0;
             assert_eq!(
-                &pigment.get_color(&Vec2D { x: u, y: v }),
+                &pigment.get_color(&Vec2D { x: u, y: v }).unwrap(),
                 expected.next().unwrap()
             );
         }
@@ -297,7 +300,7 @@ mod tests {
             let u = random_gen.random_float();
             let v = random_gen.random_float();
 
-            assert_eq!(pigment.get_color(&Vec2D { x: u, y: v }), green);
+            assert_eq!(pigment.get_color(&Vec2D { x: u, y: v }).unwrap(), green);
         }
     }
 
@@ -320,13 +323,13 @@ mod tests {
         //   (0,1)                               (1,1)
 
         // top left corner
-        assert_eq!(pigment.get_color(&Vec2D { x: 0.0, y: 0.0 }), red);
+        assert_eq!(pigment.get_color(&Vec2D { x: 0.0, y: 0.0 }).unwrap(), red);
         // top right corner
-        assert_eq!(pigment.get_color(&Vec2D { x: 1.0, y: 1.0 }), red);
+        assert_eq!(pigment.get_color(&Vec2D { x: 1.0, y: 1.0 }).unwrap(), red);
         // bottom left corner
-        assert_eq!(pigment.get_color(&Vec2D { x: 0.0, y: 1.0 }), red);
+        assert_eq!(pigment.get_color(&Vec2D { x: 0.0, y: 1.0 }).unwrap(), red);
         // bottom right corner
-        assert_eq!(pigment.get_color(&Vec2D { x: 1.0, y: 0.0 }), red);
+        assert_eq!(pigment.get_color(&Vec2D { x: 1.0, y: 0.0 }).unwrap(), red);
     }
 
     fn setup_test_rainbow() -> HDR {
@@ -342,7 +345,7 @@ mod tests {
     #[test]
     fn test_image_pigments_constructor() {
         let image = setup_test_rainbow();
-        let image_pigment = ImagePigment::new(image.clone()).unwrap();
+        let image_pigment = ImagePigment::new(image.clone());
 
         assert_eq!(image.width, image_pigment.image.width);
         assert_eq!(image.height, image_pigment.image.height);
@@ -360,14 +363,14 @@ mod tests {
     #[should_panic(expected = "No pigment image found")]
     fn test_image_pigment_constructor_fail() {
         let image = HDR::new(4, 0);
-        let _ = ImagePigment::new(image).unwrap();
+        let _ = ImagePigment::new(image);
     }
 
     #[test]
     fn test_image_pigments_get_color() {
         // basically the same test as in hdr_image ...
         let image = setup_test_rainbow();
-        let image_pigment = ImagePigment::new(image.clone()).unwrap();
+        let image_pigment = ImagePigment::new(image.clone());
 
         let expected = Color {
             r: 0.5,
@@ -424,15 +427,17 @@ mod tests {
         let gradient = setup_gradient();
 
         assert_eq!(
-            gradient.get_color(&Vec2D { x: 0.0, y: 0.0 }),
+            gradient.get_color(&Vec2D { x: 0.0, y: 0.0 }).unwrap(),
             gradient.color1,
             "Error in (0,0) check!"
         );
         assert_eq!(
-            gradient.get_color(&Vec2D {
-                x: 0.5,
-                y: 3.0_f32.sqrt() / 2.0
-            }),
+            gradient
+                .get_color(&Vec2D {
+                    x: 0.5,
+                    y: 3.0_f32.sqrt() / 2.0
+                })
+                .unwrap(),
             gradient.color2,
             "Error in new_x == 1 check!"
         );
@@ -442,10 +447,12 @@ mod tests {
         // The expected color is given by 0.5 * color1 + 0.5 * color2
         let mid_color = Color::new(2.5, 3.5, 4.5);
         assert_eq!(
-            gradient.get_color(&Vec2D {
-                x: 0.25,
-                y: 3.0_f32.sqrt() / 4.0
-            }),
+            gradient
+                .get_color(&Vec2D {
+                    x: 0.25,
+                    y: 3.0_f32.sqrt() / 4.0
+                })
+                .unwrap(),
             mid_color,
             "Error in mid-color check!"
         );
@@ -458,6 +465,6 @@ mod tests {
 
         let expected_color = (1.0 - 1.2294228) * gradient.color1 + 1.2294228 * gradient.color2;
 
-        assert!(expected_color.is_close(&gradient.get_color(&bottom_left_corner)));
+        assert!(expected_color.is_close(&gradient.get_color(&bottom_left_corner).unwrap()));
     }
 }

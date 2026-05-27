@@ -110,7 +110,9 @@ impl ImagePigment {
     pub fn new(image: HDR) -> anyhow::Result<Self> {
         if image.pixels.is_empty() {
             Err(anyhow::Error::msg("No pigment image found"))
-        } else { Ok( Self { image }) }
+        } else {
+            Ok(Self { image })
+        }
     }
 }
 impl Pigment for ImagePigment {

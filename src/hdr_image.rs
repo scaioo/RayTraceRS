@@ -320,49 +320,54 @@ impl HDR {
 }
 
 // ==========================================
-// Repeated linear interpolation
+// Linear interpolation
 // ==========================================
 impl HDR {
-    /// This function returns the **Bilinear Interpolation** of a point in a HDR image.
+    /// Samples the image using bilinear interpolation.
     ///
-    /// The point is stored as a `Vec2D` and assumed to have coordinates in `[0,1)` range.
-    /// No control on this is implemented.
-    pub fn bilinear_interpolation(&self, uv: &Vec2D) -> Color {
-        //      i       x                      i+1    [width]
-        //   j  * ----- * --------------------- *
-        //      |       |                       |
-        //   y  * ----- * --------------------- *
-        //      |       |                       |
-        //      |       |                       |    (Corner dots are pixels)
-        //      |       |                       |
-        //      |       |                       |
-        //      |       |                       |
-        //      * ----- * --------------------- *
-        //    j+1
-        //  [height]
-        let u_wrapped = uv.x - uv.x.floor();
-        let v_wrapped = uv.y - uv.y.floor();
+    /// The input coordinates are interpreted in normalized UV space,
+    /// where `(0,0)` corresponds to the top-right texel and values
+    /// are wrapped periodically into the `[0,1)` range.
+    ///
+    /// The interpolation is performed using the four neighboring texels.
+    ///
+    /// # Errors
+    ///
+    /// Returns an error if the image contains no pixels.
+    pub fn bilinear_interpolation(&self, uv: &Vec2D) -> Result<Color> {
+        if self.width * self.height == 0 {
+            Err(anyhow!(
+                "bilinear_interpolation(): cannot interpolate an empty image"
+            ))
+        } else {
+            // Bilinear interpolation is performed over the surrounding texel cell:
+            // (i0,j0) ---- (i1,j0)
+            //    |             |
+            //    |    (x,y)    |
+            //    |             |
+            // (i0,j1) ---- (i1,j1)
+            let u_wrapped = uv.x - uv.x.floor();
+            let v_wrapped = uv.y - uv.y.floor();
 
-        let x = u_wrapped * self.width as f32;
-        let y = v_wrapped * self.height as f32;
+            let x = u_wrapped * self.width as f32;
+            let y = v_wrapped * self.height as f32;
 
-        // Border cells with wrapping feature
-        let i0 = x.floor() as usize;
-        let j0 = y.floor() as usize;
-        let i1 = (i0 + 1) % self.width;
-        let j1 = (j0 + 1) % self.height;
+            let i0 = x.floor() as usize;
+            let j0 = y.floor() as usize;
+            let i1 = (i0 + 1) % self.width;
+            let j1 = (j0 + 1) % self.height;
 
-        // I used the fact that the formula uses i and i+1
-        let tx = x - i0 as f32;
-        let ty = y - j0 as f32;
+            let tx = x - i0 as f32;
+            let ty = y - j0 as f32;
 
-        let f0 =
-            (1.0 - tx) * self.pixels[i0 + j0 * self.width] + tx * self.pixels[i1 + j0 * self.width];
+            let top = (1.0 - tx) * self.pixels[i0 + j0 * self.width]
+                + tx * self.pixels[i1 + j0 * self.width];
 
-        let f1 =
-            (1.0 - tx) * self.pixels[i0 + j1 * self.width] + tx * self.pixels[i1 + j1 * self.width];
+            let bottom = (1.0 - tx) * self.pixels[i0 + j1 * self.width]
+                + tx * self.pixels[i1 + j1 * self.width];
 
-        (1.0 - ty) * f0 + ty * f1
+            Ok((1.0 - ty) * top + ty * bottom)
+        }
     }
 }
 
@@ -660,7 +665,13 @@ mod test {
             g: 0.4,
             b: 0.5,
         };
-        assert!(expected.is_close(&hdr_image.bilinear_interpolation(&Vec2D::new(0.2, 0.25)),));
+        assert!(
+            expected.is_close(
+                &hdr_image
+                    .bilinear_interpolation(&Vec2D::new(0.2, 0.25))
+                    .unwrap(),
+            )
+        );
     }
 
     #[test]
@@ -672,6 +683,12 @@ mod test {
             g: 0.6,
             b: 0.34,
         };
-        assert!(expected.is_close(&hdr_image.bilinear_interpolation(&Vec2D::new(0.8, 0.25))));
+        assert!(
+            expected.is_close(
+                &hdr_image
+                    .bilinear_interpolation(&Vec2D::new(0.8, 0.25))
+                    .unwrap()
+            )
+        );
     }
 }

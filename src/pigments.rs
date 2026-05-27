@@ -95,7 +95,7 @@ impl ImagePigment {
 }
 impl Pigment for ImagePigment {
     fn get_color(&self, uv: &Vec2D) -> Color {
-        self.image.bilinear_interpolation(uv)
+        self.image.bilinear_interpolation(uv).unwrap()
     }
 }
 
@@ -317,6 +317,7 @@ mod tests {
                 &image_pigment
                     .image
                     .bilinear_interpolation(&Vec2D::new(0.2, 0.25))
+                    .unwrap()
             )
         );
 
@@ -331,6 +332,7 @@ mod tests {
                 &image_pigment
                     .image
                     .bilinear_interpolation(&Vec2D::new(0.8, 0.25))
+                    .unwrap()
             )
         );
     }

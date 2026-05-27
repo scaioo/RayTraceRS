@@ -1,9 +1,40 @@
-//! todo: this is just a draft!!
+//! Surface pigmentation system for the ray tracer.
 //!
-//! This module contains the ray tracer description of a surface color.
+//! This module defines the [`Pigment`] trait and several implementations
+//! used to describe how surface colors vary over a geometric object.
 //!
-//! The material is described by `Pigment` and `BRDF`. The first gives the color and the second one
-//! returns the reflected rays. This module focuses on the `Pigment`.
+//! A pigment maps 2D texture coordinates `(u,v)` into a [`Color`].
+//! Pigments may be:
+//!
+//! - uniform (single constant color)
+//! - procedural (checkerboards, gradients, noise, etc.)
+//! - image-based (texture mapping from HDR images)
+//!
+//! In the renderer architecture, pigments are responsible only for
+//! determining the surface color. The reflection and scattering
+//! behavior of light is instead handled by the BRDF system.
+//!
+//! # Available Pigments
+//!
+//! - [`UniformPigment`] : constant surface color
+//! - [`CheckeredPigment`] : procedural checkerboard pattern
+//! - [`ImagePigment`] : texture sampling from an HDR image
+//! - [`GradientPigment`] : linear procedural gradient
+//!
+//! # Example
+//!
+//! ```rust
+//! use rstrace::color::Color;
+//! use rstrace::geometry::Vec2D;
+//! use rstrace::pigments::{Pigment, UniformPigment};
+//!
+//! let pigment = UniformPigment::new(Color::new(1.0, 0.0, 0.0));
+//!
+//! let color = pigment.get_color(&Vec2D::new(0.5, 0.5));
+//!
+//! assert_eq!(color.r, 1.0);
+//! ```
+//!
 
 use crate::color::{Color, WHITE};
 use crate::geometry::Vec2D;
@@ -122,13 +153,9 @@ impl Pigment for ImagePigment {
 }
 
 // ===============================================
-// ===============================================
-// ================= Extras! =====================
-// ==============================================
+// Experimental procedural pigments
 // ===============================================
 
-// Procedural pigments
-// This is experimental!!
 /// A procedural linear gradient pigment.
 ///
 /// The gradient interpolates linearly between `color1`
@@ -331,7 +358,7 @@ mod tests {
 
     #[test]
     #[should_panic(expected = "No pigment image found")]
-    fn test_gradient_pigments_constructor_fail() {
+    fn test_image_pigment_constructor_fail() {
         let image = HDR::new(4, 0);
         let _ = ImagePigment::new(image).unwrap();
     }

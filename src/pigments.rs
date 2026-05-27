@@ -12,7 +12,9 @@ use crate::hdr_image::HDR;
 // Pigment type
 // ==============================================
 
-/// This is the marker trait for `Pigment` types.
+/// Describes the color distribution over a surface.
+///
+/// A `Pigment` maps UV texture coordinates to a [`Color`].
 pub trait Pigment {
     /// Returns the `Color` of a certain point on the surface.
     fn get_color(&self, uv: &Vec2D) -> Color;
@@ -28,6 +30,7 @@ pub struct UniformPigment {
     pub color: Color,
 }
 impl UniformPigment {
+    /// Creates a pigment with a constant color.
     pub fn new(color: Color) -> Self {
         UniformPigment { color }
     }
@@ -46,7 +49,10 @@ impl Pigment for UniformPigment {
 // ===============================================
 // CheckeredPigment
 // ==============================================
-/// The pigment is a checkered surface
+/// A procedural checkerboard pigment.
+///
+/// The UV domain `[0,1] × [0,1]` is subdivided into
+/// `steps × steps` cells alternating between two colors.
 #[derive(Clone, Debug, PartialEq)]
 pub struct CheckeredPigment {
     pub color1: Color,
@@ -54,6 +60,10 @@ pub struct CheckeredPigment {
     pub steps: u32,
 }
 impl CheckeredPigment {
+    /// A procedural checkerboard pigment.
+    ///
+    /// The UV domain `[0,1] × [0,1]` is subdivided into
+    /// `steps × steps` cells alternating between two colors.
     pub fn new(color1: Color, color2: Color, steps: u32) -> Self {
         CheckeredPigment {
             color1,
@@ -68,6 +78,7 @@ impl Pigment for CheckeredPigment {
     /// # Warnings
     /// - If `CheckeredPigment` is initialized with `steps = 0` then the output color is always `color1`.
     /// - The border coordinate `1.0` for `u` or `v` return the same result as `0.0`.
+    /// - UV coordinates are assumed positive.
     fn get_color(&self, uv: &Vec2D) -> Color {
         // NOTE: the
         let int_u = (uv.x * self.steps as f32).floor() as u32;
@@ -83,14 +94,23 @@ impl Pigment for CheckeredPigment {
 // ===============================================
 // ImagePigment
 // ==============================================
-/// A textured pigment.
+/// A pigment defined by an HDR texture image.
+///
+/// Colors are sampled using bilinear interpolation
+/// in normalized UV coordinates.
 #[derive(Clone, Debug, PartialEq)]
 pub struct ImagePigment {
     pub image: HDR,
 }
 impl ImagePigment {
-    pub fn new(image: HDR) -> Self {
-        ImagePigment { image }
+    /// Creates an image pigment from an HDR texture.
+    ///
+    /// # Errors
+    /// Returns an error if the image contains no pixels.
+    pub fn new(image: HDR) -> anyhow::Result<Self> {
+        if image.pixels.is_empty() {
+            Err(anyhow::Error::msg("No pigment image found"))
+        } else { Ok( Self { image }) }
     }
 }
 impl Pigment for ImagePigment {
@@ -107,11 +127,18 @@ impl Pigment for ImagePigment {
 
 // Procedural pigments
 // This is experimental!!
+/// A procedural linear gradient pigment.
+///
+/// The gradient interpolates linearly between `color1`
+/// and `color2` along an axis rotated by `angle`.
+///
+/// The interpolation is unbounded, so colors may
+/// extrapolate outside the `[color1, color2]` range.
 #[derive(Clone, Debug, PartialEq)]
 pub struct GradientPigment {
     pub color1: Color,
     pub color2: Color,
-    pub angle: f32, // In Radiant
+    pub angle: f32, // In radians
 }
 impl GradientPigment {
     pub fn new(color1: Color, color2: Color, angle: f32) -> Self {
@@ -286,7 +313,7 @@ mod tests {
     #[test]
     fn test_image_pigments_constructor() {
         let image = setup_test_rainbow();
-        let image_pigment = ImagePigment::new(image.clone());
+        let image_pigment = ImagePigment::new(image.clone()).unwrap();
 
         assert_eq!(image.width, image_pigment.image.width);
         assert_eq!(image.height, image_pigment.image.height);
@@ -301,10 +328,17 @@ mod tests {
     }
 
     #[test]
+    #[should_panic(expected = "No pigment image found")]
+    fn test_gradient_pigments_constructor_fail() {
+        let image = HDR::new(4, 0);
+        let _ = ImagePigment::new(image).unwrap();
+    }
+
+    #[test]
     fn test_image_pigments_get_color() {
         // basically the same test as in hdr_image ...
         let image = setup_test_rainbow();
-        let image_pigment = ImagePigment::new(image.clone());
+        let image_pigment = ImagePigment::new(image.clone()).unwrap();
 
         let expected = Color {
             r: 0.5,

@@ -74,13 +74,17 @@ impl Renderer for FlatRenderer {
     ///
     /// This method extracts the material from the `HitRecord`, queries the `Pigment`
     /// using the UV coordinates of the intersection, and returns the resulting `Color`.
+    /// 
+    /// # Errors
+    /// 
+    /// Propagates the error of [`get_color`].
     fn render(&self, ray: &Ray, world: &World, _pcg: &mut PCG) -> Result<Color> {
         // Find the closest intersection in the world
         match world.ray_intersection(ray) {
             Some(hit) => {
                 // The ray hit an object!
                 // We ask the material's pigment for the color at the specific (u, v) coordinates.
-                let color = hit.material.pigment.get_color(&hit.uv);
+                let color = hit.material.pigment.get_color(&hit.uv)?;
                 Ok(color)
             }
             None => {
@@ -130,8 +134,8 @@ impl Renderer for PathTracer {
         };
 
         let material = &hit_record.material;
-        let mut hit_color = material.pigment.get_color(&hit_record.uv);
-        let emitted_radiance = material.emitted_radiance.get_color(&hit_record.uv);
+        let mut hit_color = material.pigment.get_color(&hit_record.uv)?;
+        let emitted_radiance = material.emitted_radiance.get_color(&hit_record.uv)?;
 
         let hit_color_lum = hit_color.r.max(hit_color.g).max(hit_color.b);
 

@@ -144,12 +144,14 @@ where
 pub struct Plane<T: IsHomogeneousMatrix> {
     pub transformation: T,
     pub material: Material,
+    pub procedural_texture: bool
 }
 impl<T: IsHomogeneousMatrix> Plane<T> {
-    pub fn new(transformation: T, material: Material) -> Self {
+    pub fn new(transformation: T, material: Material, procedural_texture: bool) -> Self {
         Self {
             transformation,
             material,
+            procedural_texture
         }
     }
 }
@@ -193,10 +195,18 @@ where
     }
 
     fn point_to_uv(&self, point: &Point) -> Result<Vec2D> {
-        Ok(Vec2D {
-            x: point.x - point.x.floor(),
-            y: point.y - point.y.floor(),
-        })
+        if self.procedural_texture {
+            Ok(Vec2D {
+                x: point.x,
+                y: point.y,
+            })
+        } else {
+            Ok(Vec2D {
+                x: point.x - point.x.floor(),
+                y: point.y - point.y.floor(),
+            })
+        }
+
     }
 
     fn material(&self) -> &Material {
@@ -555,7 +565,7 @@ mod tests {
             emitted_radiance: Box::new(UniformPigment::new(Color::new(10., 10., 10.))),
         };
         let transformation = Transformation::new(IDENTITY_4X4);
-        let plane = Plane::new(transformation, material);
+        let plane = Plane::new(transformation, material, false);
 
         // Ray from top to bottom
         let ray_top = Ray::new(Point::new(0.0, 0.0, 5.0), Vector::new(0.0, 0.0, -1.0));
@@ -600,7 +610,7 @@ mod tests {
     #[test]
     fn test_plane_uv_fractional_coordinates() {
         let transformation = Transformation::new(IDENTITY_4X4);
-        let plane = Plane::new(transformation, give_white_uniform_diffusive());
+        let plane = Plane::new(transformation, give_white_uniform_diffusive(), false);
 
         // A ray hits the plane in x = 2.5, y = -1.3
         let ray = Ray::new(Point::new(2.5, -1.3, 5.0), Vector::new(0.0, 0.0, -1.0));

@@ -95,7 +95,7 @@ mod tests {
         let incoming_dir = Vector::new(0.0, -1.0, -1.0);
         let interacting_point = Point::new(0.0, 0.0, 0.0);
         let normal = Normal::new(0.0, 0.0, 1.0);
-        (PCG::new(), incoming_dir, interacting_point, normal)
+        (PCG::default(), incoming_dir, interacting_point, normal)
     }
 
     #[test]
@@ -138,7 +138,7 @@ mod tests {
         let expected_dir = Vector::new(0.0, -1.0, 1.0).normalize();
 
         let result =
-            specular_brdf.scatter_ray(&mut PCG::new(), incoming_dir, interacting_point, normal, 5);
+            specular_brdf.scatter_ray(&mut PCG::default(), incoming_dir, interacting_point, normal, 5);
 
         assert_eq!(result.dir, expected_dir);
     }

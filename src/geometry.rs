@@ -749,7 +749,7 @@ mod tests {
 
     #[test]
     fn test_onb_orthogonality() {
-        let mut random_gen = PCG::new();
+        let mut random_gen = PCG::default();
 
         for i in 1..5000 {
             let normal = build_random_normal(&mut random_gen);
@@ -778,7 +778,7 @@ mod tests {
 
     #[test]
     fn test_onb_normalization() {
-        let mut random_gen = PCG::new();
+        let mut random_gen = PCG::default();
 
         for i in 1..5000 {
             let normal = build_random_normal(&mut random_gen);
@@ -805,7 +805,7 @@ mod tests {
 
     #[test]
     fn test_onb_cross_product() {
-        let mut random_gen = PCG::new();
+        let mut random_gen = PCG::default();
 
         for i in 1..5000 {
             let normal = build_random_normal(&mut random_gen);

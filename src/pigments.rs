@@ -296,7 +296,7 @@ mod tests {
         let pigment = CheckeredPigment::new(green, blue, 0);
 
         for _ in 0..10000 {
-            let mut random_gen = PCG::new();
+            let mut random_gen = PCG::default();
             let u = random_gen.random_float();
             let v = random_gen.random_float();
 

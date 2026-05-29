@@ -218,7 +218,7 @@ mod tests {
             objects: vec![Box::new(sphere)],
         };
 
-        let mut pcg = PCG::new();
+        let mut pcg = PCG::default();
         let renderer = OnOffRenderer::default();
 
         let _ =
@@ -311,7 +311,7 @@ mod tests {
         let emitted_radiance = UniformPigment::new(BLACK);
         let material = Material::new(pigment, brdf, emitted_radiance);
         let sphere = Sphere::new(translation * scaling, material);
-        let mut pcg = PCG::new();
+        let mut pcg = PCG::default();
         // Setup scene & raytracer
         let image = HDR::new(3, 3);
         let camera = OrthogonalCamera::new(Transformation::new(IDENTITY_4X4));
@@ -405,7 +405,7 @@ mod tests {
     }
     #[test]
     fn furnace_test() -> Result<()> {
-        let mut pcg = PCG::new();
+        let mut pcg = PCG::default();
         // Run the furnace test several times using random values of L_e and ρ_d
         for _i in 0..5 {
             let emitted_radiance = pcg.random_float();

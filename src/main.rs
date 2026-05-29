@@ -162,7 +162,7 @@ fn main() -> Result<()> {
             let path_tracer = PathTracer::new(BLACK, num_of_rays, max_depth, 2);
 
             // Let’s initialize the random number generator
-            let mut pcg = PCG::new();
+            let mut pcg = PCG::default();
 
             let render_closure = |ray: Ray, world: &World| -> Result<Color> {
                 if algorithm == "onoff" {

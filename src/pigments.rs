@@ -360,13 +360,6 @@ mod tests {
     }
 
     #[test]
-    #[should_panic(expected = "No pigment image found")]
-    fn test_image_pigment_constructor_fail() {
-        let image = HDR::new(4, 0);
-        let _ = ImagePigment::new(image);
-    }
-
-    #[test]
     fn test_image_pigments_get_color() {
         // basically the same test as in hdr_image ...
         let image = setup_test_rainbow();

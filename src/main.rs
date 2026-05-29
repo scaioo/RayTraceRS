@@ -92,7 +92,7 @@ fn demo_world() -> World {
         emitted_radiance: Box::new(UniformPigment::new(BLACK)),
     };
     let ground_transform = Transformation::new(rstrace::functions::IDENTITY_4X4);
-    objects.push(Box::new(Plane::new(ground_transform, ground_material)));
+    objects.push(Box::new(Plane::new(ground_transform, ground_material, true)));
 
     // 3. DIFFUSE SPHERE
     let sphere_material = Material {

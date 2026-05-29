@@ -1,12 +1,33 @@
-//! The BRDF encodes the Bidirectional Reflectance Distribution Function of the Rendering Equation.
+//! # BRDF — Bidirectional Reflectance Distribution Functions
 //!
-
+//! This module defines the [`BRDF`] trait and its two concrete implementations:
+//!
+//! - [`DiffusiveBrdf`] — Lambertian (perfectly diffuse) scattering over the
+//!   cosine-weighted hemisphere above the surface normal.
+//! - [`SpecularBrdf`] — Perfect mirror reflection.
+//!
+//! Both are used by the renderer to determine how a ray continues after
+//! hitting a surface at the interaction point.
 use crate::geometry::{Dot, Normal, Point, Vector, branchless_onb};
 use crate::pcg::PCG;
 use crate::ray::Ray;
 
-/// This trait collects the various BRDF types.
+/// Bidirectional Reflectance Distribution Function.
+///
+/// Implementors describe how a surface scatters an incoming ray into an
+/// outgoing ray
 pub trait BRDF {
+    /// Computes the scattered [`Ray`] produced when `incoming_dir` hits a
+    /// surface at `interacting_point`.
+    ///
+    /// # Arguments
+    ///
+    /// * `pcg`               — mutable RNG used for stochastic sampling.
+    /// * `incoming_dir`      — direction of the ray arriving at the surface.
+    /// * `interacting_point` — world-space point of intersection.
+    /// * `normal`            — surface normal at the interaction point
+    /// * `depth`             — current ray recursion depth, forwarded to the
+    ///                         new [`Ray`] unchanged.
     fn scatter_ray(
         &self,
         pcg: &mut PCG,
@@ -21,11 +42,17 @@ pub trait BRDF {
 // DiffusiveBrdf
 // ======================================================
 
-/// DiffusiveBrdf is used for the material that emit light rays for 2π hemisphere.
+/// A perfectly diffuse material.
+///
+/// Scatters incoming rays with a cosine-weighted distribution over the 
+/// hemisphere above the surface normal, independent of the incoming direction.
+/// This models rough, matte surfaces such as chalk or unfinished plaster.
 #[derive(Copy, Clone, Debug, PartialEq, Default)]
 pub struct DiffusiveBrdf {}
 impl BRDF for DiffusiveBrdf {
-    /// This function returns a random direction ray scattered from a point in the surface.
+    /// Scatters the ray in a random direction in the hemisphere above `normal`.
+    ///
+    /// The resulting direction always satisfies `dir · normal > 0`.
     fn scatter_ray(
         &self,
         pcg: &mut PCG,
@@ -50,17 +77,15 @@ impl BRDF for DiffusiveBrdf {
         }
     }
 }
-impl DiffusiveBrdf {
-    pub fn new() -> Self {
-        Self {}
-    }
-}
 
 // ======================================================
 // SpecularBrdf
 // ======================================================
 
-/// SpecularBrdf represent the totally reflective materials.
+/// A perfectly specular material.
+///
+/// Reflects incoming rays about the surface normal with no scattering.
+/// Models polished metals, mirrors, and other near-perfect reflectors.
 #[derive(Copy, Clone, Debug, PartialEq)]
 pub struct SpecularBrdf {}
 impl BRDF for SpecularBrdf {
@@ -137,8 +162,13 @@ mod tests {
 
         let expected_dir = Vector::new(0.0, -1.0, 1.0).normalize();
 
-        let result =
-            specular_brdf.scatter_ray(&mut PCG::default(), incoming_dir, interacting_point, normal, 5);
+        let result = specular_brdf.scatter_ray(
+            &mut PCG::default(),
+            incoming_dir,
+            interacting_point,
+            normal,
+            5,
+        );
 
         assert_eq!(result.dir, expected_dir);
     }

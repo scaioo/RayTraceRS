@@ -110,10 +110,10 @@ impl Pigment for CheckeredPigment {
     /// - The border coordinate `1.0` for `u` or `v` returns the same result as `0.0`.
     /// - UV coordinates are assumed positive.
     fn get_color(&self, uv: &Vec2D) -> Result<Color> {
-        let int_u = (uv.x * self.steps as f32).floor() as u32;
-        let int_v = (uv.y * self.steps as f32).floor() as u32;
+        let int_u = (uv.x * self.steps as f32).floor() as i32;
+        let int_v = (uv.y * self.steps as f32).floor() as i32;
 
-        if int_u % 2 == int_v % 2 {
+        if (int_u + int_v).rem_euclid(2) == 0 {
             Ok(self.color1)
         } else {
             Ok(self.color2)

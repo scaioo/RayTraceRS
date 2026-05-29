@@ -74,9 +74,9 @@ impl Renderer for FlatRenderer {
     ///
     /// This method extracts the material from the `HitRecord`, queries the `Pigment`
     /// using the UV coordinates of the intersection, and returns the resulting `Color`.
-    /// 
+    ///
     /// # Errors
-    /// 
+    ///
     /// Propagates the error of [`get_color`].
     fn render(&self, ray: &Ray, world: &World, _pcg: &mut PCG) -> Result<Color> {
         // Find the closest intersection in the world

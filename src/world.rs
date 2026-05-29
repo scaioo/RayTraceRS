@@ -148,9 +148,21 @@ mod tests {
         let transformation = Transformation::new(IDENTITY_4X4);
         let world_2 = World {
             objects: vec![
-                Box::new(Plane::new(transformation, give_white_uniform_diffusive(), false)),
-                Box::new(Plane::new(transformation, give_white_uniform_diffusive(), false)),
-                Box::new(Plane::new(transformation, give_white_uniform_diffusive(), false)),
+                Box::new(Plane::new(
+                    transformation,
+                    give_white_uniform_diffusive(),
+                    false,
+                )),
+                Box::new(Plane::new(
+                    transformation,
+                    give_white_uniform_diffusive(),
+                    false,
+                )),
+                Box::new(Plane::new(
+                    transformation,
+                    give_white_uniform_diffusive(),
+                    false,
+                )),
             ],
         };
 

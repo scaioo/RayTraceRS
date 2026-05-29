@@ -144,14 +144,14 @@ where
 pub struct Plane<T: IsHomogeneousMatrix> {
     pub transformation: T,
     pub material: Material,
-    pub procedural_texture: bool
+    pub procedural_texture: bool,
 }
 impl<T: IsHomogeneousMatrix> Plane<T> {
     pub fn new(transformation: T, material: Material, procedural_texture: bool) -> Self {
         Self {
             transformation,
             material,
-            procedural_texture
+            procedural_texture,
         }
     }
 }
@@ -206,7 +206,6 @@ where
                 y: point.y - point.y.floor(),
             })
         }
-
     }
 
     fn material(&self) -> &Material {

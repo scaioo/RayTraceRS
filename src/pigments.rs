@@ -42,15 +42,35 @@ use crate::geometry::Vec2D;
 use crate::hdr_image::HDR;
 use anyhow::Result;
 // ===============================================
+// Pigment Cloning supertrait
+// ==============================================
+
+pub trait ClonePigment {
+    fn clone_pigment(&self) -> Box<dyn Pigment>;
+}
+
+impl<T> ClonePigment for T where T: Pigment + Clone + 'static {
+    fn clone_pigment(&self) -> Box<dyn Pigment> {
+        Box::new(self.clone())
+    }
+}
+
+// ===============================================
 // Pigment type
 // ==============================================
 
 /// Describes the color distribution over a surface.
 ///
 /// A `Pigment` maps UV texture coordinates to a [`Color`].
-pub trait Pigment {
+pub trait Pigment : ClonePigment {
     /// Returns the `Color` of a certain point on the surface.
     fn get_color(&self, uv: &Vec2D) -> Result<Color>;
+}
+
+impl Clone for Box<dyn Pigment> {
+    fn clone(&self) -> Box<dyn Pigment> {
+        self.clone_pigment()
+    }
 }
 
 // ===============================================

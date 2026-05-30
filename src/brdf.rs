@@ -12,11 +12,29 @@ use crate::geometry::{Dot, Normal, Point, Vector, branchless_onb};
 use crate::pcg::PCG;
 use crate::ray::Ray;
 
+// ======================================================================
+// Cloning supertraits
+// ======================================================================
+pub trait CloneBrdf {
+    fn clone_brdf(&self) -> Box<dyn BRDF>;
+}
+
+impl<T> CloneBrdf for T
+where T : BRDF + Clone + 'static {
+    fn clone_brdf(&self) -> Box<dyn BRDF> {
+        Box::new(self.clone())
+    }
+}
+
+// ======================================================================
+// BRDF trait
+// ======================================================================
+
 /// Bidirectional Reflectance Distribution Function.
 ///
 /// Implementors describe how a surface scatters an incoming ray into an
 /// outgoing ray
-pub trait BRDF {
+pub trait BRDF : CloneBrdf {
     /// Computes the scattered [`Ray`] produced when `incoming_dir` hits a
     /// surface at `interacting_point`.
     ///
@@ -36,6 +54,12 @@ pub trait BRDF {
         normal: Normal,
         depth: usize,
     ) -> Ray;
+}
+
+impl Clone for Box<dyn BRDF> {
+    fn clone(&self) -> Box<dyn BRDF> {
+        self.clone_brdf()
+    }
 }
 
 // ======================================================

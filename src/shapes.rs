@@ -26,12 +26,28 @@ use crate::ray::Ray;
 use crate::transformations::IsHomogeneousMatrix;
 use anyhow::{Result, anyhow};
 use std::ops::Mul;
+// ========================================================
+// Supertrait CloneShape
+// ========================================================
+
+pub trait CloneShape {
+    fn clone_shape(&self) -> Box<dyn Shape>;
+}
+
+impl<T> CloneShape for T
+where
+    T: Shape + Clone + 'static,
+{
+    fn clone_shape(&self) -> Box<dyn Shape> {
+        Box::new(self.clone())
+    }
+}
 
 /// Core trait for ray-intersectable scene objects.
 ///
 /// Every shape placed in the scene must implement this trait. The four methods together
 /// provide all information the renderer needs to compute lighting at a surface point.
-pub trait Shape {
+pub trait Shape: CloneShape {
     /// Tests whether `ray` intersects this shape.
     ///
     /// Returns the closest valid [`HitRecord`] within `[ray.t_min, ray.t_max]`,
@@ -55,6 +71,13 @@ pub trait Shape {
     /// Returns a reference to the [`Material`] assigned to this shape.
     fn material(&self) -> &Material;
 }
+
+impl Clone for Box<dyn Shape> {
+    fn clone(&self) -> Box<dyn Shape> {
+        self.clone_shape()
+    }
+}
+
 // =================================================================================
 /// A unit sphere centered at the origin, subject to a homogeneous transformation.
 ///
@@ -67,6 +90,7 @@ pub trait Shape {
 /// Surface coordinates follow the standard spherical parametrisation:
 /// - `u = φ / 2π ∈ [0, 1]` — longitude (azimuthal angle around the z-axis)
 /// - `v = θ / π ∈ [0, 1]` — colatitude (polar angle from the +z pole)
+#[derive(Clone)]
 pub struct Sphere<T: IsHomogeneousMatrix> {
     /// The world-from-object transformation applied to the unit sphere.
     pub transformation: T,
@@ -89,7 +113,8 @@ where
         + Mul<Point, Output = Point>
         + Mul<Normal, Output = Normal>
         + Mul<Vector, Output = Vector>
-        + Copy,
+        + Copy
+        + 'static,
 {
     fn ray_intersection(&self, ray: &Ray) -> Option<HitRecord<'_>> {
         let inverse_transformation = self.transformation.inverse_transformation();
@@ -172,6 +197,7 @@ where
 /// - **Tiled** (`false`): `u = frac(x)`, `v = frac(y)` — repeats the texture every unit square.
 /// - **Procedural** (`true`): `u = x`, `v = y` — raw world coordinates, useful for
 ///   procedural patterns that must be scale-aware.
+#[derive(Clone)]
 pub struct Plane<T: IsHomogeneousMatrix> {
     /// The world-from-object transformation applied to the canonical xy-plane.
     pub transformation: T,
@@ -196,6 +222,7 @@ where
         + Mul<Point, Output = Point>
         + Mul<Normal, Output = Normal>
         + Mul<Vector, Output = Vector>
+        + 'static
         + Copy,
 {
     fn ray_intersection(&self, ray: &Ray) -> Option<HitRecord<'_>> {
@@ -264,6 +291,7 @@ where
 /// Unlike [`Sphere`] and [`Plane`], `Triangle` has no generic transformation parameter.
 /// To place a triangle in an arbitrary position, transform the vertices `a`, `b`, `c`
 /// before passing them to [`Triangle::new`].
+#[derive(Clone)]
 pub struct Triangle {
     /// First vertex.
     pub a: Point,
@@ -605,10 +633,8 @@ mod tests {
 
     #[test]
     fn test_sphere_ray_intersection_bug15() {
-        let sphere: Sphere<Scaling> = Sphere::new(
-            Scaling::new([0.1, 0.1, 0.1]),
-            Material::default(),
-        );
+        let sphere: Sphere<Scaling> =
+            Sphere::new(Scaling::new([0.1, 0.1, 0.1]), Material::default());
         for i in 0..100 {
             let ray = Ray::new(Point::new(-10.0 * i as f32, 0.0, 0.0), X_AXIS);
             let hit_record = sphere.ray_intersection(&ray);

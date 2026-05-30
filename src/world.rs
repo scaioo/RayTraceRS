@@ -10,6 +10,7 @@ use crate::shapes::Shape;
 use std::ops::Add;
 
 /// A `World` is a collection of scene objects.
+#[derive(Clone)]
 pub struct World {
     pub objects: Vec<Box<dyn Shape>>,
 }
@@ -33,7 +34,6 @@ impl World {
             // it already returned None via .ok()?, so the world stays safe.
             if let Some(hit) = object.ray_intersection(ray)
                 && hit.t < closest_t
-                && hit.t > ray.t_min
             {
                 closest_t = hit.t;
                 closest_hit = Some(hit);
@@ -71,27 +71,16 @@ mod tests {
     use crate::world::World;
     use anyhow::Result;
 
-    fn give_white_uniform_diffusive() -> Material {
-        Material {
-            pigment: Box::new(UniformPigment::new(Color::new(10.0, 10.0, 10.0))),
-            brdf: Box::new(DiffusiveBrdf {}),
-            emitted_radiance: Box::new(UniformPigment::new(Color::new(10., 10., 10.))),
-        }
-    }
-
     fn setup() -> World {
         let sphere1 = Sphere::new(
             Translation::new(Vector::new(5.0, 0.0, 0.0)),
-            give_white_uniform_diffusive(),
+            Material::default(),
         );
         let sphere2 = Sphere::new(
             Translation::new(Vector::new(0.0, 5.0, 0.0)),
-            give_white_uniform_diffusive(),
+            Material::default(),
         );
-        let bean = Sphere::new(
-            Scaling::new([1.0, 1.0, 2.0]),
-            give_white_uniform_diffusive(),
-        );
+        let bean = Sphere::new(Scaling::new([1.0, 1.0, 2.0]), Material::default());
 
         World {
             objects: vec![Box::new(sphere1), Box::new(sphere2), Box::new(bean)],
@@ -148,21 +137,9 @@ mod tests {
         let transformation = Transformation::new(IDENTITY_4X4);
         let world_2 = World {
             objects: vec![
-                Box::new(Plane::new(
-                    transformation,
-                    give_white_uniform_diffusive(),
-                    false,
-                )),
-                Box::new(Plane::new(
-                    transformation,
-                    give_white_uniform_diffusive(),
-                    false,
-                )),
-                Box::new(Plane::new(
-                    transformation,
-                    give_white_uniform_diffusive(),
-                    false,
-                )),
+                Box::new(Plane::new(transformation, Material::default(), false)),
+                Box::new(Plane::new(transformation, Material::default(), false)),
+                Box::new(Plane::new(transformation, Material::default(), false)),
             ],
         };
 

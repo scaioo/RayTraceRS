@@ -15,10 +15,16 @@ use crate::ray::Ray;
 // ======================================================================
 // Cloning supertraits
 // ======================================================================
+/// Helper supertrait that makes `Box<dyn BRDF>` cloneable.
+///
+/// You never need to implement this manually. The blanket `impl` below
+/// provides it automatically for any type that implements `BRDF + Clone`.
 pub trait CloneBrdf {
     fn clone_brdf(&self) -> Box<dyn BRDF>;
 }
 
+/// Blanket implementation: any `T: BRDF + Clone + 'static` gets
+/// [`CloneBrdf`] for free by boxing a normal `.clone()` call.
 impl<T> CloneBrdf for T
 where
     T: BRDF + Clone + 'static,
@@ -115,6 +121,11 @@ impl BRDF for DiffusiveBrdf {
 #[derive(Copy, Clone, Debug, PartialEq)]
 pub struct SpecularBrdf {}
 impl BRDF for SpecularBrdf {
+    /// Reflects `incoming_dir` about `normal` using the mirror reflection law.
+    ///
+    /// The reflected direction is `d - 2(d · n̂)n̂`, where `d` and `n̂` are
+    /// the normalised incoming direction and surface normal respectively.
+    /// The result is deterministic — `pcg` is not used.
     fn scatter_ray(
         &self,
         _pcg: &mut PCG,

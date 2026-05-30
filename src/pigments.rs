@@ -44,11 +44,16 @@ use anyhow::Result;
 // ===============================================
 // Pigment Cloning supertrait
 // ==============================================
-
+/// Helper supertrait that makes `Box<dyn Pigment>` cloneable.
+///
+/// You never need to implement this manually. The blanket `impl` below
+/// provides it automatically for any type that implements `Pigment + Clone`.
 pub trait ClonePigment {
     fn clone_pigment(&self) -> Box<dyn Pigment>;
 }
 
+/// Blanket implementation: any `T: Pigment + Clone + 'static` gets
+/// [`ClonePigment`] for free by boxing a normal `.clone()` call.
 impl<T> ClonePigment for T
 where
     T: Pigment + Clone + 'static,

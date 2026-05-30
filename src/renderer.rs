@@ -1,4 +1,17 @@
-//! This module contains the various renderers this raytracer implements
+//! # Renderers
+//!
+//! This module defines the [`Renderer`] trait and its three implementations,
+//! each representing a different strategy for computing the colour of a pixel
+//! from a ray cast into a [`World`].
+//!
+//! ## Available renderers
+//!
+//! | Type | Description | Use case |
+//! |---|---|---|
+//! | [`OnOffRenderer`] | Binary hit/miss colouring | Scene debugging, silhouettes |
+//! | [`FlatRenderer`] | Surface colour, no lighting | Material and UV debugging |
+//! | [`PathTracer`] | Full Monte Carlo path tracing | Final physically-based renders |
+//!
 
 use crate::color::{BLACK, Color, WHITE};
 use crate::pcg::PCG;
@@ -6,19 +19,47 @@ use crate::ray::Ray;
 use crate::world::World;
 use anyhow::Result;
 
+/// Core trait for ray-to-colour evaluation strategies.
+///
+/// A `Renderer` takes a ray, a scene, and a random number generator, and
+/// returns the estimated colour for that ray. Different implementations trade
+/// physical accuracy for speed.
+///
+/// # Errors
+///
+/// Implementations may return an error if a [`Pigment::get_color`] call fails
+/// (e.g. an [`ImagePigment`](crate::pigments::ImagePigment) with no pixels).
 pub trait Renderer {
+    /// Computes the colour contribution of `ray` in `world`.
+    ///
+    /// `pcg` is used by stochastic renderers (e.g. [`PathTracer`]) for
+    /// direction sampling and Russian Roulette. Deterministic renderers
+    /// (`OnOffRenderer`, `FlatRenderer`) ignore it.
     fn render(&self, ray: &Ray, world: &World, pcg: &mut PCG) -> Result<Color>;
 }
 // =================================================================
 // OnOffRenderer
 // =================================================================
 
-/// If the ray hits something, that pixel is colored with `color`, otherwise with `background_color`.
+/// A binary renderer that colours pixels based solely on ray–object intersection.
+///
+/// Pixels where the ray hits any object are painted with `color`; pixels where
+/// it misses everything are painted with `background_color`. No lighting,
+/// shading, or material properties are considered.
+///
+/// # Use case
+///
+/// Useful for quick scene validation: verifying object placement, checking
+/// transformations, and producing silhouette renders.
+#[derive(Clone, Debug, PartialEq)]
 pub struct OnOffRenderer {
+    /// Colour used for pixels where the ray hits an object.
     pub color: Color,
+    /// Colour used for pixels where the ray misses all objects.
     pub background_color: Color,
 }
 impl OnOffRenderer {
+    /// Creates a new `OnOffRenderer` with the given hit and background colours.
     pub fn new(color: Color, background_color: Color) -> Self {
         Self {
             color,
@@ -27,6 +68,7 @@ impl OnOffRenderer {
     }
 }
 impl Default for OnOffRenderer {
+    /// Returns an `OnOffRenderer` with white hits on a black background.
     fn default() -> Self {
         Self {
             color: WHITE,
@@ -35,6 +77,9 @@ impl Default for OnOffRenderer {
     }
 }
 impl Renderer for OnOffRenderer {
+    /// Returns `color` if `ray` hits any object, `background_color` otherwise.
+    ///
+    /// The random number generator `pcg` is not used.
     fn render(&self, ray: &Ray, world: &World, _pcg: &mut PCG) -> Result<Color> {
         let inters = world.ray_intersection(ray);
         match inters {
@@ -63,6 +108,7 @@ impl FlatRenderer {
     }
 }
 impl Default for FlatRenderer {
+    /// Returns a `FlatRenderer` with a black background.
     fn default() -> Self {
         Self {
             background_color: BLACK,
@@ -98,14 +144,33 @@ impl Renderer for FlatRenderer {
 // =================================================================
 // PathTracing
 // =================================================================
+/// A physically-based renderer that solves the rendering equation by
+/// recursive Monte Carlo path tracing.
 #[derive(Clone, Debug, PartialEq)]
 pub struct PathTracer {
+    /// Colour returned when a ray escapes the scene without hitting anything.
     pub background_color: Color,
+    /// Number of shadow/scatter rays sampled per bounce (Monte Carlo samples).
+    /// Higher values reduce variance (noise) at the cost of render time.
     pub n_rays: usize,
+    /// Hard upper bound on ray recursion depth.
+    /// Rays exceeding this depth return black, introducing a small bias.
     pub max_depth: usize,
+    /// Recursion depth at which Russian Roulette begins.
+    /// Set greater than `max_depth` to disable Russian Roulette entirely.
     pub depth_russian_roulette: usize,
 }
 impl PathTracer {
+    /// Creates a new `PathTracer` with explicit control over all parameters.
+    ///
+    /// # Parameters
+    ///
+    /// - `background_color` — radiance returned for rays that escape the scene.
+    /// - `n_rays` — Monte Carlo samples per bounce. `1` is typical for path
+    ///   tracing (noise is reduced by averaging over many pixel samples instead).
+    /// - `max_depth` — maximum number of ray bounces before forced termination.
+    /// - `depth_russian_roulette` — bounce depth at which Russian Roulette
+    ///   stochastic termination activates. Set above `max_depth` to disable.
     pub fn new(
         background_color: Color,
         n_rays: usize,
@@ -121,8 +186,14 @@ impl PathTracer {
     }
 }
 impl Renderer for PathTracer {
+    /// Estimates the radiance of `ray` by recursive Monte Carlo path tracing.
+    ///
+    /// # Errors
+    ///
+    /// Propagates errors from [`Pigment::get_color`](crate::pigments::Pigment::get_color)
+    /// if a material's pigment or emitted radiance evaluation fails.
     fn render(&self, ray: &Ray, world: &World, pcg: &mut PCG) -> Result<Color> {
-        // 1. Termination fot max depth
+        // 1. Termination for max depth
         if ray.depth > self.max_depth {
             return Ok(Color::new(0.0, 0.0, 0.0));
         }

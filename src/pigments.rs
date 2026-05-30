@@ -49,7 +49,10 @@ pub trait ClonePigment {
     fn clone_pigment(&self) -> Box<dyn Pigment>;
 }
 
-impl<T> ClonePigment for T where T: Pigment + Clone + 'static {
+impl<T> ClonePigment for T
+where
+    T: Pigment + Clone + 'static,
+{
     fn clone_pigment(&self) -> Box<dyn Pigment> {
         Box::new(self.clone())
     }
@@ -62,7 +65,7 @@ impl<T> ClonePigment for T where T: Pigment + Clone + 'static {
 /// Describes the color distribution over a surface.
 ///
 /// A `Pigment` maps UV texture coordinates to a [`Color`].
-pub trait Pigment : ClonePigment {
+pub trait Pigment: ClonePigment {
     /// Returns the `Color` of a certain point on the surface.
     fn get_color(&self, uv: &Vec2D) -> Result<Color>;
 }

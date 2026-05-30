@@ -74,7 +74,6 @@ pub struct Sphere<T: IsHomogeneousMatrix> {
     pub material: Material,
 }
 
-
 impl<T: IsHomogeneousMatrix> Sphere<T> {
     pub fn new(transformation: T, material: Material) -> Self {
         Self {
@@ -274,7 +273,6 @@ pub struct Triangle {
     pub c: Point,
     /// Surface material (pigment + BRDF + emitted radiance).
     pub material: Material,
-
 }
 //                           For triangle implementation
 impl Triangle {

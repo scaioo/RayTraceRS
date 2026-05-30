@@ -4,10 +4,10 @@
 //!
 //! In this raytracing project only reflectance is considered. No transparent materials.
 
-use indicatif::style::ProgressTracker;
 use crate::brdf::{BRDF, DiffusiveBrdf};
 use crate::color::BLACK;
 use crate::pigments::{Pigment, UniformPigment};
+use indicatif::style::ProgressTracker;
 
 // ======================================================================
 // Material struct

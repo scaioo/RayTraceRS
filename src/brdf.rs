@@ -20,7 +20,9 @@ pub trait CloneBrdf {
 }
 
 impl<T> CloneBrdf for T
-where T : BRDF + Clone + 'static {
+where
+    T: BRDF + Clone + 'static,
+{
     fn clone_brdf(&self) -> Box<dyn BRDF> {
         Box::new(self.clone())
     }
@@ -34,7 +36,7 @@ where T : BRDF + Clone + 'static {
 ///
 /// Implementors describe how a surface scatters an incoming ray into an
 /// outgoing ray
-pub trait BRDF : CloneBrdf {
+pub trait BRDF: CloneBrdf {
     /// Computes the scattered [`Ray`] produced when `incoming_dir` hits a
     /// surface at `interacting_point`.
     ///

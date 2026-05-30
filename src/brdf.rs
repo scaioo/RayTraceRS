@@ -1,10 +1,10 @@
 //! # BRDF — Bidirectional Reflectance Distribution Functions
 //!
-//! This module defines the [`BRDF`] trait and its two concrete implementations:
+//! This module defines the [`BRDF`] trait and its implementations:
 //!
-//! - [`DiffusiveBrdf`] — Lambertian (perfectly diffuse) scattering over the
+//! - [`DiffusiveBrdf`] — perfectly diffuse scattering over the
 //!   cosine-weighted hemisphere above the surface normal.
-//! - [`SpecularBrdf`] — Perfect mirror reflection.
+//! - [`SpecularBrdf`] — perfect mirror reflection.
 //!
 //! Both are used by the renderer to determine how a ray continues after
 //! hitting a surface at the interaction point.
@@ -44,9 +44,9 @@ pub trait BRDF {
 
 /// A perfectly diffuse material.
 ///
-/// Scatters incoming rays with a cosine-weighted distribution over the 
+/// Scatters incoming rays with a cosine-weighted distribution over the
 /// hemisphere above the surface normal, independent of the incoming direction.
-/// This models rough, matte surfaces such as chalk or unfinished plaster.
+/// This models rough, matter surfaces such as chalk or unfinished plaster.
 #[derive(Copy, Clone, Debug, PartialEq, Default)]
 pub struct DiffusiveBrdf {}
 impl BRDF for DiffusiveBrdf {

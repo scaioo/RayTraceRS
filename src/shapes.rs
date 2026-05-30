@@ -395,14 +395,6 @@ mod tests {
     use crate::pigments::UniformPigment;
     use crate::transformations::{Scaling, Transformation, Translation};
 
-    fn give_white_uniform_diffusive() -> Material {
-        Material {
-            pigment: Box::new(UniformPigment::new(Color::new(10.0, 10.0, 10.0))),
-            brdf: Box::new(DiffusiveBrdf {}),
-            emitted_radiance: Box::new(UniformPigment::new(Color::new(10.0, 10.0, 10.0))),
-        }
-    }
-
     fn setup1() -> (Sphere<Transformation>, [Ray; 3]) {
         let rays = [
             Ray::new(Point::new(0.0, 0.0, 2.0), Vector::new(0.0, 0.0, -1.0)),
@@ -411,7 +403,7 @@ mod tests {
         ];
 
         let transformation = Transformation::new(IDENTITY_4X4);
-        let sphere = Sphere::new(transformation, give_white_uniform_diffusive());
+        let sphere = Sphere::new(transformation, Material::default());
         (sphere, rays)
     }
 
@@ -483,7 +475,7 @@ mod tests {
 
     fn setup2() -> (Sphere<Translation>, Ray, Ray) {
         let translation = Translation::new(Vector::new(10.0, 0.0, 0.0));
-        let sphere = Sphere::new(translation, give_white_uniform_diffusive());
+        let sphere = Sphere::new(translation, Material::default());
         let ray = Ray::new(Point::new(10.0, 0.0, 2.0), Vector::new(0.0, 0.0, -1.0));
         let ray2 = Ray::new(Point::new(13.0, 0.0, 0.0), Vector::new(-1.0, 0.0, 0.0));
 
@@ -615,7 +607,7 @@ mod tests {
     fn test_sphere_ray_intersection_bug15() {
         let sphere: Sphere<Scaling> = Sphere::new(
             Scaling::new([0.1, 0.1, 0.1]),
-            give_white_uniform_diffusive(),
+            Material::default(),
         );
         for i in 0..100 {
             let ray = Ray::new(Point::new(-10.0 * i as f32, 0.0, 0.0), X_AXIS);
@@ -680,7 +672,7 @@ mod tests {
     #[test]
     fn test_plane_uv_fractional_coordinates() {
         let transformation = Transformation::new(IDENTITY_4X4);
-        let plane = Plane::new(transformation, give_white_uniform_diffusive(), false);
+        let plane = Plane::new(transformation, Material::default(), false);
 
         // A ray hits the plane in x = 2.5, y = -1.3
         let ray = Ray::new(Point::new(2.5, -1.3, 5.0), Vector::new(0.0, 0.0, -1.0));
@@ -697,7 +689,7 @@ mod tests {
             a: Point::new(0.0, 4.0, 0.0),
             b: Point::new(0.0, -1.0, 0.0),
             c: Point::new(0.0, 0.0, 4.0),
-            material: give_white_uniform_diffusive(),
+            material: Material::default(),
         }
     }
 

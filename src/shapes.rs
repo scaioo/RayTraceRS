@@ -22,6 +22,7 @@ use crate::functions::{Within, are_close, cramer};
 use crate::geometry::{Cross, Dot, Normal, Point, Vec2D, Vector};
 use crate::hit_record::HitRecord;
 use crate::materials::Material;
+use crate::pigments::ClonePigment;
 use crate::ray::Ray;
 use crate::transformations::IsHomogeneousMatrix;
 use anyhow::{Result, anyhow};
@@ -30,10 +31,16 @@ use std::ops::Mul;
 // Supertrait CloneShape
 // ========================================================
 
+/// Helper supertrait that makes `Box<dyn Shape>` cloneable.
+///
+/// You never need to implement this manually. The blanket `impl` below
+/// provides it automatically for any type that implements `Shape + Clone`.
 pub trait CloneShape {
     fn clone_shape(&self) -> Box<dyn Shape>;
 }
 
+/// Blanket implementation: any `T: Shape + Clone + 'static` gets
+/// [`CloneShape`] for free by boxing a normal `.clone()` call.
 impl<T> CloneShape for T
 where
     T: Shape + Clone + 'static,

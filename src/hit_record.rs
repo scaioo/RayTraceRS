@@ -4,8 +4,8 @@
 //! "did it hit?". We need the exact coordinates of the intersection, the surface normal for
 //! lighting calculations, texture coordinates, and the distance traveled.
 //!
-//! The [`HitRecord`] bundles all this crucial geometric information into a single,
-//! easy-to-pass structure, decoupling the shape intersection logic from the shading logic.
+//! The [`HitRecord`] bundles all this crucial geometric information into a single structure,
+//! decoupling the shape intersection logic from the shading logic.
 
 use crate::functions::are_close;
 use crate::geometry::{Normal, Point, Vec2D, is_close};
@@ -38,11 +38,10 @@ use crate::ray::Ray;
 /// };
 /// ```
 pub struct HitRecord<'a> {
-    /// The precise 3D position in world space where the intersection occurred.
+    /// The 3D position in world space where the intersection occurred.
     pub world_point: Point,
 
     /// The surface normal vector at the point of intersection.
-    /// Crucial for calculating reflections, refractions, and lighting.
     pub normal: Normal,
 
     /// The 2D surface coordinates (u, v) at the intersection point.
@@ -63,15 +62,9 @@ pub struct HitRecord<'a> {
 impl<'a> HitRecord<'a> {
     /// Checks if two `HitRecord` instances are approximately equal.
     ///
-    /// Due to floating-point inaccuracies inherent in raytracing mathematics,
-    /// exact equality (`==`) is often unreliable. This method compares all fields
+    /// This method compares all fields
     /// (point, normal, uv, t, and ray) using a small epsilon tolerance.
-    ///
     /// This is primarily used in unit testing to verify intersection algorithms.
-    ///
-    /// # Arguments
-    ///
-    /// * `hr` - A reference to the other `HitRecord` to compare against.
     pub fn is_close(&self, hr: &HitRecord) -> bool {
         is_close(self.world_point, hr.world_point)
             && is_close(self.normal, hr.normal)
@@ -121,14 +114,13 @@ mod tests {
             Point::new(0.0000001, 1.0, -0.999999),
             Vector::new(0.0000001, 0.0, -0.0000001),
         );
-        let mat2 = material();
         let mut hr2 = HitRecord {
             world_point: Point::new(1.0, 1.999999, 3.0),
             normal: Normal::new(4.0000001, 5.0, 6.0),
             uv: Vec2D::new(7.0, 8.0000001),
             t: 1.0000001,
             ray: ray2,
-            material: &mat2,
+            material: &mat1,
         };
         assert!(hr1.is_close(&hr2));
 

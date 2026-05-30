@@ -2,8 +2,6 @@
 //!
 //! In this module we define the trait `RayIntersection` that collects all the shape the user
 //! can put in the image tracer scene. Then follows the shape classes: `Sphere`, `Plane` and `Triangle`.
-//!
-//! All the documentation is a WIP - draft!
 
 use crate::functions::{Within, are_close, cramer};
 use crate::geometry::{Cross, Dot, Normal, Point, Vec2D, Vector};
@@ -66,9 +64,9 @@ where
 
         let a = transformed_ray.dir.squared_norm();
         let half_b = origin.dot(&transformed_ray.dir);
-        let c = origin.squared_norm() - 1.0;
+        let cross = transformed_ray.dir.cross(&origin);
 
-        let discriminant = half_b * half_b - a * c;
+        let discriminant = a - cross.squared_norm();
 
         if discriminant < 0.0 || are_close(discriminant, 0.0) {
             return None;
@@ -338,9 +336,9 @@ mod tests {
     use crate::brdf::DiffusiveBrdf;
     use crate::color::Color;
     use crate::functions::IDENTITY_4X4;
-    use crate::geometry::is_close;
+    use crate::geometry::{is_close, X_AXIS};
     use crate::pigments::UniformPigment;
-    use crate::transformations::{Transformation, Translation};
+    use crate::transformations::{Scaling, Transformation, Translation};
 
     fn give_white_uniform_diffusive() -> Material {
         Material {
@@ -557,6 +555,21 @@ mod tests {
             hit_record.unwrap().world_point
         );
     }
+
+    #[test]
+    fn test_sphere_ray_intersection_bug15() {
+        let sphere: Sphere<Scaling> = Sphere::new(Scaling::new([0.1, 0.1, 0.1]), give_white_uniform_diffusive());
+        for i in 0..100 {
+            let ray = Ray::new(Point::new(-10.0 * i as f32, 0.0, 0.0), X_AXIS);
+            let hit_record = sphere.ray_intersection(&ray);
+            assert!(
+                !hit_record.is_none(),
+                "Error occurred ({}): there should be intersection!",
+                i + 1
+            );
+        }
+    }
+
     fn setup_plane() -> (Plane<Transformation>, Ray, Ray, Ray) {
         let material = Material {
             pigment: Box::new(UniformPigment::new(Color::new(10.0, 10.0, 10.0))),

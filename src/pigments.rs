@@ -322,9 +322,9 @@ mod tests {
         let green = Color::new(0.0, 1.0, 0.0);
         let blue = Color::new(0.0, 0.0, 1.0);
         let pigment = CheckeredPigment::new(green, blue, 0);
+        let mut random_gen = PCG::default();
 
         for _ in 0..10000 {
-            let mut random_gen = PCG::default();
             let u = random_gen.random_float();
             let v = random_gen.random_float();
 

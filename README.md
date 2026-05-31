@@ -8,29 +8,26 @@ reflections, and camera geometry.
 
 ## Current Status
 
-The project is currently able to generate a first rendered image using basic
-ray-shape intersections.
+RayTraceRS is currently capable of rendering physically based images using a full Monte Carlo path tracer.
 
-Development is prioritized as follows:
+The engine already supports:
 
-- [x] **v0.1.0 — Core Architecture**
-  - [x] Basic Rust project structure (library + binary)
-  - [x] `Color` and math utilities
-  - [x] HDR image buffer and `.pfm` file I/O
+* Diffuse and perfect-specular materials
+* Procedural pigments and HDR image textures
+* Perspective and orthogonal cameras
+* Multiple rendering algorithms selectable at runtime
+* Recursive light transport through path tracing
 
-- [x] **v0.2.0 — Primitive Geometry**
-  - [x] `Point`, `Vector`, and `Normal` basic architecture
-  - [x] `Transform` architecture for geometric transformations
-  - [x] `Sphere`, `Plane`, and `Triangle` geometry
-  - [x] Basic camera system with viewport mapping
-  - [x] `World` struct to contain scene shapes
-  - [x] `Ray` type with shape-intersection utilities
-  - [x] `OnOffRenderer` to produce the first images
+The project is actively developed, with the following features planned for the first stable release.
 
-- [ ] **v0.3.0 — Ray Tracing Engine**
-  - [ ] Implement a path tracer
-  - [ ] Add `Material` type
-  - [ ] Add `FlatRenderer` and path tracing algorithm
+### Roadmap to v1.0.0
+
+* [ ] Scene file lexer
+* [ ] Scene interpreter and parser
+* [ ] Constructive Solid Geometry (CSG)
+* [ ] Triangle and quadrilateral mesh support
+* [ ] Antialiasing
+* [ ] Additional example scenes and documentation
 
 ## 🚀 Installation
 
@@ -42,16 +39,15 @@ Make sure you have the Rust toolchain installed.
 
 To run the test suite and verify that everything works:
 
-```bash
+```
 cargo test --release
-````
-
-To build and run the project:
-
-```bash
-cargo run --release
 ```
 
+To build the project:
+
+```
+cargo build --release
+```
 
 ## 🖥️ Command Line Interface
 
@@ -61,86 +57,126 @@ images, and testing the rendering pipeline.
 ### Global Options
 
 These options are available for the rendering commands:
+
 - `--width <N>`: output image width
 - `--height <N>`: output image height
 - `--orthogonal`: use an orthogonal camera instead of a perspective camera
 - `--format <T>`: choose the file format you want to save the first converted image into
 
+
 ### Commands
 
-`demo``
+`demo`
 
-Renders a demo scene made of multiple spheres, saves the result as a `.pfm`
-image, and converts it to a `.png` preview.
+Renders a demo scene made of multiple spheres and a chequered floor,
+saves the result as a `.pfm` image, and converts it to a `.png` preview.
 
-```bash
-cargo run --release -- demo output
+```
+cargo run demo output
+```
+
+With a specific rendering algorithm (`onoff`, `flat`, or `pathtracing`):
+
+```
+cargo run demo output --algorithm flat
+```
+
+With custom path-tracing parameters:
+
+```
+cargo run demo output --num-of-rays 20 --max-depth 5
 ```
 
 With an orthogonal camera:
 
-```bash
-cargo run --release -- --orthogonal demo ortho_scene
+```
+cargo run -- --orthogonal demo ortho_scene
 ```
 
 With a custom resolution:
 
-```bash
-cargo run --release -- --width 1920 --height 1080 demo hd_scene
+```
+cargo run -- --width 1920 --height 1080 demo hd_scene
 ```
 
-`pfm2png``
+Additional `demo` options:
+
+- `--angle-deg <DEG>`: rotate the camera around the Z-axis (default: `0.0`).
+- `--algorithm <ALG>`: rendering algorithm — `onoff`, `flat`, or `pathtracing` (default: `pathtracing`).
+- `--num-of-rays <N>`: number of secondary rays per bounce for the path tracer (default: `10`).
+- `--max-depth <N>`: maximum ray recursion depth (default: `3`).
+
+`pfm2png`
 
 Converts a `.pfm` HDR image into an LDR image such as `.png`.
 
-```bash
-cargo run --release -- pfm2png input.pfm output.png 0.18 2.2
+```
+cargo run pfm2png input.pfm output.png 0.18 2.2
 ```
 
 Arguments:
+
 - `input.pfm`: input HDR image path,
 - `output.png`: output image,
 - `0.18`: normalization factor used for tone mapping,
 - `2.2`: gamma correction value.
 
+
 ## ✨ Features
 
 The current release provides the following building blocks:
+
 - `Color` module for RGB color representation and operations
-- `HDR` image module for storing image pixels
+- `HDR` image module for storing image pixels and bilinear interpolation
 - PFM file I/O support for reading and writing `.pfm` images
 - Basic geometric primitives and affine transformations
+- `PCG` pseudo-random number generator for stochastic sampling
+- `Pigment` trait with `UniformPigment`, `CheckeredPigment`, `ImagePigment`, and `GradientPigment`
+- `BRDF` trait with diffusive (`DiffusiveBrdf`) and mirror (`SpecularBrdf`) reflectance models
+- `Material` type bundling pigment, BRDF, and self-emitted radiance
 - Ray representation and ray transformation support
 - Scene management through the `World` type
 - Camera abstraction for perspective and orthogonal projections
+- `OnOffRenderer` (debug), `FlatRenderer` (unlit), and `PathTracer` (Monte Carlo path tracing)
+- Progress bar during rendering via `indicatif`
+
 
 ### Directory Structure
+
 The repository follows the standard Cargo project structure.
 
-```text
+```
 RayTraceRS/
 ├── outputs/              # Generated outputs
 ├── src/                  # Core source code
+│   ├── brdf.rs           # BRDF trait and implementations (diffuse, specular)
 │   ├── camera.rs         # Camera types and viewport mapping
 │   ├── color.rs          # Color types and color math
 │   ├── functions.rs      # Math utilities and helper functions
-│   ├── geometry.rs       # Vector, Point, and Normal types
+│   ├── geometry.rs       # Vector, Point, Normal types and ONB construction
 │   ├── hdr_image.rs      # HDR buffer and image processing logic
+│   ├── hit_record.rs     # Ray-surface intersection data
+│   ├── image_tracer.rs   # Rendering loop and pixel traversal
 │   ├── lib.rs            # Crate root and public API
 │   ├── main.rs           # CLI entry point
+│   ├── materials.rs      # Material type (pigment + BRDF + emission)
+│   ├── pcg.rs            # PCG pseudo-random number generator
 │   ├── pfm_func.rs       # PFM file format I/O handling
+│   ├── pigments.rs       # Pigment trait and texture implementations
 │   ├── ray.rs            # Ray type and ray utilities
+│   ├── renderer.rs       # Renderer trait and rendering algorithms
 │   ├── shapes.rs         # Scene geometry and intersections
 │   ├── transformations.rs# Affine transformation utilities
 │   └── world.rs          # Scene container and ray traversal
 ├── tests/                # Integration tests
 ├── Cargo.toml            # Project dependencies and metadata
-├── README.md             # ReadMe file 
+├── README.md             # ReadMe file
 └── LICENSE.md            # License file
+
 ```
 
 ## 📌 Notes
 
 - The project is still in active development.
 - Some modules are intentionally kept simple while the rendering pipeline is being expanded.
-- Generated images are usually stored in the output/ directory.
+- Generated images are usually stored in the `outputs/` directory.

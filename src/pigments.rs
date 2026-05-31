@@ -338,13 +338,33 @@ mod tests {
         let green = Color::new(0.0, 1.0, 0.0);
         let pigment = CheckeredPigment::new(red, green, 3);
 
-        assert_eq!(pigment.get_color(&Vec2D { x: 1.1, y: 0.0 }).unwrap(), green, "Assert (1) failed");
-        assert_eq!(pigment.get_color(&Vec2D { x: 0.1, y: 1.1 }).unwrap(), green, "Assert (2) failed");
+        assert_eq!(
+            pigment.get_color(&Vec2D { x: 1.1, y: 0.0 }).unwrap(),
+            green,
+            "Assert (1) failed"
+        );
+        assert_eq!(
+            pigment.get_color(&Vec2D { x: 0.1, y: 1.1 }).unwrap(),
+            green,
+            "Assert (2) failed"
+        );
 
-        assert_eq!(pigment.get_color(&Vec2D { x: 1.1, y: 1.0 }).unwrap(), red, "Assert (3) failed");
-        assert_eq!(pigment.get_color(&Vec2D { x: 1.9, y: 1.9 }).unwrap(), red, "Assert (4) failed");
+        assert_eq!(
+            pigment.get_color(&Vec2D { x: 1.1, y: 1.0 }).unwrap(),
+            red,
+            "Assert (3) failed"
+        );
+        assert_eq!(
+            pigment.get_color(&Vec2D { x: 1.9, y: 1.9 }).unwrap(),
+            red,
+            "Assert (4) failed"
+        );
 
-        assert_eq!(pigment.get_color(&Vec2D { x: 0.5, y: 1.9 }).unwrap(), red, "Assert (5) failed");
+        assert_eq!(
+            pigment.get_color(&Vec2D { x: 0.5, y: 1.9 }).unwrap(),
+            red,
+            "Assert (5) failed"
+        );
     }
 
     fn setup_test_rainbow() -> HDR {

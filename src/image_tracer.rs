@@ -13,6 +13,7 @@ use crate::hdr_image::HDR;
 use crate::ray::Ray;
 use crate::world::World;
 use anyhow::Result;
+use indicatif::{ProgressBar, ProgressStyle};
 
 /// The engine responsible for shooting rays through the camera and painting the image.
 ///
@@ -80,31 +81,50 @@ impl<C: Camera> ImageTracer<C> {
     /// # Errors
     /// Returns an error if the shading function fails or if setting the pixel
     /// goes out of bounds (which should mathematically never happen here).
-    pub fn fire_all_rays<F>(&mut self, world: &World, func: F) -> Result<()>
+    pub fn fire_all_rays<F>(&mut self, world: &World, mut renderer: F) -> Result<()>
     where
         // `func` takes a Ray and returns a Color (adjust return type as needed)
-        F: Fn(Ray, &World) -> Result<Color>,
+        F: FnMut(Ray, &World) -> Result<Color>,
     {
+        // Import and initialize the toolbar tools
+        let total_pixels = (self.image.width * self.image.height) as u64;
+        let pb = ProgressBar::new(total_pixels);
+        // Let’s give the bar a “Pro” look (Elapsed time, Bar, Percentage)
+        pb.set_style(
+            ProgressStyle::with_template(
+                "{spinner:.green} [{elapsed_precise}] [{wide_bar:.cyan/blue}] {percent}% ({pos}/{len} px) - ETA: {eta_precise}"
+            )?
+                .progress_chars("#>-")
+        );
+
         for row in 0..self.image.height {
             for col in 0..self.image.width {
                 // Using 0.5 as the default pixel offsets like in Python
                 let ray = self.fire_ray(col, row, 0.5, 0.5);
 
-                let color = func(ray, world)?;
+                let color = renderer(ray, world)?;
 
                 self.image.set_pixel(col, row, color)?;
+
+                // For every pixel calculated, we advance the bar by 1
+                pb.inc(1);
             }
         }
+        pb.finish_with_message("Rendering completed!");
+
         Ok(())
     }
 }
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::brdf::DiffusiveBrdf;
     use crate::camera::PerspectiveCamera;
     use crate::color::Color;
     use crate::functions::IDENTITY_4X4;
     use crate::geometry::{Point, Vector};
+    use crate::materials::Material;
+    use crate::pigments::UniformPigment;
     use crate::shapes::{Shape, Sphere};
     use crate::transformations::{Scaling, Transformation, Translation};
 
@@ -154,10 +174,16 @@ mod tests {
         }
 
         fn demo_world() -> World {
+            let material = Material {
+                pigment: Box::new(UniformPigment::new(Color::new(10.0, 10.0, 10.0))),
+                brdf: Box::new(DiffusiveBrdf {}),
+                emitted_radiance: Box::new(UniformPigment::new(Color::new(10.0, 10.0, 10.0))),
+            };
             let sphere_scaling = Scaling::new([1.0, 1.0, 1.0]);
 
             let central_spheres = vec![Sphere::new(
                 Translation::new(Vector::new(0.0, 0.0, -0.0)) * sphere_scaling,
+                material,
             )];
 
             let objects: Vec<Box<dyn Shape>> = central_spheres

@@ -37,6 +37,7 @@ use byteorder::{BigEndian, LittleEndian, WriteBytesExt};
 use std::fs::File;
 use std::io::{BufReader, Write};
 
+use crate::geometry::Vec2D;
 use crate::pfm_func::{Endianness, Parameter, read_pfm};
 use image::{Rgb, RgbImage};
 
@@ -318,6 +319,66 @@ impl HDR {
     }
 }
 
+// ==========================================
+// Linear interpolation
+// ==========================================
+impl HDR {
+    /// Samples the image using bilinear interpolation.
+    ///
+    /// The input coordinates are interpreted in normalized UV space,
+    /// where `(0,0)` corresponds to the top-left texel and values
+    /// are wrapped periodically into the `[0,1)` range.
+    ///
+    /// The interpolation is performed using the four neighboring texels.
+    ///
+    /// # Warning
+    ///
+    /// UV coordinate are assumed to be positive. No validation is implemented.
+    ///
+    /// # Errors
+    ///
+    /// Returns an error if the image contains no pixels.
+    pub fn bilinear_interpolation(&self, uv: &Vec2D) -> Result<Color> {
+        if self.pixels.is_empty() {
+            Err(anyhow!(
+                "bilinear_interpolation(): cannot interpolate an empty image"
+            ))
+        } else {
+            // Bilinear interpolation is performed over the surrounding texel cell:
+            // (i0,j0) ---- (i1,j0)
+            //    |             |
+            //    |    (x,y)    |
+            //    |             |
+            // (i0,j1) ---- (i1,j1)
+            let u_wrapped = uv.x - uv.x.floor();
+            let v_wrapped = uv.y - uv.y.floor();
+
+            let x = u_wrapped * self.width as f32;
+            let y = v_wrapped * self.height as f32;
+
+            let i0 = x.floor() as usize;
+            let j0 = y.floor() as usize;
+            let i1 = (i0 + 1) % self.width;
+            let j1 = (j0 + 1) % self.height;
+
+            let tx = x - i0 as f32;
+            let ty = y - j0 as f32;
+
+            let top = (1.0 - tx) * self.pixels[i0 + j0 * self.width]
+                + tx * self.pixels[i1 + j0 * self.width];
+
+            let bottom = (1.0 - tx) * self.pixels[i0 + j1 * self.width]
+                + tx * self.pixels[i1 + j1 * self.width];
+
+            Ok((1.0 - ty) * top + ty * bottom)
+        }
+    }
+}
+
+// ==========================================
+// HDR to LDR
+// ==========================================
+
 /// Converts an HDR image stored in `.pfm` (Portable Float Map) format into an LDR image.
 ///
 /// The function performs the following steps:
@@ -409,6 +470,7 @@ pub fn hdr_to_ldr(argv: &mut Parameter) -> Result<()> {
 #[cfg(test)]
 mod test {
     use super::*;
+    use crate::color::RAINBOW_COLORS;
     use crate::functions::are_close;
     #[test]
     fn test_new() {
@@ -586,5 +648,109 @@ mod test {
         );
 
         Ok(())
+    }
+
+    fn setup_test_rainbow() -> HDR {
+        let mut img = HDR::new(4, 2);
+
+        for (i, color) in RAINBOW_COLORS.iter().enumerate() {
+            img.pixels[i] = *color;
+        }
+
+        img
+    }
+
+    #[test]
+    fn test_bilinear_interpolation() {
+        let hdr_image = setup_test_rainbow();
+
+        let expected = Color {
+            r: 0.5,
+            g: 0.4,
+            b: 0.5,
+        };
+        assert!(
+            expected.is_close(
+                &hdr_image
+                    .bilinear_interpolation(&Vec2D::new(0.2, 0.25))
+                    .unwrap(),
+            )
+        );
+    }
+
+    #[test]
+    fn test_bilinear_interpolation_top_border_pixel() {
+        let hdr_image = setup_test_rainbow();
+
+        let expected = Color {
+            r: 0.74,
+            g: 0.6,
+            b: 0.34,
+        };
+        assert!(
+            expected.is_close(
+                &hdr_image
+                    .bilinear_interpolation(&Vec2D::new(0.8, 0.25))
+                    .unwrap()
+            )
+        );
+    }
+
+    #[test]
+    fn test_bilinear_interpolation_00_case() {
+        let hdr_image = setup_test_rainbow();
+        let expected = Color {
+            r: 1.0,
+            g: 1.0,
+            b: 1.0,
+        };
+        assert!(
+            expected.is_close(
+                &hdr_image
+                    .bilinear_interpolation(&Vec2D::new(0.0, 0.0))
+                    .unwrap()
+            )
+        );
+    }
+
+    #[test]
+    fn test_bilinear_interpolation_wrapping() {
+        let hdr_image = setup_test_rainbow();
+
+        let expected = Color {
+            r: 0.5,
+            g: 0.4,
+            b: 0.5,
+        };
+        assert!(
+            expected.is_close(
+                &hdr_image
+                    .bilinear_interpolation(&Vec2D::new(1.2, 3.25))
+                    .unwrap(),
+            )
+        );
+    }
+
+    #[test]
+    #[should_panic(expected = "bilinear_interpolation(): cannot interpolate an empty image")]
+    fn test_bilinear_interpolation_fail() {
+        let hdr_image = HDR::new(0, 0);
+        assert!(
+            hdr_image
+                .bilinear_interpolation(&Vec2D::new(0.1, 0.4))
+                .is_err()
+        );
+
+        let hdr_image = HDR::new(1, 0);
+        assert!(
+            hdr_image
+                .bilinear_interpolation(&Vec2D::new(0.2, 0.42))
+                .is_err()
+        );
+
+        let hdr_image = HDR::new(0, 9);
+        hdr_image
+            .bilinear_interpolation(&Vec2D::new(0.3, 1.5))
+            .unwrap();
     }
 }

@@ -10,6 +10,7 @@ use crate::shapes::Shape;
 use std::ops::Add;
 
 /// A `World` is a collection of scene objects.
+#[derive(Clone)]
 pub struct World {
     pub objects: Vec<Box<dyn Shape>>,
 }
@@ -23,7 +24,7 @@ impl World {
     /// # Returns
     /// - `Some(HitRecord)` if at least one intersection is found.
     /// - `None` if the ray misses everything or internal errors occur in specific shapes.
-    pub fn ray_intersection(&self, ray: &Ray) -> Option<HitRecord> {
+    pub fn ray_intersection(&self, ray: &Ray) -> Option<HitRecord<'_>> {
         let mut closest_hit: Option<HitRecord> = None;
         let mut closest_t = ray.t_max;
 
@@ -33,7 +34,6 @@ impl World {
             // it already returned None via .ok()?, so the world stays safe.
             if let Some(hit) = object.ray_intersection(ray)
                 && hit.t < closest_t
-                && hit.t > ray.t_min
             {
                 closest_t = hit.t;
                 closest_hit = Some(hit);
@@ -59,8 +59,12 @@ impl Add for World {
 }
 #[cfg(test)]
 mod tests {
+    use crate::brdf::DiffusiveBrdf;
+    use crate::color::Color;
     use crate::functions::{IDENTITY_4X4, are_close};
     use crate::geometry::{Point, Vector, is_close};
+    use crate::materials::Material;
+    use crate::pigments::UniformPigment;
     use crate::ray::Ray;
     use crate::shapes::{Plane, Sphere};
     use crate::transformations::{Scaling, Transformation, Translation};
@@ -68,9 +72,15 @@ mod tests {
     use anyhow::Result;
 
     fn setup() -> World {
-        let sphere1 = Sphere::new(Translation::new(Vector::new(5.0, 0.0, 0.0)));
-        let sphere2 = Sphere::new(Translation::new(Vector::new(0.0, 5.0, 0.0)));
-        let bean = Sphere::new(Scaling::new([1.0, 1.0, 2.0]));
+        let sphere1 = Sphere::new(
+            Translation::new(Vector::new(5.0, 0.0, 0.0)),
+            Material::default(),
+        );
+        let sphere2 = Sphere::new(
+            Translation::new(Vector::new(0.0, 5.0, 0.0)),
+            Material::default(),
+        );
+        let bean = Sphere::new(Scaling::new([1.0, 1.0, 2.0]), Material::default());
 
         World {
             objects: vec![Box::new(sphere1), Box::new(sphere2), Box::new(bean)],
@@ -125,9 +135,12 @@ mod tests {
         let world_1 = setup();
 
         let transformation = Transformation::new(IDENTITY_4X4);
-        let plane = Plane::new(transformation);
         let world_2 = World {
-            objects: vec![Box::new(plane), Box::new(plane), Box::new(plane)],
+            objects: vec![
+                Box::new(Plane::new(transformation, Material::default(), false)),
+                Box::new(Plane::new(transformation, Material::default(), false)),
+                Box::new(Plane::new(transformation, Material::default(), false)),
+            ],
         };
 
         let world = world_1 + world_2;

@@ -10,6 +10,7 @@
 //! Arithmetic operations do not enforce validity, so callers are
 //! responsible for preserving physically meaningful values.
 
+use crate::functions::are_close;
 use anyhow::{Result, anyhow};
 use std::ops::{Add, Div, Mul};
 
@@ -45,6 +46,15 @@ impl Color {
             g: green,
             b: blue,
         }
+    }
+
+    /// Returns `true` if all components are approximately equal.
+    ///
+    /// Component-wise comparison is performed using [`are_close`].
+    ///
+    /// This method is mainly intended for testing floating-point computations.
+    pub fn is_close(&self, other: &Color) -> bool {
+        are_close(self.r, other.r) && are_close(self.g, other.g) && are_close(self.b, other.b)
     }
 
     /// Return false if any stored color is not a positive real number.
@@ -136,10 +146,6 @@ impl Default for Color {
         }
     }
 }
-
-// ====================
-// Trait implementation
-// ====================
 
 /// Component-wise addition of two colors.
 ///
@@ -242,7 +248,72 @@ impl Div<f32> for Color {
     }
 }
 
-// Test implementation
+// =========================================================
+// Predefined colors and palettes
+// =========================================================
+
+/// Predefined rainbow-like palette used for testing and debugging.
+pub static RAINBOW_COLORS: [Color; 8] = [
+    Color {
+        r: 1.0,
+        g: 1.0,
+        b: 1.0,
+    }, // White
+    Color {
+        r: 1.0,
+        g: 0.0,
+        b: 0.0,
+    }, // Red
+    Color {
+        r: 1.0,
+        g: 0.5,
+        b: 0.0,
+    }, // Orange
+    Color {
+        r: 1.0,
+        g: 1.0,
+        b: 0.0,
+    }, // Yellow
+    Color {
+        r: 0.0,
+        g: 1.0,
+        b: 0.0,
+    }, // Green
+    Color {
+        r: 0.0,
+        g: 0.5,
+        b: 1.0,
+    }, // Blue
+    Color {
+        r: 0.3,
+        g: 0.0,
+        b: 0.6,
+    }, // Indigo
+    Color {
+        r: 0.6,
+        g: 0.0,
+        b: 0.6,
+    }, // Violet
+];
+
+/// Pure black color `(0.0, 0.0, 0.0)`.
+pub const BLACK: Color = Color {
+    r: 0.0,
+    g: 0.0,
+    b: 0.0,
+};
+
+/// Pure white color `(1.0, 1.0, 1.0)`.
+pub const WHITE: Color = Color {
+    r: 1.0,
+    g: 1.0,
+    b: 1.0,
+};
+
+// =========================================================
+// Tests
+// =========================================================
+
 #[cfg(test)]
 mod tests {
     use super::*;

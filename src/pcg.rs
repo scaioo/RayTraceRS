@@ -142,9 +142,9 @@ impl PCG {
     pub fn random_float(&mut self) -> f32 {
         self.random() as f32 / (u32::MAX as f32 + 1.0)
     }
-    
+
     pub fn n_random_floats(&mut self, len: usize) -> Vec<f32> {
-        let mut v : Vec<f32> = vec![];
+        let mut v: Vec<f32> = vec![];
         for i in 0..len {
             v.push(self.random_float());
         }

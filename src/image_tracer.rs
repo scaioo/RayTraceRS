@@ -10,11 +10,11 @@
 use crate::camera::Camera;
 use crate::color::Color;
 use crate::hdr_image::HDR;
+use crate::pcg::PCG;
 use crate::ray::Ray;
 use crate::world::World;
 use anyhow::Result;
 use indicatif::{ProgressBar, ProgressStyle};
-use crate::pcg::PCG;
 
 /// The engine responsible for shooting rays through the camera and painting the image.
 ///
@@ -45,7 +45,7 @@ pub struct ImageTracer<C: Camera> {
 impl<C: Camera> ImageTracer<C> {
     /// Creates a new `ImageTracer` binding a canvas to an observer.
     pub fn new(image: HDR, camera: C, n: usize) -> Self {
-        ImageTracer { image, camera, n}
+        ImageTracer { image, camera, n }
     }
     /// Fires a single ray passing through a specific pixel.
     ///

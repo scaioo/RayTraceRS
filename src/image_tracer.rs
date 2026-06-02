@@ -32,7 +32,7 @@ use indicatif::{ProgressBar, ProgressStyle};
 ///
 /// let image = HDR::new(1920, 1080);
 /// let camera = PerspectiveCamera::new(Transformation::new(IDENTITY_4X4));
-/// let tracer = ImageTracer::new(image, camera);
+/// let tracer = ImageTracer::new(image, camera, 3);
 /// ```
 
 #[derive(Clone, Debug, PartialEq)]
@@ -103,9 +103,8 @@ impl<C: Camera> ImageTracer<C> {
         for row in 0..self.image.height {
             for col in 0..self.image.width {
                 let squares = (self.n * self.n) as f32;
-                let mut color : Color = Color::default();
-                
-                
+                let mut color: Color = Color::default();
+
                 if self.n == 0 {
                     let ray = self.fire_ray(col, row, 0.5, 0.5);
                     color = color + renderer(ray, world)?;
@@ -119,9 +118,6 @@ impl<C: Camera> ImageTracer<C> {
                         }
                     }
                 }
-                
-                
-                
 
                 self.image.set_pixel(col, row, color)?;
 

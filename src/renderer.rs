@@ -284,7 +284,7 @@ mod tests {
 
         let image = HDR::new(3, 3);
         let camera = OrthogonalCamera::new(Transformation::new(IDENTITY_4X4));
-        let mut tracer = ImageTracer::new(image, camera);
+        let mut tracer = ImageTracer::new(image, camera, 1);
         let world = World {
             objects: vec![Box::new(sphere)],
         };
@@ -386,7 +386,7 @@ mod tests {
         // Setup scene & raytracer
         let image = HDR::new(3, 3);
         let camera = OrthogonalCamera::new(Transformation::new(IDENTITY_4X4));
-        let mut tracer = ImageTracer::new(image, camera);
+        let mut tracer = ImageTracer::new(image, camera, 1);
         let world = World {
             objects: vec![Box::new(sphere)],
         };

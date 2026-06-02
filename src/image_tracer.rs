@@ -14,6 +14,7 @@ use crate::ray::Ray;
 use crate::world::World;
 use anyhow::Result;
 use indicatif::{ProgressBar, ProgressStyle};
+use crate::pcg::PCG;
 
 /// The engine responsible for shooting rays through the camera and painting the image.
 ///
@@ -38,12 +39,13 @@ use indicatif::{ProgressBar, ProgressStyle};
 pub struct ImageTracer<C: Camera> {
     pub image: HDR,
     pub camera: C,
+    pub n: usize,
 }
 
 impl<C: Camera> ImageTracer<C> {
     /// Creates a new `ImageTracer` binding a canvas to an observer.
-    pub fn new(image: HDR, camera: C) -> Self {
-        ImageTracer { image, camera }
+    pub fn new(image: HDR, camera: C, n: usize) -> Self {
+        ImageTracer { image, camera, n}
     }
     /// Fires a single ray passing through a specific pixel.
     ///
@@ -97,13 +99,20 @@ impl<C: Camera> ImageTracer<C> {
                 .progress_chars("#>-")
         );
 
+        let mut pcg = PCG::default();
         for row in 0..self.image.height {
             for col in 0..self.image.width {
-                // Using 0.5 as the default pixel offsets like in Python
-                panic!("UPDATE CODE TO IMPLEMENT ANTIALIASING!!");
-                let ray = self.fire_ray(col, row, 0.5, 0.5);
+                let squares = (self.n * self.n) as f32;
+                let mut color = Color::default();
 
-                let color = renderer(ray, world)?;
+                for i in 0..self.n {
+                    for j in 0..self.n {
+                        let u = (i as f32 + pcg.random_float()) / self.n as f32;
+                        let v = (j as f32 + pcg.random_float()) / self.n as f32;
+                        let ray = self.fire_ray(col, row, u, v);
+                        color = color + renderer(ray, world)? / squares;
+                    }
+                }
 
                 self.image.set_pixel(col, row, color)?;
 
@@ -134,7 +143,7 @@ mod tests {
         let image = HDR::new(4, 2);
         let mut camera = PerspectiveCamera::new(Transformation::new(IDENTITY_4X4));
         camera.set_aspect_ratio(2.0)?;
-        let tracer = ImageTracer::new(image, camera);
+        let tracer = ImageTracer::new(image, camera, 1);
 
         let ray_1 = tracer.fire_ray(0, 0, 2.5, 1.5);
         let ray_2 = tracer.fire_ray(2, 1, 0.5, 0.5);
@@ -147,7 +156,7 @@ mod tests {
         let image = HDR::new(4, 2);
         let mut camera = PerspectiveCamera::new(Transformation::new(IDENTITY_4X4));
         camera.set_aspect_ratio(2.0).unwrap();
-        let tracer = ImageTracer::new(image, camera);
+        let tracer = ImageTracer::new(image, camera, 1);
         let top_left_ray = tracer.fire_ray(0, 0, 0.0, 0.0);
         println!("top left: {:?}", top_left_ray.at(1.0));
 
@@ -197,7 +206,7 @@ mod tests {
         let image = HDR::new(4, 2);
         let mut camera = PerspectiveCamera::new(Transformation::new(IDENTITY_4X4));
         camera.set_aspect_ratio(2.0)?;
-        let mut tracer = ImageTracer::new(image, camera);
+        let mut tracer = ImageTracer::new(image, camera, 1);
         tracer.fire_all_rays(&demo_world(), color_image)?;
 
         // 2. Iterate through the tracer's image to verify the pixels

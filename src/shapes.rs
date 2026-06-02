@@ -1,50 +1,118 @@
-//! Shapes module adds scene objects utilities.
+//! # Shapes
 //!
-//! In this module we define the trait `RayIntersection` that collects all the shape the user
-//! can put in the image tracer scene. Then follows the shape classes: `Sphere`, `Plane` and `Triangle`.
+//! This module defines the geometric primitives that can be placed in a ray-tracer scene.
 //!
-//! All the documentation is a WIP - draft!
+//! ## Structure
+//!
+//! - [`Shape`] — the core trait every scene object must implement.
+//! - [`Sphere`] — a unit sphere, transformed via an [`IsHomogeneousMatrix`].
+//! - [`Plane`] — the xy-plane, transformed via an [`IsHomogeneousMatrix`].
+//! - [`Triangle`] — an arbitrary triangle defined by three world-space vertices.
+//!
+//! All shapes return a [`HitRecord`] on intersection, containing the world-space hit point,
+//! surface normal, UV coordinates, ray parameter `t`, and a reference to the shape's [`Material`].
+//!
+//! ## Design note
+//!
+//! Sphere and Plane are generic over any homogeneous transformation `T` (translation, scaling,
+//! rotation, or composed). Triangle operates directly in world space and does not accept a
+//! transformation parameter; apply transformations to its vertices before construction.
 
 use crate::functions::{Within, are_close, cramer};
 use crate::geometry::{Cross, Dot, Normal, Point, Vec2D, Vector};
 use crate::hit_record::HitRecord;
+use crate::materials::Material;
+use crate::pigments::ClonePigment;
 use crate::ray::Ray;
 use crate::transformations::IsHomogeneousMatrix;
 use anyhow::{Result, anyhow};
 use std::ops::Mul;
+// ========================================================
+// Supertrait CloneShape
+// ========================================================
 
-pub trait Shape {
-    fn ray_intersection(&self, ray: &Ray) -> Option<HitRecord>;
-
-    fn normal_at(&self, point: Point, ray: &Ray) -> Normal;
-
-    fn point_to_uv(&self, point: &Point) -> Result<Vec2D>;
-}
-// =================================================================================
-/// The class Sphere adds the possibility to represent spherical objects in images
+/// Helper supertrait that makes `Box<dyn Shape>` cloneable.
 ///
-/// Draft:
-/// Sphere implements:
-/// 1. `RayIntersection` trait that determines the point of intersection between
-///    the ray and the sphere
-/// 2. A method that returns the normal of the sphere
-/// 3. A method that returns the $(u,v)$ coordinates given the point of intersection
-///
-/// # Note:
-///
-/// All of this is for the unit sphere. To obtain other pseudo-spherical objects
-/// we use transformations.
-#[derive(Copy, Clone, Debug, PartialEq)]
-pub struct Sphere<T: IsHomogeneousMatrix> {
-    pub transformation: T, // Is it where the sphere is at?
+/// You never need to implement this manually. The blanket `impl` below
+/// provides it automatically for any type that implements `Shape + Clone`.
+pub trait CloneShape {
+    fn clone_shape(&self) -> Box<dyn Shape>;
 }
 
-impl<T: IsHomogeneousMatrix> Sphere<T> {
-    pub fn new(transformation: T) -> Self {
-        Self { transformation }
+/// Blanket implementation: any `T: Shape + Clone + 'static` gets
+/// [`CloneShape`] for free by boxing a normal `.clone()` call.
+impl<T> CloneShape for T
+where
+    T: Shape + Clone + 'static,
+{
+    fn clone_shape(&self) -> Box<dyn Shape> {
+        Box::new(self.clone())
     }
 }
 
+/// Core trait for ray-intersectable scene objects.
+///
+/// Every shape placed in the scene must implement this trait. The four methods together
+/// provide all information the renderer needs to compute lighting at a surface point.
+pub trait Shape: CloneShape {
+    /// Tests whether `ray` intersects this shape.
+    ///
+    /// Returns the closest valid [`HitRecord`] within `[ray.t_min, ray.t_max]`,
+    /// or `None` if no intersection exists in that range.
+    fn ray_intersection(&self, ray: &Ray) -> Option<HitRecord<'_>>;
+
+    /// Returns the outward surface normal at `point`, oriented against `ray`.
+    ///
+    /// The normal is flipped so that it always points toward the incoming ray origin,
+    /// i.e. `normal · ray.dir < 0`.
+    ///
+    /// # Note
+    /// `point` must lie on the surface of the shape. Behaviour is undefined otherwise.
+    fn normal_at(&self, point: Point, ray: &Ray) -> Normal;
+
+    /// Maps a surface point to UV texture coordinates in `[0,1)²`.
+    ///
+    /// Returns an error if `point` does not lie on (or sufficiently near) the surface.
+    fn point_to_uv(&self, point: &Point) -> Result<Vec2D>;
+
+    /// Returns a reference to the [`Material`] assigned to this shape.
+    fn material(&self) -> &Material;
+}
+
+impl Clone for Box<dyn Shape> {
+    fn clone(&self) -> Box<dyn Shape> {
+        self.clone_shape()
+    }
+}
+
+// =================================================================================
+/// A unit sphere centered at the origin, subject to a homogeneous transformation.
+///
+/// The sphere is defined implicitly as `x² + y² + z² = 1` in its local (object) space.
+/// Any ellipsoid, oblate sphere, or translated sphere can be obtained by composing
+/// an appropriate [`IsHomogeneousMatrix`] transformation.
+///
+/// # UV mapping
+///
+/// Surface coordinates follow the standard spherical parametrisation:
+/// - `u = φ / 2π ∈ [0, 1]` — longitude (azimuthal angle around the z-axis)
+/// - `v = θ / π ∈ [0, 1]` — colatitude (polar angle from the +z pole)
+#[derive(Clone)]
+pub struct Sphere<T: IsHomogeneousMatrix> {
+    /// The world-from-object transformation applied to the unit sphere.
+    pub transformation: T,
+    /// Surface material (pigment + BRDF + emitted radiance).
+    pub material: Material,
+}
+
+impl<T: IsHomogeneousMatrix> Sphere<T> {
+    pub fn new(transformation: T, material: Material) -> Self {
+        Self {
+            transformation,
+            material,
+        }
+    }
+}
 impl<T> Shape for Sphere<T>
 where
     T: IsHomogeneousMatrix
@@ -52,9 +120,10 @@ where
         + Mul<Point, Output = Point>
         + Mul<Normal, Output = Normal>
         + Mul<Vector, Output = Vector>
-        + Copy,
+        + Copy
+        + 'static,
 {
-    fn ray_intersection(&self, ray: &Ray) -> Option<HitRecord> {
+    fn ray_intersection(&self, ray: &Ray) -> Option<HitRecord<'_>> {
         let inverse_transformation = self.transformation.inverse_transformation();
         let transformed_ray = inverse_transformation * (*ray);
 
@@ -62,9 +131,6 @@ where
 
         let a = transformed_ray.dir.squared_norm();
         let half_b = origin.dot(&transformed_ray.dir);
-        //let c = origin.squared_norm() - 1.0;
-
-        //let discriminant = half_b * half_b - a * c;
         let cross = transformed_ray.dir.cross(&origin);
 
         let discriminant = a - cross.squared_norm();
@@ -96,6 +162,7 @@ where
             uv,
             t,
             ray: *ray,
+            material: &self.material,
         })
     }
 
@@ -116,32 +183,43 @@ where
             u += 1.0;
         }
 
-        let v = point.z.acos() / pi;
+        let v = point.z.clamp(-1.0, 1.0).acos() / pi;
 
         Ok(Vec2D { x: u, y: v })
     }
+
+    fn material(&self) -> &Material {
+        &self.material
+    }
 }
 // =================================================================================
-/// The class Plane adds the possibility to represent the plane in an image
+/// The infinite xy-plane (`z = 0` in object space), subject to a homogeneous transformation.
 ///
-/// Draft:
-/// Plane implements:
-/// 1. `RayIntersection` trait that determines the point of intersection between
-///    the ray and the plane
-/// 2. A method that returns the normal of the plane
-/// 3. A method that returns the $(u,v)$ coordinates given the point of intersection
+/// The canonical plane is `z = 0`; normals point along ±z and are oriented against the
+/// incoming ray. Any tilted or elevated plane can be obtained via transformation.
 ///
-/// # Note:
+/// # UV mapping
 ///
-/// All of this is for the x-y plane. To obtain other pseudo-spherical objects
-/// we use transformations.
-#[derive(Copy, Clone, Debug, PartialEq)]
+/// Two modes are available, selected by `procedural_texture`:
+/// - **Tiled** (`false`): `u = frac(x)`, `v = frac(y)` — repeats the texture every unit square.
+/// - **Procedural** (`true`): `u = x`, `v = y` — raw world coordinates, useful for
+///   procedural patterns that must be scale-aware.
+#[derive(Clone)]
 pub struct Plane<T: IsHomogeneousMatrix> {
+    /// The world-from-object transformation applied to the canonical xy-plane.
     pub transformation: T,
+    /// Surface material (pigment + BRDF + emitted radiance).
+    pub material: Material,
+    /// If `true`, UV coordinates are raw world-space `(x, y)` rather than tiled fractions.
+    pub procedural_texture: bool,
 }
 impl<T: IsHomogeneousMatrix> Plane<T> {
-    pub fn new(transformation: T) -> Self {
-        Self { transformation }
+    pub fn new(transformation: T, material: Material, procedural_texture: bool) -> Self {
+        Self {
+            transformation,
+            material,
+            procedural_texture,
+        }
     }
 }
 impl<T> Shape for Plane<T>
@@ -151,9 +229,10 @@ where
         + Mul<Point, Output = Point>
         + Mul<Normal, Output = Normal>
         + Mul<Vector, Output = Vector>
+        + 'static
         + Copy,
 {
-    fn ray_intersection(&self, ray: &Ray) -> Option<HitRecord> {
+    fn ray_intersection(&self, ray: &Ray) -> Option<HitRecord<'_>> {
         let inverse_transformation = self.transformation.inverse_transformation();
         let transformed_ray = inverse_transformation * (*ray);
 
@@ -174,6 +253,7 @@ where
             uv,
             t,
             ray: *ray,
+            material: &self.material,
         })
     }
 
@@ -183,36 +263,71 @@ where
     }
 
     fn point_to_uv(&self, point: &Point) -> Result<Vec2D> {
-        Ok(Vec2D {
-            x: point.x - point.x.floor(),
-            y: point.y - point.y.floor(),
-        })
+        if self.procedural_texture {
+            Ok(Vec2D {
+                x: point.x,
+                y: point.y,
+            })
+        } else {
+            Ok(Vec2D {
+                x: point.x - point.x.floor(),
+                y: point.y - point.y.floor(),
+            })
+        }
+    }
+
+    fn material(&self) -> &Material {
+        &self.material
     }
 }
 // =================================================================================
-/// The class Triangle adds the possibility to represent a triangle in an image
+/// A triangle defined by three world-space vertices, with flat shading.
 ///
-/// Draft:
-/// Triangle implements:
-/// 1. `RayIntersection` trait that determines the point of intersection between
-///    the ray and the triangle
-/// 2. A method that returns the normal of the triangle
-/// 3. A method that returns the $(u,v)$ coordinates given the point of intersection
+/// Intersection is computed via Cramer's rule applied to the barycentric coordinate system.
+/// The UV coordinates of a hit point are its barycentric coordinates `(β, γ)`, so
+/// `u = β`, `v = γ`, with `α = 1 − β − γ` implicitly giving the weight of vertex `a`.
 ///
-/// # Note:
+/// # Winding order and normals
 ///
-/// Understand where to put the triangle properly for then further transformations!
-#[derive(Copy, Clone, Debug, PartialEq)]
+/// The outward normal is `(b − a) × (c − a)`. It is **not** normalized; its magnitude
+/// equals the area of the parallelogram spanned by the two edges. Ensure your lighting
+/// model accounts for this, or normalize in [`Shape::normal_at`] if needed.
+///
+/// # Note on transformations
+///
+/// Unlike [`Sphere`] and [`Plane`], `Triangle` has no generic transformation parameter.
+/// To place a triangle in an arbitrary position, transform the vertices `a`, `b`, `c`
+/// before passing them to [`Triangle::new`].
+#[derive(Clone)]
 pub struct Triangle {
+    /// First vertex.
     pub a: Point,
+    /// Second vertex.
     pub b: Point,
+    /// Third vertex.
     pub c: Point,
+    /// Surface material (pigment + BRDF + emitted radiance).
+    pub material: Material,
 }
-
 //                           For triangle implementation
-
 impl Triangle {
-    pub fn _intersection(&self, ray: Ray) -> Result<(f32, f32, f32)> {
+    /// Creates a new triangle from three world-space vertices and a material.
+    pub fn new(a: Point, b: Point, c: Point, material: Material) -> Self {
+        Self { a, b, c, material }
+    }
+
+    /// Solves the ray–triangle intersection using Cramer's rule.
+    ///
+    /// Returns `(t, β, γ)` where:
+    /// - `t` is the ray parameter of the hit point,
+    /// - `β`, `γ` are the barycentric coordinates with respect to vertices `b` and `c`,
+    /// - the coordinate for vertex `a` is `α = 1 − β − γ`.
+    ///
+    /// The intersection is valid only if `β ∈ (0,1)`, `γ ∈ (0,1)`, and `β + γ ≤ 1`.
+    /// Border points (`β = 0`, `γ = 0`, `β + γ = 1`) are excluded.
+    ///
+    /// Returns `Err` if the ray misses the triangle or is coplanar with it.
+    pub fn intersection(&self, ray: Ray) -> Result<(f32, f32, f32)> {
         let mat: [f32; 9] = [
             self.b.x - self.a.x,
             self.c.x - self.a.x,
@@ -232,7 +347,6 @@ impl Triangle {
 
         let result = cramer(&mat, right_member)?;
 
-        // Correct the variable mapping:
         let beta = result[0];
         let gamma = result[1];
         let t = result[2];
@@ -252,12 +366,11 @@ impl Triangle {
         }
     }
 }
-
 impl Shape for Triangle {
-    fn ray_intersection(&self, ray: &Ray) -> Option<HitRecord> {
-        let (t, beta, gamma) = self._intersection(*ray).ok()?;
+    fn ray_intersection(&self, ray: &Ray) -> Option<HitRecord<'_>> {
+        let (t, beta, gamma) = self.intersection(*ray).ok()?;
 
-        if t.is_between_close(&ray.t_min, &ray.t_max) {
+        if t.is_between_open(&ray.t_min, &ray.t_max) {
             let hit_point = ray.at(t);
             Some(HitRecord {
                 world_point: hit_point,
@@ -265,12 +378,12 @@ impl Shape for Triangle {
                 uv: Vec2D::new(beta, gamma),
                 t,
                 ray: *ray,
+                material: &self.material,
             })
         } else {
             None
         }
     }
-
     fn normal_at(&self, _point: Point, ray: &Ray) -> Normal {
         let result = (self.b - self.a).cross(&(self.c - self.a));
         let result = Normal {
@@ -285,16 +398,17 @@ impl Shape for Triangle {
             result
         }
     }
-
     fn point_to_uv(&self, point: &Point) -> Result<Vec2D> {
         let normal = (self.b - self.a).cross(&(self.c - self.a));
         let origin = *point - normal;
         let ray = Ray::new(origin, normal);
 
-        // Se l'intersezione fallisce, l'errore viene restituito in automatico! Niente panic, niente fallback.
-        let (_, beta, gamma) = self._intersection(ray)?;
+        let (_, beta, gamma) = self.intersection(ray)?;
 
         Ok(Vec2D { x: beta, y: gamma })
+    }
+    fn material(&self) -> &Material {
+        &self.material
     }
 }
 
@@ -309,8 +423,11 @@ impl Shape for Triangle {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::brdf::DiffusiveBrdf;
+    use crate::color::Color;
     use crate::functions::IDENTITY_4X4;
     use crate::geometry::{X_AXIS, is_close};
+    use crate::pigments::UniformPigment;
     use crate::transformations::{Scaling, Transformation, Translation};
 
     fn setup1() -> (Sphere<Transformation>, [Ray; 3]) {
@@ -321,7 +438,7 @@ mod tests {
         ];
 
         let transformation = Transformation::new(IDENTITY_4X4);
-        let sphere = Sphere::new(transformation);
+        let sphere = Sphere::new(transformation, Material::default());
         (sphere, rays)
     }
 
@@ -393,7 +510,7 @@ mod tests {
 
     fn setup2() -> (Sphere<Translation>, Ray, Ray) {
         let translation = Translation::new(Vector::new(10.0, 0.0, 0.0));
-        let sphere = Sphere::new(translation);
+        let sphere = Sphere::new(translation, Material::default());
         let ray = Ray::new(Point::new(10.0, 0.0, 2.0), Vector::new(0.0, 0.0, -1.0));
         let ray2 = Ray::new(Point::new(13.0, 0.0, 0.0), Vector::new(-1.0, 0.0, 0.0));
 
@@ -523,7 +640,8 @@ mod tests {
 
     #[test]
     fn test_sphere_ray_intersection_bug15() {
-        let sphere: Sphere<Scaling> = Sphere::new(Scaling::new([0.1, 0.1, 0.1]));
+        let sphere: Sphere<Scaling> =
+            Sphere::new(Scaling::new([0.1, 0.1, 0.1]), Material::default());
         for i in 0..100 {
             let ray = Ray::new(Point::new(-10.0 * i as f32, 0.0, 0.0), X_AXIS);
             let hit_record = sphere.ray_intersection(&ray);
@@ -536,8 +654,13 @@ mod tests {
     }
 
     fn setup_plane() -> (Plane<Transformation>, Ray, Ray, Ray) {
+        let material = Material {
+            pigment: Box::new(UniformPigment::new(Color::new(10.0, 10.0, 10.0))),
+            brdf: Box::new(DiffusiveBrdf {}),
+            emitted_radiance: Box::new(UniformPigment::new(Color::new(10., 10., 10.))),
+        };
         let transformation = Transformation::new(IDENTITY_4X4);
-        let plane = Plane::new(transformation);
+        let plane = Plane::new(transformation, material, false);
 
         // Ray from top to bottom
         let ray_top = Ray::new(Point::new(0.0, 0.0, 5.0), Vector::new(0.0, 0.0, -1.0));
@@ -582,7 +705,7 @@ mod tests {
     #[test]
     fn test_plane_uv_fractional_coordinates() {
         let transformation = Transformation::new(IDENTITY_4X4);
-        let plane = Plane::new(transformation);
+        let plane = Plane::new(transformation, Material::default(), false);
 
         // A ray hits the plane in x = 2.5, y = -1.3
         let ray = Ray::new(Point::new(2.5, -1.3, 5.0), Vector::new(0.0, 0.0, -1.0));
@@ -599,6 +722,7 @@ mod tests {
             a: Point::new(0.0, 4.0, 0.0),
             b: Point::new(0.0, -1.0, 0.0),
             c: Point::new(0.0, 0.0, 4.0),
+            material: Material::default(),
         }
     }
 
@@ -608,7 +732,7 @@ mod tests {
 
         let ray = Ray::new(Point::new(-1.0, 0.0, 2.0), Vector::new(1.0, 0.0, 0.0));
 
-        let (t, beta, gamma) = triangle._intersection(ray).unwrap();
+        let (t, beta, gamma) = triangle.intersection(ray).unwrap();
         assert!(are_close(t, 1.0), "t: {}\nexpected: 1.0", t);
         assert!(beta.is_between_open(&0.0, &1.0), "b: {}", beta);
         assert!(gamma.is_between_open(&0.0, &1.0), "gamma: {}", gamma);
@@ -620,13 +744,13 @@ mod tests {
 
         let ray = Ray::new(Point::new(-1.0, 0.0, 4.0), Vector::new(1.0, 0.0, 0.0));
         assert!(
-            triangle._intersection(ray).is_err(),
+            triangle.intersection(ray).is_err(),
             "The ray out of the scope must return Err"
         );
 
         let ray = Ray::new(Point::new(-1.0, 0.0, 10.0), Vector::new(1.0, 0.0, 0.0));
         assert!(
-            triangle._intersection(ray).is_err(),
+            triangle.intersection(ray).is_err(),
             "The ray out of the scope must return Err"
         );
     }

@@ -1,24 +1,82 @@
 //! # Raytracer Core Library
 //!
-//! This crate provides the foundational components of the raytracer.
-//! It is organized from low-level math primitives to higher-level scene
-//! and rendering structures.
+//! This crate provides the foundational components of a physically-based
+//! raytracer, organized from low-level math primitives up to the full
+//! rendering pipeline.
+//!
+//! ## Architecture overview
+//!
+//! ```text
+//!            ┌─────────────────────────────────────────────┐
+//!            │                  Rendering                  │
+//!            │        image_tracer  ←  renderer            │
+//!            │               ↑            ↑                │
+//!            │            camera         world             │
+//!            ├─────────────────────────────────────────────┤
+//!            │                   Scene                     │
+//!            │     shapes  ←  materials  ←  pigments       │
+//!            │                            ←  brdf          │
+//!            │               hit_record                    │
+//!            ├─────────────────────────────────────────────┤
+//!            │                 Math / IO                   │
+//!            │  geometry  transformations  ray  color      │
+//!            │  functions  pcg  hdr_image  pfm_func        │
+//!            └─────────────────────────────────────────────┘
+//! ```
 //!
 //! ## Modules
 //!
-//! - [`functions`] — general-purpose utilities and helpers
-//! - [`color`] — RGB color representation and arithmetic
-//! - [`geometry`] — vectors, points, normals, and geometric operations
-//! - [`transformations`] — affine transformations and matrix utilities
-//! - [`ray`] — ray representation and ray transformation support
-//! - [`hit_record`] — intersection data returned by shape queries
-//! - [`shapes`] — geometric primitives and intersection logic
-//! - [`world`] — scene container and global intersection traversal
-//! - [`camera`] — observer models and ray generation
-//! - [`image_tracer`] — rendering pipeline that traces rays into images
-//! - [`hdr_image`] — HDR image storage, tone mapping, and export
-//! - [`pfm_func`] — PFM reading and conversion utilities
+//! ### Math and primitives
+//!
+//! - [`color`] — RGB colour representation, arithmetic, and tone mapping.
+//! - [`geometry`] — vectors, points, normals, 2D texture coordinates,
+//!   and geometric operations (dot product, cross product, ONB construction).
+//! - [`transformations`] — affine transformation matrices (translation,
+//!   scaling, rotation) and the [`IsHomogeneousMatrix`](transformations::IsHomogeneousMatrix)
+//!   trait.
+//! - [`ray`] — ray representation (origin, direction, depth, `t` interval).
+//! - [`functions`] — general-purpose utilities: floating-point comparison,
+//!   Cramer's rule solver, and common constants.
+//! - [`pcg`] — a fast PCG pseudo-random number generator used for stochastic
+//!   sampling throughout the renderer.
+//!
+//! ### Materials
+//!
+//! - [`pigments`] — the [`Pigment`](pigments::Pigment) trait and implementations:
+//!   uniform colour, checkerboard, HDR image texture, and gradient.
+//! - [`brdf`] — the [`BRDF`](brdf::BRDF) trait and implementations:
+//!   diffuse (Lambertian) and perfect specular (mirror) reflectance.
+//! - [`materials`] — [`Material`](materials::Material), which bundles a pigment,
+//!   a BRDF, and an emitted radiance into a single surface descriptor.
+//!
+//! ### Scene
+//!
+//! - [`shapes`] — geometric primitives ([`Sphere`](shapes::Sphere),
+//!   [`Plane`](shapes::Plane), [`Triangle`](shapes::Triangle)) and the
+//!   [`Shape`](shapes::Shape) trait.
+//! - [`hit_record`] — [`HitRecord`](hit_record::HitRecord), the intersection
+//!   data returned by shape queries (world point, normal, UV, `t`, material).
+//! - [`world`] — [`World`](world::World), the scene container that holds a
+//!   collection of shapes and finds the closest ray intersection.
+//!
+//! ### Rendering pipeline
+//!
+//! - [`camera`] — observer models ([`PerspectiveCamera`](camera::PerspectiveCamera),
+//!   [`OrthogonalCamera`](camera::OrthogonalCamera)) and ray generation.
+//! - [`renderer`] — the [`Renderer`](renderer::Renderer) trait and implementations:
+//!   [`OnOffRenderer`](renderer::OnOffRenderer) (debug),
+//!   [`FlatRenderer`](renderer::FlatRenderer) (unlit), and
+//!   [`PathTracer`](renderer::PathTracer) (full Monte Carlo path tracing).
+//! - [`image_tracer`] — [`ImageTracer`](image_tracer::ImageTracer), which drives
+//!   the rendering loop: fires rays through every pixel and writes colours to an HDR image.
+//!
+//! ### Image I/O
+//!
+//! - [`hdr_image`] — HDR image buffer, tone mapping (Reinhard), gamma correction,
+//!   and PNG export.
+//! - [`pfm_func`] — PFM file format reading and byte-order handling.
 
+pub mod brdf;
 pub mod camera;
 pub mod color;
 pub mod functions;
@@ -26,8 +84,13 @@ pub mod geometry;
 pub mod hdr_image;
 pub mod hit_record;
 pub mod image_tracer;
+pub mod lexer;
+pub mod materials;
+pub mod pcg;
 pub mod pfm_func;
+pub mod pigments;
 pub mod ray;
+pub mod renderer;
 pub mod shapes;
 pub mod transformations;
 pub mod world;

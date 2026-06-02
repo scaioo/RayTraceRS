@@ -1,3 +1,7 @@
+## Head
+
+- Build lexer ([PR#18](https://github.com/scaioo/RayTraceRS/pull/18)).
+
 ## [0.3.0] - Path Tracing Engine
 
 

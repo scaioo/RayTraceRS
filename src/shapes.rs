@@ -22,7 +22,6 @@ use crate::functions::{Within, are_close, cramer};
 use crate::geometry::{Cross, Dot, Normal, Point, Vec2D, Vector};
 use crate::hit_record::HitRecord;
 use crate::materials::Material;
-use crate::pigments::ClonePigment;
 use crate::ray::Ray;
 use crate::transformations::IsHomogeneousMatrix;
 use anyhow::{Result, anyhow};
@@ -318,6 +317,16 @@ impl AABB {
                 p_max: max,
                 material,
             })
+        }
+    }
+}
+
+impl Default for AABB {
+    fn default() -> Self {
+        Self {
+            p_min: Point::new(-0.5, -0.5, -0.5),
+            p_max: Point::new(0.5, 0.5, 0.5),
+            material: Material::default(),
         }
     }
 }
@@ -890,4 +899,19 @@ mod tests {
         let _ = AABB::new(p_min, p_max, Material::default()).unwrap();
     }
 
+    #[test]
+    fn test_ql_default() {
+        let ql = QL::default();
+
+        assert!(ql.v.is_close(&Vector::new(0.0, 1.0, 0.0)));
+        assert!(ql.w.is_close(&Vector::new(0.0, 0.0, 1.0)));
+        assert!(ql.p.is_close(&ORIGIN));
+        assert_eq!(
+            ql.material
+                .pigment
+                .get_color(&Vec2D::new(0.5, 0.5))
+                .unwrap(),
+            WHITE
+        );
+    }
 }

@@ -52,8 +52,7 @@ pub trait BRDF: CloneBrdf {
     /// * `incoming_dir`      — direction of the ray arriving at the surface.
     /// * `interacting_point` — world-space point of intersection.
     /// * `normal`            — surface normal at the interaction point
-    /// * `depth`             — current ray recursion depth, forwarded to the
-    ///                         new [`Ray`] unchanged.
+    /// * `depth`             — current ray recursion depth, forwarded to the new [`Ray`] unchanged.
     fn scatter_ray(
         &self,
         pcg: &mut PCG,

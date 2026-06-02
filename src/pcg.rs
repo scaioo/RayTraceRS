@@ -145,7 +145,7 @@ impl PCG {
 
     pub fn n_random_floats(&mut self, len: usize) -> Vec<f32> {
         let mut v: Vec<f32> = vec![];
-        for i in 0..len {
+        for _ in 0..len {
             v.push(self.random_float());
         }
         v

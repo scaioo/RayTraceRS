@@ -42,13 +42,16 @@ enum Commands {
     Demo {
         file_name: String,
 
+        #[arg(long, default_value_t = 5)]
+        antialiasing: usize,
+
         #[arg(long, default_value_t = 0.0)]
         angle_deg: f32,
 
         #[arg(long, default_value = "pathtracing")]
         algorithm: String,
 
-        #[arg(long, default_value_t = 10)]
+        #[arg(long, default_value_t = 5)]
         num_of_rays: usize,
 
         #[arg(long, default_value_t = 3)]
@@ -137,6 +140,7 @@ fn main() -> Result<()> {
     match cli.command {
         Commands::Demo {
             file_name,
+            antialiasing,
             angle_deg,
             algorithm,
             num_of_rays,
@@ -180,7 +184,7 @@ fn main() -> Result<()> {
             if cli.orthogonal {
                 let mut o_cam = OrthogonalCamera::new(camera_tr);
                 o_cam.set_aspect_ratio(aspectratio)?;
-                let mut imagetracer = ImageTracer::new(img, o_cam);
+                let mut imagetracer = ImageTracer::new(img, o_cam, antialiasing);
 
                 println!("Rendering in progress...");
                 imagetracer.fire_all_rays(&world, render_closure)?;
@@ -188,7 +192,7 @@ fn main() -> Result<()> {
             } else {
                 let mut p_cam = PerspectiveCamera::new(camera_tr);
                 p_cam.set_aspect_ratio(aspectratio)?;
-                let mut imagetracer = ImageTracer::new(img, p_cam);
+                let mut imagetracer = ImageTracer::new(img, p_cam, antialiasing);
 
                 println!("Rendering in progress...");
                 imagetracer.fire_all_rays(&world, render_closure)?;

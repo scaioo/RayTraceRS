@@ -150,7 +150,7 @@ where
 /// // Fire a ray towards the top-left corner of the screen
 /// let top_left_ray = camera.fire_ray(0.0, 1.0);
 /// # }
-/// ``
+/// ```
 #[derive(Copy, Clone, Debug, PartialEq)]
 pub struct PerspectiveCamera<T: IsHomogeneousMatrix> {
     pub transformation: T,

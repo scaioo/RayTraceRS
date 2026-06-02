@@ -80,7 +80,7 @@ pub fn is_close<T: TDV>(a: T, b: T) -> bool {
 }
 
 // =======================================================================
-// TRAIT DEFINITIONS
+// MARKER TRAIT DEFINITIONS
 // =======================================================================
 
 /// Marker trait that signals the struct to be either Vector, Point or Normal
@@ -92,11 +92,15 @@ pub trait TDV {
     fn z(&self) -> f32;
 }
 
+/// Marker trait for directional geometric types.
+///
+/// Implemented by [`Vector`] and [`Normal`].
+pub trait VecOrNorm: TDV + Into<Vector> {}
+
 // =======================================================================
-// MACRO DEFINITIONS
+// MACRO DEFINITIONS MARKER TRAITS
 // =======================================================================
 
-#[macro_export]
 macro_rules! impl_homogeneous {
     ($t:ty, $w:expr) => {
         // Note: this trait implementation works only
@@ -116,6 +120,12 @@ macro_rules! impl_homogeneous {
                 self.z
             }
         }
+    };
+}
+
+macro_rules! impl_vec_or_norm {
+    ($id: ident) => {
+        impl VecOrNorm for $id {}
     };
 }
 
@@ -390,6 +400,12 @@ impl_homogeneous!(Point, 1.0);
 impl_homogeneous!(Normal, 0.0);
 
 // ----------------------------------------------------------------
+// Automatically implement `VecOrNorm` for Vector, Point, and Normal
+// ----------------------------------------------------------------
+impl_vec_or_norm!(Vector);
+impl_vec_or_norm!(Normal);
+
+// ----------------------------------------------------------------
 // Automatically implement `is_close` for Vector, Point, and Normal
 // ----------------------------------------------------------------
 impl_is_close!(Vector);
@@ -473,12 +489,46 @@ impl_from!(Point, Vector);
 impl_from!(Vector, Point);
 
 // ==========================================
+// Orthonormal Base function
+// ==========================================
+/// Builds an orthonormal basis from a normalized direction.
+///
+/// The input vector becomes the third basis vector of the returned frame.
+///
+/// The implementation uses a branchless formulation for numerical stability
+/// and efficiency.
+///
+/// # Warning
+///
+/// `normal` must be normalized.
+///
+/// If the input vector is not unit length, the returned basis
+/// will not be orthonormal.
+pub fn branchless_onb<T: VecOrNorm>(normal: T) -> (Vector, Vector, Vector) {
+    let sign = if normal.z() >= 0.0 { 1.0 } else { -1.0 };
+
+    let a = -1.0 / (sign + normal.z());
+    let b = normal.x() * normal.y() * a;
+
+    let e1 = Vector::new(
+        1.0 + sign * normal.x() * normal.x() * a,
+        sign * b,
+        -sign * normal.x(),
+    );
+
+    let e2 = Vector::new(b, sign + normal.y() * normal.y() * a, -normal.y());
+
+    (e1, e2, normal.into())
+}
+
+// ==========================================
 // TEST
 // ==========================================
 
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::pcg::PCG;
 
     #[test]
     fn test_vec2d_is_close() {
@@ -687,5 +737,96 @@ mod tests {
             v.normalize().is_close(&expected),
             "Normalized vector length is not NaN!"
         );
+    }
+
+    fn build_random_normal(random_gen: &mut PCG) -> Vector {
+        let x = random_gen.random_float();
+        let y = random_gen.random_float();
+        let z = random_gen.random_float();
+        let normal = Vector::new(x, y, z);
+        normal.normalize()
+    }
+
+    #[test]
+    fn test_onb_orthogonality() {
+        let mut random_gen = PCG::default();
+
+        for i in 1..5000 {
+            let normal = build_random_normal(&mut random_gen);
+
+            let (e1, e2, e3) = branchless_onb(normal);
+
+            assert!(e3.is_close(&normal), "Z-AXIS is not input vector!");
+
+            assert!(
+                are_close(0.0, e1.dot(&e2)),
+                "ERROR in i = {}:\n e1 * e2 != 0.0 !!!!",
+                i
+            );
+            assert!(
+                are_close(0.0, e2.dot(&e3)),
+                "ERROR in i = {}:\n e2 * e3 != 0.0 !!!!",
+                i
+            );
+            assert!(
+                are_close(0.0, e3.dot(&e1)),
+                "ERROR in i = {}:\n e3 * e1 != 0.0 !!!!",
+                i
+            );
+        }
+    }
+
+    #[test]
+    fn test_onb_normalization() {
+        let mut random_gen = PCG::default();
+
+        for i in 1..5000 {
+            let normal = build_random_normal(&mut random_gen);
+
+            let (e1, e2, e3) = branchless_onb(normal);
+
+            assert!(
+                are_close(1.0, e1.squared_norm()),
+                "ERROR in i = {}:\n  e1 * e1 != 1.0 !!!!",
+                i
+            );
+            assert!(
+                are_close(1.0, e2.squared_norm()),
+                "ERROR in i = {}:\n  e2 * e2 != 1.0 !!!!",
+                i
+            );
+            assert!(
+                are_close(1.0, e3.squared_norm()),
+                "ERROR in i = {}:\n  e3 * e3 != 1.0 !!!!",
+                i
+            );
+        }
+    }
+
+    #[test]
+    fn test_onb_cross_product() {
+        let mut random_gen = PCG::default();
+
+        for i in 1..5000 {
+            let normal = build_random_normal(&mut random_gen);
+
+            let (e1, e2, e3) = branchless_onb(normal);
+
+            assert!(
+                e1.is_close(&(e2.cross(&e3))),
+                "ERROR in i = {}:\n  e1 * e1 != 1.0 !!!!",
+                i
+            );
+            assert!(
+                e2.is_close(&(e3.cross(&e1))),
+                "ERROR in i = {}:\n  e2 * e2 != 1.0 !!!!",
+                i
+            );
+            assert!(
+                e3.is_close(&(e1.cross(&e2))),
+                "ERROR in i = {}:\n  e3 * e3 != 1.0 !!!!",
+                i
+            );
+        }
     }
 }

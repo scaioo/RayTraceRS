@@ -142,6 +142,14 @@ impl PCG {
     pub fn random_float(&mut self) -> f32 {
         self.random() as f32 / (u32::MAX as f32 + 1.0)
     }
+    
+    pub fn n_random_floats(&mut self, len: usize) -> Vec<f32> {
+        let mut v : Vec<f32> = vec![];
+        for i in 0..len {
+            v.push(self.random_float());
+        }
+        v
+    }
 }
 impl Default for PCG {
     /// Returns a [`PCG`] seeded with the library defaults:
@@ -176,6 +184,21 @@ mod tests {
 
         for _ in 0..1000 {
             assert_eq!(a.random(), b.random());
+        }
+    }
+
+    #[test]
+    fn test_n_random_floats() {
+        let mut one_step_random = PCG::new(42, 54);
+        let mut random_generator = PCG::new(42, 54);
+
+        let n = 100;
+        let result = random_generator.n_random_floats(n);
+
+        // Dato che i due PCG sono identici, devono produrre gli stessi valori
+        // nello stesso ordine
+        for i in 0..n {
+            assert_eq!(result[i], one_step_random.random_float());
         }
     }
 }

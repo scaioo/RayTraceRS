@@ -840,4 +840,54 @@ mod tests {
 
         Ok(())
     }
+
+    #[test]
+    fn test_aabb_constructor() {
+        let p_min = Point::new(-1.0, 0.0, 1.0);
+        let p_max = Point::new(1.0, 2.0, 2.0);
+
+        let aabb = AABB::new(p_min, p_max, Material::default()).unwrap();
+
+        assert!(p_min.is_close(&aabb.p_min), "aabb.p_min: {}", aabb.p_min);
+        assert!(p_max.is_close(&aabb.p_max), "aabb.p_max: {}", aabb.p_max);
+    }
+
+    #[test]
+    fn test_aabb_constructor_possible_swaps() {
+        let p_min = Point::new(-1.0, 0.0, 1.0);
+        let p_max = Point::new(1.0, 2.0, 2.0);
+
+        // Reversed the input
+        let aabb = AABB::new(p_max, p_min, Material::default()).unwrap();
+        assert!(p_min.is_close(&aabb.p_min), "aabb.p_min: {}", aabb.p_min);
+        assert!(p_max.is_close(&aabb.p_max), "aabb.p_max: {}", aabb.p_max);
+    }
+
+    #[test]
+    fn test_aabb_constructor_wrong_corners() {
+        let p_min = Point::new(1.0, 0.0, 1.0);
+        let p_max = Point::new(-1.0, 2.0, 2.0);
+
+        let aabb = AABB::new(p_min, p_max, Material::default()).unwrap();
+
+        assert!(
+            Point::new(-1.0, 0.0, 1.0).is_close(&aabb.p_min),
+            "p_min: {}",
+            aabb.p_min
+        );
+        assert!(
+            Point::new(1.0, 2.0, 2.0).is_close(&aabb.p_max),
+            "p_max: {}",
+            aabb.p_max
+        );
+    }
+
+    #[test]
+    #[should_panic(expected = "Parallelepiped cannot be build")]
+    fn test_aabb_constructor_err() {
+        let p_min = Point::new(-1.0, 0.0, 1.0);
+        let p_max = Point::new(-1.0, 2.0, 2.0);
+        let _ = AABB::new(p_min, p_max, Material::default()).unwrap();
+    }
+
 }

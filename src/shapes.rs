@@ -280,6 +280,48 @@ where
         &self.material
     }
 }
+// ================================================================================
+#[derive(Clone)]
+pub struct AABB {
+    pub p_min: Point,
+    pub p_max: Point,
+    pub material: Material,
+}
+
+impl AABB {
+    pub fn new(p_min: Point, p_max: Point, material: Material) -> Result<Self> {
+        let mut min: Point = p_min;
+        let mut max: Point = p_max;
+        if are_close(p_min.x, p_max.x) || are_close(p_min.y, p_max.y) || are_close(p_min.z, p_max.z)
+        {
+            Err(anyhow!(
+                "Parallelepiped cannot be build from two adiajecent points:
+            {}, {}",
+                p_max,
+                p_min
+            ))
+        } else {
+            if max.x < min.x {
+                max.x = min.x;
+                min.x = p_max.x
+            }
+            if max.y < min.y {
+                max.y = min.y;
+                min.y = p_max.y
+            }
+            if max.z < min.z {
+                max.z = min.z;
+                min.z = p_max.z;
+            }
+            Ok(Self {
+                p_min: min,
+                p_max: max,
+                material,
+            })
+        }
+    }
+}
+
 // =================================================================================
 /// A triangle defined by three world-space vertices, with flat shading.
 ///

@@ -79,6 +79,7 @@
 pub mod brdf;
 pub mod camera;
 pub mod color;
+pub mod csg;
 pub mod functions;
 pub mod geometry;
 pub mod hdr_image;
@@ -93,4 +94,3 @@ pub mod renderer;
 pub mod shapes;
 pub mod transformations;
 pub mod world;
-pub mod csg;

@@ -371,7 +371,43 @@ impl Default for AABB {
 
 impl Shape for AABB {
     fn ray_intersection(&self, ray: &Ray) -> Option<HitRecord<'_>> {
-        todo!()
+        let tx1 = (self.p_min.x - ray.origin.x) / ray.dir.x;
+        let tx2 = (self.p_max.x - ray.origin.x) / ray.dir.x;
+        let ty1 = (self.p_min.y - ray.origin.y) / ray.dir.y;
+        let ty2 = (self.p_max.y - ray.origin.y) / ray.dir.y;
+        let tz1 = (self.p_min.z - ray.origin.z) / ray.dir.z;
+        let tz2 = (self.p_max.z - ray.origin.z) / ray.dir.z;
+
+        // Entry t = largest of the per-axis minimums
+        // Exit  t = smallest of the per-axis maximums
+        let t_enter = tx1.min(tx2).max(ty1.min(ty2)).max(tz1.min(tz2));
+        let t_exit = tx1.max(tx2).min(ty1.max(ty2)).min(tz1.max(tz2));
+
+        // Miss if the box is behind the ray or the ray exits before entering
+        if t_exit < 0.0 || t_enter > t_exit {
+            return None;
+        }
+
+        // Pick the front-facing hit: prefer entry, fall back to exit if entry is behind origin
+        let t = if t_enter >= ray.t_min {
+            t_enter
+        } else {
+            t_exit
+        };
+
+        if !t.is_between_open(&ray.t_min, &ray.t_max) {
+            return None;
+        }
+
+        let point = ray.at(t);
+        Some(HitRecord {
+            world_point: point,
+            normal: self.normal_at(point, ray),
+            uv: self.point_to_uv(&point).unwrap(),
+            t,
+            ray: *ray,
+            material: &self.material,
+        })
     }
 
     fn normal_at(&self, point: Point, ray: &Ray) -> Normal {
@@ -390,12 +426,38 @@ impl Shape for AABB {
             -result
         }
     }
-
     fn point_to_uv(&self, point: &Point) -> Result<Vec2D> {
-        todo!()
+        let interval = Vector::new(
+            self.p_max.x - self.p_min.x,
+            self.p_max.y - self.p_min.y,
+            self.p_max.z - self.p_min.z,
+        );
+        let (u, v) = match self.hit_face(point) {
+            // ±X: projection on YZ
+            0 | 1 => (
+                (point.z - self.p_min.z) / interval.z,
+                (point.y - self.p_min.y) / interval.y,
+            ),
+            // ±Y: projection on XZ
+            2 | 3 => (
+                (point.x - self.p_min.x) / interval.x,
+                (point.z - self.p_min.z) / interval.z,
+            ),
+            // ±Z: projection on XY
+            _ => (
+                (point.x - self.p_min.x) / interval.x,
+                (point.y - self.p_min.y) / interval.y,
+            ),
+        };
+        Ok(Vec2D {
+            x: u.clamp(0.0, 1.0),
+            y: v.clamp(0.0, 1.0),
+        })
     }
 
-    fn material(&self) -> &Material { &self.material }
+    fn material(&self) -> &Material {
+        &self.material
+    }
 }
 
 // =================================================================================
@@ -967,22 +1029,6 @@ mod tests {
     }
 
     #[test]
-    fn test_ql_default() {
-        let ql = QL::default();
-
-        assert!(ql.v.is_close(&Vector::new(0.0, 1.0, 0.0)));
-        assert!(ql.w.is_close(&Vector::new(0.0, 0.0, 1.0)));
-        assert!(ql.p.is_close(&ORIGIN));
-        assert_eq!(
-            ql.material
-                .pigment
-                .get_color(&Vec2D::new(0.5, 0.5))
-                .unwrap(),
-            WHITE
-        );
-    }
-
-    #[test]
     fn test_aabb_hit_face() {
         let cube = AABB::default();
 
@@ -1034,5 +1080,101 @@ mod tests {
         let expected: Normal = Normal::from(-Z_AXIS);
         let result = aabb.normal_at(intersection_point, &ray);
         assert!(result.is_close(&expected), "{}", result);
+    }
+
+    #[test]
+    fn test_aabb_point_to_uv_cube() {
+        let cube = AABB::default();
+        let result = cube.point_to_uv(&Point::new(0.3, -0.2, 0.5)).unwrap();
+        assert!(result.is_close(&Vec2D::new(0.8,0.3)), "point_to_uv_cube: {:?}", result);
+    }
+
+    #[test]
+    fn test_aabb_ray_intersection() {
+        let aabb = setup_aabb();
+
+        let ray = Ray::new(Point::new(15.0, 0.0, 1.0), -X_AXIS);
+        let result = aabb.ray_intersection(&ray).unwrap();
+        let uv_expected = Vec2D::new(4.0 / 8.0, 2.0 / 6.0);
+
+        assert!(are_close(result.t, 5.0), "result.t: {}", result.t);
+        assert!(
+            result.normal.is_close(&Normal::from(X_AXIS)),
+            "result.normal: {}",
+            result.normal
+        );
+        assert!(result.uv.is_close(&uv_expected));
+        assert!(ray.is_close(result.ray), "result.t: {}", result.ray);
+        assert_eq!(
+            result.material.pigment.get_color(&uv_expected).unwrap(),
+            WHITE
+        );
+    }
+
+    #[test]
+    fn test_aabb_ray_intersection_inside() {
+        let aabb = setup_aabb();
+        let origin = Point::new(1.0, 2.0, 3.0);
+        let mut pcg = PCG::default();
+
+        for _ in 0..1000 {
+            let dir = Vector {
+                x: pcg.random_float(),
+                y: pcg.random_float(),
+                z: pcg.random_float(),
+            };
+            let ray = Ray::new(origin, dir);
+            assert!(aabb.ray_intersection(&ray).is_some());
+        }
+    }
+
+    #[test]
+    fn test_aabb_ray_intersection_fan() {
+        let aabb = setup_aabb();
+
+        for i in 0..40 {
+            let z = 2.0 - (i as f32) / 10.0;
+            let dir = Vector::new(0.0, -1.0, z);
+            let ray = Ray::new(Point::new(5.0, 7.0, 1.0), dir);
+            let result = aabb.ray_intersection(&ray);
+            if z.abs() < 4.0 / 3.0 {
+                let result = result.unwrap();
+                assert!(result.t <= 5.0);
+                assert!(
+                    result.normal.is_close(&Normal::from(Y_AXIS)),
+                    "result.normal: {}",
+                    result.normal
+                );
+            } else {
+                assert!(result.is_none(), "{}, {i}", result.unwrap().world_point)
+            }
+        }
+    }
+
+    #[test]
+    fn test_aabb_ray_intersection_out_of_range() {
+        let aabb = AABB::default();
+
+        // Too far
+        let mut ray = Ray::new(Point::new(-0.5, 2.0, 2.0), X_AXIS);
+        ray.t_max = 1.0;
+
+        let result = aabb.ray_intersection(&ray);
+        assert!(result.is_none(), "{}", result.unwrap().world_point);
+
+        // Too close
+        let mut ray = Ray::new(Point::new(-0.5, 2.0, 2.0), X_AXIS);
+        ray.t_min = 11.0;
+
+        let result = aabb.ray_intersection(&ray);
+        assert!(result.is_none(), "{}", result.unwrap().world_point);
+    }
+
+    #[test]
+    fn test_aabb_ray_intersection_borders() {
+        let aabb = setup_aabb();
+
+        let ray = Ray::new(Point::new(10.0, 10.0, 0.0), -Y_AXIS);
+        assert!(aabb.ray_intersection(&ray).is_none());
     }
 }

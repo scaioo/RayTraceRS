@@ -981,4 +981,58 @@ mod tests {
             WHITE
         );
     }
+
+    #[test]
+    fn test_aabb_hit_face() {
+        let cube = AABB::default();
+
+        assert_eq!(1, cube.hit_face(&Point::new(0.5, 0.0, 0.0)));
+        assert_eq!(2, cube.hit_face(&Point::new(-0.5, 0.1, 0.3)));
+        assert_eq!(3, cube.hit_face(&Point::new(0.1, 0.5, 1.5)));
+        assert_eq!(4, cube.hit_face(&Point::new(0.1, -0.5, 0.0)));
+        assert_eq!(5, cube.hit_face(&Point::new(-0.3, 0.0, 0.5)));
+        assert_eq!(6, cube.hit_face(&Point::new(0.3, 0.0, -0.5)));
+    }
+
+    #[test]
+    fn test_aabb_normal_at_cube() {
+        let cube = AABB::default();
+        let ray = Ray::new(Point::new(0.0, 0.0, 0.0), Y_AXIS);
+        let expected: Normal = Normal::from(-Y_AXIS);
+        let result = cube.normal_at(Point::new(0.0, 0.5, 0.0), &ray);
+        assert!(result.is_close(&expected), "{}", result);
+    }
+
+    fn setup_aabb() -> AABB {
+        let point1 = Point::new(-1.0, -2.0, -3.0);
+        let point2 = Point::new(10.0, 4.0, 5.0);
+
+        AABB::new(point1, point2, Material::default()).unwrap()
+    }
+
+    #[test]
+    fn test_aabb_normal_at_normal() {
+        let aabb = setup_aabb();
+
+        // Top y-axis side
+        let ray = Ray::new(Point::new(1.0, 10.0, 0.0), -Y_AXIS);
+        let intersection_point = Point::new(1.0, 4.0, 0.0);
+        let expected: Normal = Normal::from(Y_AXIS);
+        let result = aabb.normal_at(intersection_point, &ray);
+        assert!(result.is_close(&expected), "{}", result);
+
+        // Bottom x-axis side
+        let ray = Ray::new(Point::new(-100.0, 0.0, 0.0), X_AXIS);
+        let intersection_point = Point::new(-1.0, 0.0, 0.0);
+        let expected: Normal = Normal::from(-X_AXIS);
+        let result = aabb.normal_at(intersection_point, &ray);
+        assert!(result.is_close(&expected), "{}", result);
+
+        // Inside top z-axis
+        let ray = Ray::new(Point::new(0.0, 0.0, 0.0), Z_AXIS);
+        let intersection_point = Point::new(0.0, 0.0, 5.0);
+        let expected: Normal = Normal::from(-Z_AXIS);
+        let result = aabb.normal_at(intersection_point, &ray);
+        assert!(result.is_close(&expected), "{}", result);
+    }
 }

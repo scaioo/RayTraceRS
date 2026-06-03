@@ -23,7 +23,7 @@ use crate::geometry::{Cross, Dot, Normal, Point, Vec2D, Vector, X_AXIS, Y_AXIS, 
 use crate::hit_record::HitRecord;
 use crate::materials::Material;
 use crate::ray::Ray;
-use crate::transformations::{IsHomogeneousMatrix};
+use crate::transformations::IsHomogeneousMatrix;
 use anyhow::{Result, anyhow};
 use std::ops::Mul;
 // ========================================================
@@ -423,22 +423,10 @@ impl Default for AABB {
 
 impl Shape for AABB {
     fn ray_intersection(&self, ray: &Ray) -> Option<HitRecord<'_>> {
-        let tx1 = (self.p_min.x - ray.origin.x) / ray.dir.x;
-        let tx2 = (self.p_max.x - ray.origin.x) / ray.dir.x;
-        let ty1 = (self.p_min.y - ray.origin.y) / ray.dir.y;
-        let ty2 = (self.p_max.y - ray.origin.y) / ray.dir.y;
-        let tz1 = (self.p_min.z - ray.origin.z) / ray.dir.z;
-        let tz2 = (self.p_max.z - ray.origin.z) / ray.dir.z;
-
-        // Entry t = largest of the per-axis minimums
-        // Exit  t = smallest of the per-axis maximums
-        let t_enter = tx1.min(tx2).max(ty1.min(ty2)).max(tz1.min(tz2));
-        let t_exit = tx1.max(tx2).min(ty1.max(ty2)).min(tz1.max(tz2));
-
-        // Miss if the box is behind the ray or the ray exits before entering
-        if t_exit < 0.0 || t_enter > t_exit {
-            return None;
-        }
+        let (t_enter, t_exit) = match self.entry_exit_t(ray) {
+            Some(t) => t,
+            None => return None,
+        };
 
         // Pick the front-facing hit: prefer entry, fall back to exit if entry is behind origin
         let t = if t_enter >= ray.t_min {
@@ -447,7 +435,7 @@ impl Shape for AABB {
             t_exit
         };
 
-        if !t.is_between_open(&ray.t_min, &ray.t_max) {
+        if !t.is_between_open(&ray.t_min, &ray.t_max) || t_exit < 0.0 {
             return None;
         }
 
@@ -509,6 +497,29 @@ impl Shape for AABB {
 
     fn material(&self) -> &Material {
         &self.material
+    }
+}
+
+impl Volumetric for AABB {
+    fn entry_exit_t(&self, ray: &Ray) -> Option<(f32, f32)> {
+        let tx1 = (self.p_min.x - ray.origin.x) / ray.dir.x;
+        let tx2 = (self.p_max.x - ray.origin.x) / ray.dir.x;
+        let ty1 = (self.p_min.y - ray.origin.y) / ray.dir.y;
+        let ty2 = (self.p_max.y - ray.origin.y) / ray.dir.y;
+        let tz1 = (self.p_min.z - ray.origin.z) / ray.dir.z;
+        let tz2 = (self.p_max.z - ray.origin.z) / ray.dir.z;
+
+        // Entry t = largest of the per-axis minimums
+        // Exit  t = smallest of the per-axis maximums
+        let t_enter = tx1.min(tx2).max(ty1.min(ty2)).max(tz1.min(tz2));
+        let t_exit = tx1.max(tx2).min(ty1.max(ty2)).min(tz1.max(tz2));
+
+        // Miss if the ray exits before entering
+        if t_enter > t_exit {
+            None
+        } else {
+            Some((t_enter, t_exit))
+        }
     }
 }
 
@@ -1094,10 +1105,16 @@ mod tests {
     #[test]
     fn test_aabb_normal_at_cube() {
         let cube = AABB::default();
-        let ray = Ray::new(Point::new(0.0, 0.0, 0.0), Y_AXIS);
-        let expected: Normal = Normal::from(-Y_AXIS);
-        let result = cube.normal_at(Point::new(0.0, 0.5, 0.0), &ray);
-        assert!(result.is_close(&expected), "{}", result);
+
+        let directions: [Vector; 6] = [X_AXIS, -X_AXIS, Y_AXIS, -Y_AXIS, X_AXIS, Y_AXIS];
+
+        for i in 0..6 {
+            let ray = Ray::new(Point::new(0.0, 0.0, 0.0), directions[i]);
+            let expected: Normal = Normal::from(-directions[i]);
+            let point = Point::from(0.5 * directions[i]);
+            let result = cube.normal_at(point, &ray);
+            assert!(result.is_close(&expected), "{}", result);
+        }
     }
 
     fn setup_aabb() -> AABB {
@@ -1231,6 +1248,91 @@ mod tests {
 
         let ray = Ray::new(Point::new(10.0, 10.0, 0.0), -Y_AXIS);
         assert!(aabb.ray_intersection(&ray).is_none());
+    }
+
+    #[test]
+    fn test_aabb_entry_exit_t_inside_cube() {
+        let aabb = AABB::default();
+        let ray = Ray::new(Point::new(0.0, 0.0, 0.0), Y_AXIS);
+        let (t1, t2) = aabb.entry_exit_t(&ray).unwrap();
+        assert!(are_close(t1, -0.5), "{}", t1);
+        assert!(are_close(t2, 0.5), "{}", t2);
+    }
+
+    #[test]
+    fn test_aabb_entry_exit_t_outside_cube() {
+        let aabb = AABB::default();
+        let ray = Ray::new(Point::new(-10.0, -0.1, 0.2), X_AXIS);
+        let (t1, t2) = aabb.entry_exit_t(&ray).unwrap();
+        assert!(are_close(t1, 9.5), "{}", t1);
+        assert!(are_close(t2, 10.5), "{}", t2);
+    }
+
+    #[test]
+    fn test_aabb_entry_exit_t_back_cube() {
+        let aabb = AABB::default();
+        let ray = Ray::new(Point::new(0.0, 10.5, 0.0), Y_AXIS);
+        let (t1, t2) = aabb.entry_exit_t(&ray).unwrap();
+        assert!(are_close(t1, -11.0), "{}", t1);
+        assert!(are_close(t2, -10.0), "{}", t2);
+    }
+
+    #[test]
+    fn test_aabb_entry_exit_t() {
+        let mut pcg = PCG::default();
+        let point1 = Point::new(-1.0, -2.0, -3.0);
+        let point2 = Point::new(4.0, 5.0, 6.0);
+        let aabb = AABB::new(point1, point2, Material::default()).unwrap();
+        let bar = Point {
+            x: 0.5 * (point1.x + point2.x),
+            y: 0.5 * (point2.y + point1.y),
+            z: 0.5 * (point1.z + point2.z),
+        };
+
+        let radius = ((2.5 * 2.5 + 3.5 * 3.5 + 4.5 * 4.5) as f32).sqrt();
+
+        let f = |pcg: &mut PCG| 10.0 - 20.0 * pcg.random_float();
+
+        for _ in 0..10000 {
+            let origin = match (6.0 * pcg.random_float()) as i32 % 6 {
+                0 => Point::new(-10.0, f(&mut pcg), f(&mut pcg)),
+                1 => Point::new(10.0, f(&mut pcg), f(&mut pcg)),
+                2 => Point::new(f(&mut pcg), -10.0, f(&mut pcg)),
+                3 => Point::new(f(&mut pcg), 10.0, f(&mut pcg)),
+                4 => Point::new(f(&mut pcg), f(&mut pcg), -10.0),
+                5 => Point::new(f(&mut pcg), f(&mut pcg), 10.0),
+                _ => panic!("Check again test logic!!!"),
+            };
+
+            let dir = (bar - origin).normalize();
+            let ray = Ray::new(origin, dir);
+
+            let (t1, t2) = match aabb.entry_exit_t(&ray) {
+                Some((t1, t2)) => (t1, t2),
+                None => panic!(
+                    "SOMETHING IS NOT CORRECT!\n test_aabb_entry_exit_t\n ray:{}",
+                    ray
+                ),
+            };
+
+            let point = ray.at(t1);
+            let distance_from_bar = (point - bar).norm();
+            assert!(
+                distance_from_bar <= radius && distance_from_bar >= 2.5f32,
+                "for t1 = {}, distance from bar = {}",
+                t1,
+                distance_from_bar
+            );
+
+            let point = ray.at(t2);
+            let distance_from_bar = (point - bar).norm();
+            assert!(
+                distance_from_bar <= radius && distance_from_bar >= 2.5f32,
+                "for t2 = {}, distance from bar = {}",
+                t2,
+                distance_from_bar
+            )
+        }
     }
 
     // ============================================================================

@@ -19,7 +19,7 @@
 //! transformation parameter; apply transformations to its vertices before construction.
 
 use crate::functions::{Within, are_close, cramer};
-use crate::geometry::{Cross, Dot, Normal, Point, Vec2D, Vector};
+use crate::geometry::{Cross, Dot, Normal, Point, Vec2D, Vector, X_AXIS, Y_AXIS, Z_AXIS};
 use crate::hit_record::HitRecord;
 use crate::materials::Material;
 use crate::ray::Ray;
@@ -319,6 +319,44 @@ impl AABB {
             })
         }
     }
+
+    // WARNING: no validation is implemented!!!
+    fn hit_face(&self, point: &Point) -> usize {
+        //Face numbering:
+        //
+        //          y |   +Y (3)
+        //            |      ↑
+        //            *-----------*
+        //           /|          /|
+        //          / |         / |
+        //         *-----------*  |     <- 1 (+X)
+        //         |   |       |  |
+        //(-X)     |   |       |  |
+        // 2 ->    |   *-------|--* ---------- x
+        //         |  /        |  /
+        //         | /         | /
+        //         |/          |/
+        //         *-----------*
+        //        /     ↑
+        //       /    -Y (4)
+        //     z
+        //        Front face : +Z (5)
+        //        Back  face : -Z (6)
+        //
+        if are_close(point.x, self.p_max.x) {
+            1
+        } else if are_close(point.x, self.p_min.x) {
+            2
+        } else if are_close(point.y, self.p_max.y) {
+            3
+        } else if are_close(point.y, self.p_min.y) {
+            4
+        } else if are_close(point.z, self.p_max.z) {
+            5
+        } else {
+            6
+        }
+    }
 }
 
 impl Default for AABB {
@@ -329,6 +367,35 @@ impl Default for AABB {
             material: Material::default(),
         }
     }
+}
+
+impl Shape for AABB {
+    fn ray_intersection(&self, ray: &Ray) -> Option<HitRecord<'_>> {
+        todo!()
+    }
+
+    fn normal_at(&self, point: Point, ray: &Ray) -> Normal {
+        let result = match self.hit_face(&point) {
+            1 => Normal::from(X_AXIS),
+            2 => Normal::from(-X_AXIS),
+            3 => Normal::from(Y_AXIS),
+            4 => Normal::from(-Y_AXIS),
+            5 => Normal::from(Z_AXIS),
+            _ => Normal::from(-Z_AXIS),
+        };
+
+        if ray.dir.dot(&result) < 0.0 {
+            result
+        } else {
+            -result
+        }
+    }
+
+    fn point_to_uv(&self, point: &Point) -> Result<Vec2D> {
+        todo!()
+    }
+
+    fn material(&self) -> &Material { &self.material }
 }
 
 // =================================================================================

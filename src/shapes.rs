@@ -604,9 +604,10 @@ impl Shape for Triangle {
 mod tests {
     use super::*;
     use crate::brdf::DiffusiveBrdf;
-    use crate::color::Color;
+    use crate::color::{Color, WHITE};
     use crate::functions::IDENTITY_4X4;
     use crate::geometry::{X_AXIS, is_close};
+    use crate::pcg::PCG;
     use crate::pigments::UniformPigment;
     use crate::transformations::{Scaling, Transformation, Translation};
 
@@ -1086,7 +1087,11 @@ mod tests {
     fn test_aabb_point_to_uv_cube() {
         let cube = AABB::default();
         let result = cube.point_to_uv(&Point::new(0.3, -0.2, 0.5)).unwrap();
-        assert!(result.is_close(&Vec2D::new(0.8,0.3)), "point_to_uv_cube: {:?}", result);
+        assert!(
+            result.is_close(&Vec2D::new(0.8, 0.3)),
+            "point_to_uv_cube: {:?}",
+            result
+        );
     }
 
     #[test]

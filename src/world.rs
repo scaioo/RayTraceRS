@@ -59,12 +59,9 @@ impl Add for World {
 }
 #[cfg(test)]
 mod tests {
-    use crate::brdf::DiffusiveBrdf;
-    use crate::color::Color;
     use crate::functions::{IDENTITY_4X4, are_close};
     use crate::geometry::{Point, Vector, is_close};
     use crate::materials::Material;
-    use crate::pigments::UniformPigment;
     use crate::ray::Ray;
     use crate::shapes::{Plane, Sphere};
     use crate::transformations::{Scaling, Transformation, Translation};

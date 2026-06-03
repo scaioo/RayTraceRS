@@ -85,6 +85,7 @@ pub mod geometry;
 pub mod hdr_image;
 pub mod hit_record;
 pub mod image_tracer;
+pub mod lexer;
 pub mod materials;
 pub mod pcg;
 pub mod pfm_func;

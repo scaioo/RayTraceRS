@@ -23,11 +23,11 @@ use crate::geometry::{Cross, Dot, Normal, Point, Vec2D, Vector, X_AXIS, Y_AXIS, 
 use crate::hit_record::HitRecord;
 use crate::materials::Material;
 use crate::ray::Ray;
-use crate::transformations::IsHomogeneousMatrix;
+use crate::transformations::{IsHomogeneousMatrix};
 use anyhow::{Result, anyhow};
 use std::ops::Mul;
 // ========================================================
-// Supertrait CloneShape
+// Traits: CloneShape, Shape and Volumetric
 // ========================================================
 
 /// Helper supertrait that makes `Box<dyn Shape>` cloneable.
@@ -45,6 +45,19 @@ where
     T: Shape + Clone + 'static,
 {
     fn clone_shape(&self) -> Box<dyn Shape> {
+        Box::new(self.clone())
+    }
+}
+
+pub trait CloneVolumetric {
+    fn clone_volumetric(&self) -> Box<dyn Volumetric>;
+}
+
+impl<T> CloneVolumetric for T
+where
+    T: Volumetric + Clone + 'static,
+{
+    fn clone_volumetric(&self) -> Box<dyn Volumetric> {
         Box::new(self.clone())
     }
 }
@@ -84,6 +97,21 @@ impl Clone for Box<dyn Shape> {
     }
 }
 
+/// Trait for volumetric shapes such as spheres, AABBs,
+/// and CSG solids.
+///
+// In principle this could be generalized to all `Shape`
+// implementations, but no such extension is currently planned.
+pub trait Volumetric: CloneVolumetric {
+    fn entry_exit_t(&self, ray: &Ray) -> Option<(f32, f32)>;
+}
+
+impl Clone for Box<dyn Volumetric> {
+    fn clone(&self) -> Box<dyn Volumetric> {
+        self.clone_volumetric()
+    }
+}
+
 // =================================================================================
 /// A unit sphere centered at the origin, subject to a homogeneous transformation.
 ///
@@ -111,6 +139,12 @@ impl<T: IsHomogeneousMatrix> Sphere<T> {
             material,
         }
     }
+
+    // Utility function: might be helpful in future implementations!
+    pub fn transform_ray(&self, ray: &Ray) -> Ray {
+        let inverse_transformation = self.transformation.inverse_transformation();
+        inverse_transformation * (*ray)
+    }
 }
 impl<T> Shape for Sphere<T>
 where
@@ -123,24 +157,12 @@ where
         + 'static,
 {
     fn ray_intersection(&self, ray: &Ray) -> Option<HitRecord<'_>> {
-        let inverse_transformation = self.transformation.inverse_transformation();
-        let transformed_ray = inverse_transformation * (*ray);
+        let transformed_ray = self.transform_ray(ray);
 
-        let origin = transformed_ray.origin - Point::new(0.0, 0.0, 0.0);
-
-        let a = transformed_ray.dir.squared_norm();
-        let half_b = origin.dot(&transformed_ray.dir);
-        let cross = transformed_ray.dir.cross(&origin);
-
-        let discriminant = a - cross.squared_norm();
-
-        if discriminant < 0.0 || are_close(discriminant, 0.0) {
-            return None;
-        }
-
-        let sqrt_d = discriminant.sqrt();
-        let t1 = (-half_b - sqrt_d) / a;
-        let t2 = (-half_b + sqrt_d) / a;
+        let (t1, t2) = match self.entry_exit_t(&transformed_ray) {
+            Some((t1, t2)) => (t1, t2),
+            None => return None,
+        };
 
         let condition = |t: f32| t > transformed_ray.t_min && t < transformed_ray.t_max;
 
@@ -189,6 +211,36 @@ where
 
     fn material(&self) -> &Material {
         &self.material
+    }
+}
+
+impl<T> Volumetric for Sphere<T>
+where
+    T: IsHomogeneousMatrix
+        + Mul<Ray, Output = Ray>
+        + Mul<Point, Output = Point>
+        + Mul<Normal, Output = Normal>
+        + Mul<Vector, Output = Vector>
+        + Copy
+        + 'static,
+{
+    fn entry_exit_t(&self, local_pov_ray: &Ray) -> Option<(f32, f32)> {
+        let origin = local_pov_ray.origin - Point::new(0.0, 0.0, 0.0);
+
+        let a = local_pov_ray.dir.squared_norm();
+        let half_b = origin.dot(&local_pov_ray.dir);
+        let cross = local_pov_ray.dir.cross(&origin);
+
+        let discriminant = a - cross.squared_norm();
+
+        if discriminant < 0.0 || are_close(discriminant, 0.0) {
+            return None;
+        }
+
+        let sqrt_d = discriminant.sqrt();
+        let t1 = (-half_b - sqrt_d) / a;
+        let t2 = (-half_b + sqrt_d) / a;
+        Some((t1, t2))
     }
 }
 // =================================================================================
@@ -434,12 +486,12 @@ impl Shape for AABB {
         );
         let (u, v) = match self.hit_face(point) {
             // ±X: projection on YZ
-            0 | 1 => (
+            1 | 2 => (
                 (point.z - self.p_min.z) / interval.z,
                 (point.y - self.p_min.y) / interval.y,
             ),
             // ±Y: projection on XZ
-            2 | 3 => (
+            3 | 4 => (
                 (point.x - self.p_min.x) / interval.x,
                 (point.z - self.p_min.z) / interval.z,
             ),
@@ -610,6 +662,10 @@ mod tests {
     use crate::pcg::PCG;
     use crate::pigments::UniformPigment;
     use crate::transformations::{Scaling, Transformation, Translation};
+
+    // ============================================================================
+    // SPHERE TESTS
+    // ============================================================================
 
     fn setup1() -> (Sphere<Transformation>, [Ray; 3]) {
         let rays = [
@@ -834,6 +890,78 @@ mod tests {
         }
     }
 
+    #[test]
+    fn test_sphere_transform_ray_identity() {
+        let sphere = Sphere::new(Transformation::new(IDENTITY_4X4), Material::default());
+        let ray = Ray::new(Point::new(1.0, 2.0, 3.0), Vector::new(1.0, 2.0, 3.0));
+        let transformed_ray = sphere.transform_ray(&ray);
+        assert!(
+            ray.is_close(transformed_ray),
+            "Transformed ray: {:?}",
+            transformed_ray
+        );
+    }
+
+    #[test]
+    fn test_sphere_transform_ray_translate() {
+        let translation = Translation::new(Vector::new(10.0, -4.0, 0.0));
+        let sphere = Sphere::new(translation, Material::default());
+        let ray = Ray::new(Point::new(1.0, 2.0, 3.0), Vector::new(4.0, 5.0, 6.0));
+        let transformed_ray = sphere.transform_ray(&ray);
+
+        let expected = Ray::new(Point::new(-9.0, 6.0, 3.0), Vector::new(4.0, 5.0, 6.0));
+        assert!(
+            expected.is_close(transformed_ray),
+            "Transformed ray: {:?}",
+            transformed_ray
+        );
+    }
+
+    #[test]
+    fn test_sphere_entry_exit_t() {
+        let sphere = Sphere::new(Transformation::new(IDENTITY_4X4), Material::default());
+        let ray = Ray::new(Point::new(0.0, 0.0, 0.0), Z_AXIS);
+
+        let (t1, t2) = sphere.entry_exit_t(&ray).unwrap();
+        assert!(are_close(t1, -1.0), "t1: {}", t1);
+        assert!(are_close(t2, 1.0), "t2: {}", t2);
+    }
+
+    #[test]
+    fn test_sphere_entry_exit_t2() {
+        let (sphere, ray1, ray2) = setup2();
+
+        let translation = Translation::new(Vector::new(-10.0, 0.0, 0.0));
+
+        let (t1, t2) = sphere.entry_exit_t(&(translation * ray1)).unwrap();
+        assert!(are_close(t1, 1.0), "t1: {}", t1);
+        assert!(are_close(t2, 3.0), "t2: {}", t2);
+
+        let (t1, t2) = sphere.entry_exit_t(&(translation * ray2)).unwrap();
+        assert!(are_close(t1, 2.0), "t1: {}", t1);
+        assert!(are_close(t2, 4.0), "t2: {}", t2);
+    }
+
+    #[test]
+    fn test_sphere_entry_exit_t_far_outputs() {
+        let sphere = Sphere::new(Transformation::new(IDENTITY_4X4), Material::default());
+        let ray = Ray::new(Point::new(10.0, 0.0, 0.0), X_AXIS);
+        let result = sphere.entry_exit_t(&ray).unwrap();
+        assert_eq!(result, (-11.0, -9.0), "(t1, t2) = {:?}", result);
+    }
+
+    #[test]
+    fn test_sphere_entry_exit_t_miss() {
+        let sphere = Sphere::new(Transformation::new(IDENTITY_4X4), Material::default());
+        let ray = Ray::new(Point::new(10.0, 0.0, 0.0), Y_AXIS);
+        let result = sphere.entry_exit_t(&ray);
+        assert!(result.is_none(), "(t1, t2) = {:?}", result.unwrap());
+    }
+
+    // ============================================================================
+    // PLANE TESTS
+    // ============================================================================
+
     fn setup_plane() -> (Plane<Transformation>, Ray, Ray, Ray) {
         let material = Material {
             pigment: Box::new(UniformPigment::new(Color::new(10.0, 10.0, 10.0))),
@@ -898,87 +1026,9 @@ mod tests {
         assert!(hit.uv.is_close(&Vec2D::new(0.5, 0.7)));
     }
 
-    fn setup_triangle1() -> Triangle {
-        Triangle {
-            a: Point::new(0.0, 4.0, 0.0),
-            b: Point::new(0.0, -1.0, 0.0),
-            c: Point::new(0.0, 0.0, 4.0),
-            material: Material::default(),
-        }
-    }
-
-    #[test]
-    fn test_triangle_intersection() {
-        let triangle = setup_triangle1();
-
-        let ray = Ray::new(Point::new(-1.0, 0.0, 2.0), Vector::new(1.0, 0.0, 0.0));
-
-        let (t, beta, gamma) = triangle.intersection(ray).unwrap();
-        assert!(are_close(t, 1.0), "t: {}\nexpected: 1.0", t);
-        assert!(beta.is_between_open(&0.0, &1.0), "b: {}", beta);
-        assert!(gamma.is_between_open(&0.0, &1.0), "gamma: {}", gamma);
-    }
-
-    #[test]
-    fn test_triangle_intersection_none() {
-        let triangle = setup_triangle1();
-
-        let ray = Ray::new(Point::new(-1.0, 0.0, 4.0), Vector::new(1.0, 0.0, 0.0));
-        assert!(
-            triangle.intersection(ray).is_err(),
-            "The ray out of the scope must return Err"
-        );
-
-        let ray = Ray::new(Point::new(-1.0, 0.0, 10.0), Vector::new(1.0, 0.0, 0.0));
-        assert!(
-            triangle.intersection(ray).is_err(),
-            "The ray out of the scope must return Err"
-        );
-    }
-
-    #[test]
-    fn test_triangle_ray_intersection() {
-        let triangle = setup_triangle1();
-        let ray = Ray::new(Point::new(-1.0, 0.0, 2.0), Vector::new(1.0, 0.0, 0.0));
-
-        let hit_record = triangle
-            .ray_intersection(&ray)
-            .expect("Should hit the triangle");
-
-        assert!(
-            is_close(hit_record.world_point, Point::new(0.0, 0.0, 2.0)),
-            "hit_record.world_point != hit_point"
-        );
-        assert!(
-            is_close(hit_record.normal, Normal::new(-20.0, 0.0, 0.0)),
-            "normal != hit_record.normal"
-        );
-        assert!(
-            hit_record.uv.is_close(&Vec2D::new(0.4, 0.5)),
-            "uv != hit_record.uv"
-        );
-        assert!(are_close(hit_record.t, 1.0), "t != hit_record.t");
-        assert!(ray.is_close(hit_record.ray), "world_point != hit_point");
-    }
-
-    #[test]
-    fn test_triangle_point_to_uv() -> Result<()> {
-        let triangle = setup_triangle1();
-
-        // Success case: return Ok with the correct value of the object
-        let uv = triangle.point_to_uv(&Point::new(0.0, 0.0, 2.0))?;
-        assert!(uv.is_close(&Vec2D::new(0.4, 0.5)));
-
-        // Error case: return error
-        // We use assert!(res.is_err()) for confirming the bug in not invinsible.
-        let invalid_point = Point::new(10.0, 0.0, 0.0);
-        let result = triangle.point_to_uv(&invalid_point);
-
-        assert!(result.is_err(), "Should fail for point out of the triangle");
-        println!("Error correctly intercepted: {}", result.unwrap_err());
-
-        Ok(())
-    }
+    // ============================================================================
+    // AABB TESTS
+    // ============================================================================
 
     #[test]
     fn test_aabb_constructor() {
@@ -1181,5 +1231,91 @@ mod tests {
 
         let ray = Ray::new(Point::new(10.0, 10.0, 0.0), -Y_AXIS);
         assert!(aabb.ray_intersection(&ray).is_none());
+    }
+
+    // ============================================================================
+    // TRIANGLE TESTS
+    // ============================================================================
+
+    fn setup_triangle1() -> Triangle {
+        Triangle {
+            a: Point::new(0.0, 4.0, 0.0),
+            b: Point::new(0.0, -1.0, 0.0),
+            c: Point::new(0.0, 0.0, 4.0),
+            material: Material::default(),
+        }
+    }
+
+    #[test]
+    fn test_triangle_intersection() {
+        let triangle = setup_triangle1();
+
+        let ray = Ray::new(Point::new(-1.0, 0.0, 2.0), Vector::new(1.0, 0.0, 0.0));
+
+        let (t, beta, gamma) = triangle.intersection(ray).unwrap();
+        assert!(are_close(t, 1.0), "t: {}\nexpected: 1.0", t);
+        assert!(beta.is_between_open(&0.0, &1.0), "b: {}", beta);
+        assert!(gamma.is_between_open(&0.0, &1.0), "gamma: {}", gamma);
+    }
+
+    #[test]
+    fn test_triangle_intersection_none() {
+        let triangle = setup_triangle1();
+
+        let ray = Ray::new(Point::new(-1.0, 0.0, 4.0), Vector::new(1.0, 0.0, 0.0));
+        assert!(
+            triangle.intersection(ray).is_err(),
+            "The ray out of the scope must return Err"
+        );
+
+        let ray = Ray::new(Point::new(-1.0, 0.0, 10.0), Vector::new(1.0, 0.0, 0.0));
+        assert!(
+            triangle.intersection(ray).is_err(),
+            "The ray out of the scope must return Err"
+        );
+    }
+
+    #[test]
+    fn test_triangle_ray_intersection() {
+        let triangle = setup_triangle1();
+        let ray = Ray::new(Point::new(-1.0, 0.0, 2.0), Vector::new(1.0, 0.0, 0.0));
+
+        let hit_record = triangle
+            .ray_intersection(&ray)
+            .expect("Should hit the triangle");
+
+        assert!(
+            is_close(hit_record.world_point, Point::new(0.0, 0.0, 2.0)),
+            "hit_record.world_point != hit_point"
+        );
+        assert!(
+            is_close(hit_record.normal, Normal::new(-20.0, 0.0, 0.0)),
+            "normal != hit_record.normal"
+        );
+        assert!(
+            hit_record.uv.is_close(&Vec2D::new(0.4, 0.5)),
+            "uv != hit_record.uv"
+        );
+        assert!(are_close(hit_record.t, 1.0), "t != hit_record.t");
+        assert!(ray.is_close(hit_record.ray), "world_point != hit_point");
+    }
+
+    #[test]
+    fn test_triangle_point_to_uv() -> Result<()> {
+        let triangle = setup_triangle1();
+
+        // Success case: return Ok with the correct value of the object
+        let uv = triangle.point_to_uv(&Point::new(0.0, 0.0, 2.0))?;
+        assert!(uv.is_close(&Vec2D::new(0.4, 0.5)));
+
+        // Error case: return error
+        // We use assert!(res.is_err()) for confirming the bug in not invinsible.
+        let invalid_point = Point::new(10.0, 0.0, 0.0);
+        let result = triangle.point_to_uv(&invalid_point);
+
+        assert!(result.is_err(), "Should fail for point out of the triangle");
+        println!("Error correctly intercepted: {}", result.unwrap_err());
+
+        Ok(())
     }
 }

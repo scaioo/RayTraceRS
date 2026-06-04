@@ -159,7 +159,7 @@ where
     fn ray_intersection(&self, ray: &Ray) -> Option<HitRecord<'_>> {
         let transformed_ray = self.transform_ray(ray);
 
-        let (t1, t2) = match self.entry_exit_t(&transformed_ray) {
+        let (t1, t2) = match self.entry_exit_t(&ray) {
             Some((t1, t2)) => (t1, t2),
             None => return None,
         };
@@ -224,12 +224,13 @@ where
         + Copy
         + 'static,
 {
-    fn entry_exit_t(&self, local_pov_ray: &Ray) -> Option<(f32, f32)> {
-        let origin = local_pov_ray.origin - Point::new(0.0, 0.0, 0.0);
+    fn entry_exit_t(&self, ray: &Ray) -> Option<(f32, f32)> {
+        let transformed_ray = self.transform_ray(ray);
+        let origin = transformed_ray.origin - Point::new(0.0, 0.0, 0.0);
 
-        let a = local_pov_ray.dir.squared_norm();
-        let half_b = origin.dot(&local_pov_ray.dir);
-        let cross = local_pov_ray.dir.cross(&origin);
+        let a = transformed_ray.dir.squared_norm();
+        let half_b = origin.dot(&transformed_ray.dir);
+        let cross = transformed_ray.dir.cross(&origin);
 
         let discriminant = a - cross.squared_norm();
 
@@ -800,7 +801,8 @@ mod tests {
 
     #[test]
     fn test_sphere_ray_normal_att2() {
-        let (sphere, ray, ray2) = setup2();
+        let (sphere, _, ray2) = setup2();
+        let ray = Ray::new(Point::new(10.0, 0.0, 2.0), Vector::new(0.0, 0.0, -1.0));
 
         let normal = Normal::new(0.0, 0.0, 1.0);
 
@@ -942,13 +944,11 @@ mod tests {
     fn test_sphere_entry_exit_t2() {
         let (sphere, ray1, ray2) = setup2();
 
-        let translation = Translation::new(Vector::new(-10.0, 0.0, 0.0));
-
-        let (t1, t2) = sphere.entry_exit_t(&(translation * ray1)).unwrap();
+        let (t1, t2) = sphere.entry_exit_t(&ray1).unwrap();
         assert!(are_close(t1, 1.0), "t1: {}", t1);
         assert!(are_close(t2, 3.0), "t2: {}", t2);
 
-        let (t1, t2) = sphere.entry_exit_t(&(translation * ray2)).unwrap();
+        let (t1, t2) = sphere.entry_exit_t(&ray2).unwrap();
         assert!(are_close(t1, 2.0), "t1: {}", t1);
         assert!(are_close(t2, 4.0), "t2: {}", t2);
     }

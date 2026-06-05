@@ -75,6 +75,10 @@
 //! - [`hdr_image`] — HDR image buffer, tone mapping (Reinhard), gamma correction,
 //!   and PNG export.
 //! - [`pfm_func`] — PFM file format reading and byte-order handling.
+//!
+//! ### License
+//!
+//! This file is licensed under the EUPL-1.2. See LICENSE.md.
 
 pub mod brdf;
 pub mod camera;

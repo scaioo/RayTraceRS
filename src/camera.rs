@@ -1,3 +1,5 @@
+// This file is licensed under the EUPL-1.2. See LICENSE.md.
+
 //! The camera is responsible for firing light rays into the 3D scene.
 //! By default, before any transformation is applied, the camera looks down the
 //! **positive X-axis**.

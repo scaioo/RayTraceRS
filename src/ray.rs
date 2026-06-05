@@ -1,3 +1,5 @@
+// This file is licensed under the EUPL-1.2. See LICENSE.md.
+
 //! Ray representation utilities.
 //!
 //! A [`Ray`] represents a parametrized half-line in 3D space:

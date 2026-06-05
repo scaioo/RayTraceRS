@@ -1,3 +1,5 @@
+// This file is licensed under the EUPL-1.2. See LICENSE.md.
+
 //! PFM (Portable Float Map) image reading utilities.
 //!
 //! This module provides functions to parse and load `.pfm` outputs into the

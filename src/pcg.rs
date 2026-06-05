@@ -1,3 +1,5 @@
+// This file is licensed under the EUPL-1.2. See LICENSE.md.
+
 //! # PCG — Permuted Congruential Generator
 //!
 //! A fast, statistically high-quality pseudo-random number generator (PRNG)

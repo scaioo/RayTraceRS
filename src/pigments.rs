@@ -1,3 +1,5 @@
+// This file is licensed under the EUPL-1.2. See LICENSE.md.
+
 //! Surface pigmentation system for the ray tracer.
 //!
 //! This module defines the [`Pigment`] trait and several implementations

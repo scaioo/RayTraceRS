@@ -1,3 +1,5 @@
+// This file is licensed under the EUPL-1.2. See LICENSE.md.
+
 //! Utility types and operations for colors used in the ray tracing crate.
 //!
 //! This module provides the basic architecture to treat a single pixel color.

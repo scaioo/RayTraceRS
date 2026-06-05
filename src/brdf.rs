@@ -1,3 +1,5 @@
+// This file is licensed under the EUPL-1.2. See LICENSE.md.
+
 //! # BRDF — Bidirectional Reflectance Distribution Functions
 //!
 //! This module defines the [`BRDF`] trait and its implementations:

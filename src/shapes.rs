@@ -1,3 +1,5 @@
+// This file is licensed under the EUPL-1.2. See LICENSE.md.
+
 //! # Shapes
 //!
 //! This module defines the geometric primitives that can be placed in a ray-tracer scene.

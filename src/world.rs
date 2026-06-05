@@ -1,3 +1,5 @@
+// This file is licensed under the EUPL-1.2. See LICENSE.md.
+
 //! A scene is represented as a collection of geometric objects.
 //! This module implements a list of shapes: the `World` type.
 //!

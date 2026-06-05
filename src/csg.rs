@@ -1,3 +1,5 @@
+// This file is licensed under the EUPL-1.2. See LICENSE.md.
+
 //! Constructive Solid Geometry module.
 
 use crate::geometry::{Normal, Point, Vec2D};

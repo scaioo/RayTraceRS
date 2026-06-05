@@ -2,6 +2,8 @@
 
 //! Constructive Solid Geometry module.
 
+use anyhow::anyhow;
+use crate::functions::{are_close, Within};
 use crate::geometry::{Normal, Point, Vec2D};
 use crate::hit_record::HitRecord;
 use crate::materials::Material;
@@ -61,6 +63,33 @@ impl CSG {
             Some((entry, exit))
         } else {
             None
+        }
+    }
+
+    // Design choice: if there is no intersection or total intersection code returns error.
+    pub fn eet_difference(&self, ray: &Ray) -> anyhow::Result<Option<(f32, f32)>> {
+        match self.object1.entry_exit_t(ray) {
+            None => Ok(None),
+            Some((a, b)) => {
+                match self.object2.entry_exit_t(ray) {
+                    None => Ok(Some((a, b))),
+                    Some((c, d)) => {
+                        if a < c && b.is_between_close(&c,&d) {
+                            Ok(Some((a,c)))
+                        } else if c < a && d.is_between_close(&a, &b) {
+                            Ok(Some((d,b)))
+                        } else {
+                            Err(anyhow!(
+    "Unsupported CSG difference configuration:
+object1 interval = ({a}, {b})
+object2 interval = ({c}, {d})
+
+The current implementation only supports a single partial overlap."
+))
+                        }
+                    }
+                }
+            }
         }
     }
 }

@@ -1,3 +1,5 @@
+// This file is licensed under the EUPL-1.2. See LICENSE.md.
+
 //! HDR Image Module
 //!
 //! This module defines the [`HDR`] struct, which represents a High Dynamic Range

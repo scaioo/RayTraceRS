@@ -1,3 +1,5 @@
+// This file is licensed under the EUPL-1.2. See LICENSE.md.
+
 //! Affine transformations in 3D space using homogeneous coordinates.
 //!
 //! This module provides the mathematical foundation for positioning, rotating,

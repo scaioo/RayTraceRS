@@ -1,3 +1,5 @@
+// This file is licensed under the EUPL-1.2. See LICENSE.md.
+
 //! The `ImageTracer` module ties together the `Camera` and the `HDR` image.
 //!
 //! It acts as the main rendering engine. Its primary responsibilities are:

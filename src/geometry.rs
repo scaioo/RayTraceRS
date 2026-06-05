@@ -1,3 +1,5 @@
+// This file is licensed under the EUPL-1.2. See LICENSE.md.
+
 //! Geometry module providing the spatial primitives used by the renderer.
 use crate::functions::are_close;
 use std::fmt;

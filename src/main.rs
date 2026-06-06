@@ -119,7 +119,7 @@ fn demo_world() -> World {
     let s2_transform = Translation::new(Vector::new(1.0, 2.5, 0.0));
     objects.push(Box::new(Sphere::new(s2_transform, mirror_material)));
 
-    World { objects }
+    World { objects, light_sources: vec![] }
 }
 
 // ====================================================================

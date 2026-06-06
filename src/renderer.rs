@@ -253,6 +253,22 @@ impl Renderer for PathTracer {
         Ok(final_color)
     }
 }
+
+// =================================================================
+// Whitted Algorithm
+// =================================================================
+pub struct PointLightRenderer {
+    background_color: Color,
+}
+
+impl PointLightRenderer {}
+
+impl Renderer for PointLightRenderer {
+    fn render(&self, ray: &Ray, world: &World, pcg: &mut PCG) -> Result<Color> {
+        todo!()
+    }
+}
+
 // =================================================================================
 //                                    TESTS
 // =================================================================================
@@ -288,7 +304,7 @@ mod tests {
         let camera = OrthogonalCamera::new(Transformation::new(IDENTITY_4X4));
         let mut tracer = ImageTracer::new(image, camera, 0);
         let world = World {
-            objects: vec![Box::new(sphere)],
+            objects: vec![Box::new(sphere)], light_sources: vec![]
         };
 
         let mut pcg = PCG::default();
@@ -391,6 +407,7 @@ mod tests {
         let mut tracer = ImageTracer::new(image, camera, 0);
         let world = World {
             objects: vec![Box::new(sphere)],
+            light_sources: vec![]
         };
 
         let renderer = FlatRenderer::default();
@@ -492,6 +509,7 @@ mod tests {
             let sphere = Sphere::new(Transformation::new(IDENTITY_4X4), enclosure_material);
             let world = World {
                 objects: vec![Box::new(sphere)],
+                light_sources: vec![]
             };
             let path_tracer = PathTracer::new(WHITE, 1, 100, 101);
             let ray = Ray::new(Point::new(0.0, 0.0, 0.0), Vector::new(1., 0., 0.));

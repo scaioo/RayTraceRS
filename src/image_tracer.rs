@@ -208,7 +208,10 @@ mod tests {
                 .map(|s| Box::new(s) as Box<dyn Shape>)
                 .collect();
 
-            World { objects, light_sources: vec![] }
+            World {
+                objects,
+                light_sources: vec![],
+            }
         }
         let image = HDR::new(4, 2);
         let mut camera = PerspectiveCamera::new(Transformation::new(IDENTITY_4X4));

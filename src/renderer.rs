@@ -16,6 +16,7 @@
 //!
 
 use crate::color::{BLACK, Color, WHITE};
+use crate::geometry::{Dot, Vector};
 use crate::pcg::PCG;
 use crate::ray::Ray;
 use crate::world::World;
@@ -265,7 +266,17 @@ impl PointLightRenderer {}
 
 impl Renderer for PointLightRenderer {
     fn render(&self, ray: &Ray, world: &World, pcg: &mut PCG) -> Result<Color> {
-        todo!()
+        let hit_record = match world.ray_intersection(ray) {
+            Some(hit) => hit,
+            None => return Ok(self.background_color),
+        };
+
+        let mut color: Color = BLACK;
+
+        for light_source in world.light_sources.iter() {
+            color += light_source.source_contribution(&hit_record, world)?;
+        }
+        Ok(color)
     }
 }
 
@@ -304,7 +315,8 @@ mod tests {
         let camera = OrthogonalCamera::new(Transformation::new(IDENTITY_4X4));
         let mut tracer = ImageTracer::new(image, camera, 0);
         let world = World {
-            objects: vec![Box::new(sphere)], light_sources: vec![]
+            objects: vec![Box::new(sphere)],
+            light_sources: vec![],
         };
 
         let mut pcg = PCG::default();
@@ -407,7 +419,7 @@ mod tests {
         let mut tracer = ImageTracer::new(image, camera, 0);
         let world = World {
             objects: vec![Box::new(sphere)],
-            light_sources: vec![]
+            light_sources: vec![],
         };
 
         let renderer = FlatRenderer::default();
@@ -509,7 +521,7 @@ mod tests {
             let sphere = Sphere::new(Transformation::new(IDENTITY_4X4), enclosure_material);
             let world = World {
                 objects: vec![Box::new(sphere)],
-                light_sources: vec![]
+                light_sources: vec![],
             };
             let path_tracer = PathTracer::new(WHITE, 1, 100, 101);
             let ray = Ray::new(Point::new(0.0, 0.0, 0.0), Vector::new(1., 0., 0.));

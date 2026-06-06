@@ -6,17 +6,18 @@
 //! - It maintains a list of `Shape` objects.
 //! - It implements a `ray_intersection` method that iterates over the shapes,
 //!   searches for intersections, and returns the one closest to the ray origin.
+use crate::geometry::Point;
 use crate::hit_record::HitRecord;
+use crate::light_source::LightSource;
 use crate::ray::Ray;
 use crate::shapes::Shape;
 use std::ops::Add;
-use crate::geometry::Point;
 
 /// A `World` is a collection of scene objects.
 #[derive(Clone)]
 pub struct World {
     pub objects: Vec<Box<dyn Shape>>,
-    pub light_sources: Vec<Point>
+    pub light_sources: Vec<Box<dyn LightSource>>,
 }
 
 impl World {
@@ -88,7 +89,7 @@ mod tests {
 
         World {
             objects: vec![Box::new(sphere1), Box::new(sphere2), Box::new(bean)],
-            light_sources: vec![]
+            light_sources: vec![],
         }
     }
     #[test]
@@ -146,7 +147,7 @@ mod tests {
                 Box::new(Plane::new(transformation, Material::default(), false)),
                 Box::new(Plane::new(transformation, Material::default(), false)),
             ],
-            light_sources: vec![]
+            light_sources: vec![],
         };
 
         let world = world_1 + world_2;

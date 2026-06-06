@@ -14,7 +14,7 @@
 
 use crate::functions::are_close;
 use anyhow::{Result, anyhow};
-use std::ops::{Add, Div, Mul};
+use std::ops::{Add, AddAssign, Div, Mul};
 
 /// RGB color stored as three linear floating-point components.
 ///
@@ -247,6 +247,14 @@ impl Div<f32> for Color {
             g: self.g / rhs,
             b: self.b / rhs,
         }
+    }
+}
+
+impl AddAssign for Color {
+    fn add_assign(&mut self, rhs: Color) {
+        self.r += rhs.r;
+        self.g += rhs.g;
+        self.b += rhs.b;
     }
 }
 

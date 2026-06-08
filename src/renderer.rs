@@ -259,7 +259,7 @@ impl Renderer for PathTracer {
 // Whitted Algorithm
 // =================================================================
 pub struct PointLightRenderer {
-    background_color: Color,
+    pub background_color: Color,
 }
 
 impl PointLightRenderer {}

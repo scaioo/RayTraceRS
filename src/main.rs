@@ -3,23 +3,23 @@ use clap::Parser;
 use rstrace::brdf::{DiffusiveBrdf, SpecularBrdf};
 use rstrace::camera::{Camera, OrthogonalCamera, PerspectiveCamera};
 use rstrace::color::{BLACK, Color, WHITE};
+use rstrace::functions::IDENTITY_4X4;
 use rstrace::geometry::{Point, Vector};
 use rstrace::hdr_image::HDR;
 use rstrace::image_tracer::ImageTracer;
+use rstrace::light_source::{PointLightSource, SphericalLightSource};
 use rstrace::materials::Material;
 use rstrace::pcg::PCG;
-use rstrace::pfm_func::{Endianness, pfm_to_ldr};
-use rstrace::pigments::{CheckeredPigment, UniformPigment};
+use rstrace::pfm_func::{Endianness, pfm_to_ldr, read_pfm};
+use rstrace::pigments::{CheckeredPigment, GradientPigment, ImagePigment, UniformPigment};
 use rstrace::ray::Ray;
 use rstrace::renderer::{FlatRenderer, OnOffRenderer, PathTracer, PointLightRenderer, Renderer};
 use rstrace::shapes::{Plane, Shape, Sphere};
-use rstrace::transformations::{Scaling, Transformation, Translation, ZRotation};
+use rstrace::transformations::{Scaling, Transformation, Translation, YRotation, ZRotation};
 use rstrace::world::World;
 use std::fs::File;
-use std::io::BufWriter;
+use std::io::{BufReader, BufWriter};
 use std::time::Instant;
-use rstrace::functions::IDENTITY_4X4;
-use rstrace::light_source::{PointLightSource, SphericalLightSource};
 
 #[derive(Parser)]
 struct Cli {
@@ -127,49 +127,6 @@ fn demo_world() -> World {
     }
 }
 
-fn world() -> World {
-    // 2. THE FLOOR (An infinite chequered floor)
-    let ground_material = Material {
-        // Let’s create large squares by setting a low step size (e.g. 10, or depending on the scale)
-        pigment: Box::new(CheckeredPigment::new(
-            Color::new(0.3, 0.5, 0.1),
-            Color::new(0.1, 0.2, 0.5),
-            5,
-        )),
-        brdf: Box::new(DiffusiveBrdf {}),
-        emitted_radiance: Box::new(UniformPigment::new(BLACK)),
-    };
-    let ground_transform = Transformation::new(rstrace::functions::IDENTITY_4X4);
-
-    let material = Material::new(
-        UniformPigment::new(WHITE),
-        DiffusiveBrdf {},
-        UniformPigment::new(BLACK),
-    );
-
-    let sphere = Sphere::new(Transformation::new(IDENTITY_4X4), material);
-    
-    
-    let color: Color = Color::new(1.0, 1.0, 1.0);
-    let point: Point = Point::new(0.0, 0.0, 10.0);
-    let n_points: usize = 150;
-    let radius: f32 = 1.0;
-    let sun = SphericalLightSource::new(point,radius,color,n_points);
-
-
-    let red_light = PointLightSource::new(Point::new(-10.0, 10.0, 0.0), Color::new(1.0, 0.0, 0.0));
-    let blue_light = PointLightSource::new(Point::new(-10.0, -10.0, 0.0), Color::new(0.0, 1.0, 0.0));
-
-    World {
-        objects: vec![Box::new(sphere), Box::new(Plane::new(
-            ground_transform,
-            ground_material,
-            true,
-        ))],
-        light_sources: vec![Box::new(red_light), Box::new(blue_light), Box::new(sun)],
-    }
-}
-
 // ====================================================================
 // MAIN PROGRAM
 // ====================================================================
@@ -199,7 +156,7 @@ fn main() -> Result<()> {
                 cli.width, cli.height, angle_deg
             );
 
-            let world = world();
+            let world = demo_world();
             let mut img = HDR::new(cli.width, cli.height);
             let aspectratio = img.width as f32 / img.height as f32;
 
@@ -212,7 +169,9 @@ fn main() -> Result<()> {
             let flat_renderer = FlatRenderer::new(BLACK);
             let onoff_renderer = OnOffRenderer::default();
             let path_tracer = PathTracer::new(BLACK, num_of_rays, max_depth, 2);
-            let whitted = PointLightRenderer { background_color: BLACK} ;
+            let whitted = PointLightRenderer {
+                background_color: BLACK,
+            };
 
             // Let’s initialize the random number generator
             let mut pcg = PCG::default();
@@ -224,7 +183,7 @@ fn main() -> Result<()> {
                     flat_renderer.render(&ray, world, &mut pcg)
                 } else if algorithm == "pathtracing" {
                     path_tracer.render(&ray, world, &mut pcg)
-                } else if algorithm == "point-light"{
+                } else if algorithm == "point-light" {
                     whitted.render(&ray, world, &mut pcg)
                 } else {
                     panic!("Unknown algorithm: {}", algorithm);

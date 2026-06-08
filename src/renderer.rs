@@ -289,10 +289,12 @@ mod tests {
     use crate::brdf::DiffusiveBrdf;
     use crate::camera::OrthogonalCamera;
     use crate::color::{BLACK, Color, WHITE};
-    use crate::functions::{are_close, Within, IDENTITY_4X4};
+    use crate::functions::{IDENTITY_4X4, Within, are_close};
     use crate::geometry::{Point, Vector, X_AXIS, Y_AXIS};
     use crate::hdr_image::HDR;
     use crate::image_tracer::ImageTracer;
+    use crate::lexer::Keyword::SPHERE;
+    use crate::light_source::{PointLightSource, SphericalLightSource};
     use crate::materials::Material;
     use crate::pcg::PCG;
     use crate::pigments::UniformPigment;
@@ -300,8 +302,6 @@ mod tests {
     use crate::transformations::{Scaling, Transformation, Translation};
     use anyhow::Result;
     use approx::assert_relative_eq;
-    use crate::lexer::Keyword::SPHERE;
-    use crate::light_source::{PointLightSource, SphericalLightSource};
 
     #[test]
     fn test_on_off_renderer() -> Result<()> {
@@ -538,14 +538,14 @@ mod tests {
         Ok(())
     }
 
-    fn give_sphere( point: Point, color: Color ) -> Sphere<Translation> {
+    fn give_sphere(point: Point, color: Color) -> Sphere<Translation> {
         let material = Material {
             pigment: Box::new(UniformPigment::new(color)),
-            brdf: Box::new(DiffusiveBrdf{}),
+            brdf: Box::new(DiffusiveBrdf {}),
             emitted_radiance: Box::new(UniformPigment::new(BLACK)),
         };
         Sphere {
-            transformation: Translation::new(point - Point::new(0.0,0.0,0.0)),
+            transformation: Translation::new(point - Point::new(0.0, 0.0, 0.0)),
             material,
         }
     }
@@ -562,12 +562,13 @@ mod tests {
         let sphere = Sphere::new(Transformation::new(IDENTITY_4X4), material);
 
         // Two lights on opposite sides, different colors
-        let red_light  = PointLightSource::new(Point::new(-10.0, 0.0, 0.0), Color::new(1.0, 0.0, 0.0));
+        let red_light =
+            PointLightSource::new(Point::new(-10.0, 0.0, 0.0), Color::new(1.0, 0.0, 0.0));
         let blue_light = SphericalLightSource {
             center: Point::new(10.0, 0.0, 0.0),
             radius: 1.0,
-            color: Color::new(0.0,0.0,1.0),
-            n_points: 1000
+            color: Color::new(0.0, 0.0, 1.0),
+            n_points: 1000,
         };
 
         let world = World {
@@ -575,7 +576,9 @@ mod tests {
             light_sources: vec![Box::new(red_light), Box::new(blue_light)],
         };
 
-        let renderer = PointLightRenderer { background_color: BLACK };
+        let renderer = PointLightRenderer {
+            background_color: BLACK,
+        };
         let mut pcg = PCG::default();
 
         // Ray hits the sphere on the LEFT face (-X): facing red light, back to blue
@@ -583,7 +586,7 @@ mod tests {
         let color_left = renderer.render(&ray_left, &world, &mut pcg).unwrap();
 
         // Ray hits the sphere on the RIGHT face (+X): facing blue light, back to red
-        let ray_right = Ray::new(Point::new(5.0, 0.0, 0.0), - X_AXIS);
+        let ray_right = Ray::new(Point::new(5.0, 0.0, 0.0), -X_AXIS);
         let color_right = renderer.render(&ray_right, &world, &mut pcg).unwrap();
 
         // Ray misses: should return background
@@ -595,11 +598,27 @@ mod tests {
         println!("color_miss:  {:?}", color_miss);
 
         // Left hit: only red contributes (n_dot_l = 1.0), blue is occluded by the sphere itself
-        assert!(color_left.is_close(&Color::new(1.0, 0.0, 0.0)),  "left face: {:?}", color_left);
+        assert!(
+            color_left.is_close(&Color::new(1.0, 0.0, 0.0)),
+            "left face: {:?}",
+            color_left
+        );
         // Right hit: only blue contributes (n_dot_l = 1.0), red is occluded
-        assert!(are_close(color_right.r, 0.0), "right face red: {:?}", color_right.r);
-        assert!(are_close(color_right.g, 0.0), "right face green: {:?}", color_right.g);
-        assert!(color_right.b > 0.0, "right face blue should be positive: {:?}", color_right.b);
+        assert!(
+            are_close(color_right.r, 0.0),
+            "right face red: {:?}",
+            color_right.r
+        );
+        assert!(
+            are_close(color_right.g, 0.0),
+            "right face green: {:?}",
+            color_right.g
+        );
+        assert!(
+            color_right.b > 0.0,
+            "right face blue should be positive: {:?}",
+            color_right.b
+        );
         // Miss: background color
         assert!(color_miss.is_close(&BLACK), "miss: {:?}", color_miss);
     }
@@ -614,15 +633,19 @@ mod tests {
 
         let sphere = Sphere::new(Transformation::new(IDENTITY_4X4), material);
 
-        let red_light = PointLightSource::new(Point::new(-10.0, 10.0, 0.0), Color::new(1.0, 0.0, 0.0));
-        let blue_light = PointLightSource::new(Point::new(-10.0, -10.0, 0.0), Color::new(0.0, 1.0, 0.0));
+        let red_light =
+            PointLightSource::new(Point::new(-10.0, 10.0, 0.0), Color::new(1.0, 0.0, 0.0));
+        let blue_light =
+            PointLightSource::new(Point::new(-10.0, -10.0, 0.0), Color::new(0.0, 1.0, 0.0));
 
         let world = World {
             objects: vec![Box::new(sphere)],
             light_sources: vec![Box::new(red_light), Box::new(blue_light)],
         };
 
-        let renderer = PointLightRenderer { background_color: BLACK };
+        let renderer = PointLightRenderer {
+            background_color: BLACK,
+        };
         let mut pcg = PCG::default();
 
         let ray = Ray::new(Point::new(-5.0, 0.0, 0.0), X_AXIS);

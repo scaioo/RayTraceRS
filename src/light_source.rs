@@ -1,11 +1,11 @@
 use crate::color::{BLACK, Color};
 use crate::functions::Within;
-use crate::geometry::{branchless_onb, Dot, Normal, Point, Vec2D, Vector};
+use crate::geometry::{Dot, Normal, Point, Vec2D, Vector, branchless_onb};
 use crate::hit_record::HitRecord;
+use crate::pcg::PCG;
 use crate::ray::Ray;
 use crate::world::World;
 use anyhow::Result;
-use crate::pcg::PCG;
 // =================================================================
 // Traits
 // =================================================================
@@ -23,7 +23,12 @@ where
     }
 }
 pub trait LightSource: CloneLightSource {
-    fn source_contribution(&self, hit_record: &HitRecord, world: &World, pcg: &mut PCG) -> Result<Color>;
+    fn source_contribution(
+        &self,
+        hit_record: &HitRecord,
+        world: &World,
+        pcg: &mut PCG,
+    ) -> Result<Color>;
 }
 
 impl Clone for Box<dyn LightSource> {
@@ -49,7 +54,12 @@ impl PointLightSource {
 }
 
 impl LightSource for PointLightSource {
-    fn source_contribution(&self, hit_record: &HitRecord, world: &World, _pcg: &mut PCG) -> Result<Color> {
+    fn source_contribution(
+        &self,
+        hit_record: &HitRecord,
+        world: &World,
+        _pcg: &mut PCG,
+    ) -> Result<Color> {
         let hit_point = hit_record.world_point;
         let normal = hit_record.normal;
         let pigment_color = hit_record.material.pigment.get_color(&hit_record.uv)?;
@@ -88,19 +98,29 @@ pub struct SphericalLightSource {
 }
 
 impl SphericalLightSource {
-    pub fn new(center: Point, radius: f32, color: Color, n_points : usize) -> Self {
-        Self { center, radius, color, n_points }
+    pub fn new(center: Point, radius: f32, color: Color, n_points: usize) -> Self {
+        Self {
+            center,
+            radius,
+            color,
+            n_points,
+        }
     }
 }
 
 impl LightSource for SphericalLightSource {
-    fn source_contribution(&self, hit_record: &HitRecord, world: &World, pcg: &mut PCG) -> Result<Color> {
-        let mut color : Color = BLACK;
+    fn source_contribution(
+        &self,
+        hit_record: &HitRecord,
+        world: &World,
+        pcg: &mut PCG,
+    ) -> Result<Color> {
+        let mut color: Color = BLACK;
         let normal = Normal::from((hit_record.world_point - self.center).normalize());
         let (e1, e2, _) = branchless_onb(normal);
 
         for _ in 0..self.n_points {
-            let r   = self.radius * pcg.random_float().sqrt();
+            let r = self.radius * pcg.random_float().sqrt();
             let phi = 2.0 * std::f32::consts::PI * pcg.random_float();
             let vec = r * phi.cos() * e1 + r * phi.sin() * e2;
             let point = self.center + vec;
@@ -185,7 +205,9 @@ mod tests {
 
         let expected_color = BLACK;
 
-        let result_color = light2.source_contribution(&hit_point, &world, &mut PCG::default()).unwrap();
+        let result_color = light2
+            .source_contribution(&hit_point, &world, &mut PCG::default())
+            .unwrap();
         assert!(result_color.is_close(&expected_color));
     }
 
@@ -205,7 +227,9 @@ mod tests {
 
         let expected_color = Color::new(10.0, 1.0, 4.0) * Color::new(0.0, 0.0, 1.0);
 
-        let result_color = light1.source_contribution(&hit_point, &world, &mut PCG::default()).unwrap();
+        let result_color = light1
+            .source_contribution(&hit_point, &world, &mut PCG::default())
+            .unwrap();
         assert!(result_color.is_close(&expected_color), "{:?}", result_color);
     }
 
@@ -238,7 +262,9 @@ mod tests {
             material: &material2.clone(),
         };
 
-        let result_color = light.source_contribution(&hit_point, &world, &mut PCG::default()).unwrap();
+        let result_color = light
+            .source_contribution(&hit_point, &world, &mut PCG::default())
+            .unwrap();
         let expected_color = color2 * Color::new(1.0, 2.0, 3.0) * 60.0_f32.to_radians().cos();
         assert!(result_color.is_close(&expected_color), "{:?}", result_color);
     }
@@ -250,7 +276,7 @@ mod tests {
         let n_points: usize = 150;
         let radius: f32 = 1.5;
 
-        let sun = SphericalLightSource::new(point,radius,color,n_points);
+        let sun = SphericalLightSource::new(point, radius, color, n_points);
 
         assert_eq!(sun.color, color);
         assert_eq!(sun.radius, 1.5);
@@ -263,7 +289,7 @@ mod tests {
         let point: Point = Point::new(0.0, 0.0, -1.0);
         let n_points: usize = 150;
         let radius: f32 = 1.0;
-        SphericalLightSource::new(point,radius,color,n_points)
+        SphericalLightSource::new(point, radius, color, n_points)
     }
 
     #[test]
@@ -272,7 +298,7 @@ mod tests {
         let sun = give_sun();
         // World
         let (material1, _, _, _, world) = setup1();
-        let world_point = Point::new(0.0,0.0,1.0);
+        let world_point = Point::new(0.0, 0.0, 1.0);
         let hit_point = HitRecord {
             world_point,
             normal: Normal::from(-Z_AXIS),
@@ -284,29 +310,51 @@ mod tests {
 
         let expected_color = Color::new(10.0, 1.0, 4.0) * Color::new(1.0, 2.0, 3.0);
         println!("\n{:?}\n", expected_color);
-        let result_color = sun.source_contribution(&hit_point, &world, &mut PCG::default()).unwrap();
+        let result_color = sun
+            .source_contribution(&hit_point, &world, &mut PCG::default())
+            .unwrap();
 
-        assert!(result_color.r.is_between_open(&(expected_color.r - 1.0), &(expected_color.r + 1.0_f32)), "red: {}", result_color.r);
-        assert!(result_color.g.is_between_open(&(expected_color.g - 1.0), &(expected_color.g + 1.0_f32)), "green: {}", result_color.g);
-        assert!(result_color.b.is_between_open(&(expected_color.b - 1.0), &(expected_color.b + 1.0_f32)), "blue: {}", result_color.b);
+        assert!(
+            result_color
+                .r
+                .is_between_open(&(expected_color.r - 1.0), &(expected_color.r + 1.0_f32)),
+            "red: {}",
+            result_color.r
+        );
+        assert!(
+            result_color
+                .g
+                .is_between_open(&(expected_color.g - 1.0), &(expected_color.g + 1.0_f32)),
+            "green: {}",
+            result_color.g
+        );
+        assert!(
+            result_color
+                .b
+                .is_between_open(&(expected_color.b - 1.0), &(expected_color.b + 1.0_f32)),
+            "blue: {}",
+            result_color.b
+        );
     }
 
     #[test]
     fn test_spherical_light_source_contribution_shadow() {
         let sun = give_sun();
         let (_, material2, _, _, world) = setup1();
-        let world_point = Point::new(0.0,0.0,8.0);
+        let world_point = Point::new(0.0, 0.0, 8.0);
         let hit_point = HitRecord {
             world_point,
             normal: Normal::from(Z_AXIS),
             uv: world.objects[1].point_to_uv(&world_point).unwrap(),
             t: 1.0,
-            ray: Ray::new(world_point + Z_AXIS, - Z_AXIS),
-            material: &material2
+            ray: Ray::new(world_point + Z_AXIS, -Z_AXIS),
+            material: &material2,
         };
 
         let expected_color = BLACK;
-        let result_color = sun.source_contribution(&hit_point, &world, &mut PCG::default()).unwrap();
+        let result_color = sun
+            .source_contribution(&hit_point, &world, &mut PCG::default())
+            .unwrap();
         assert!(result_color.is_close(&expected_color), "{:?}", result_color);
     }
 }

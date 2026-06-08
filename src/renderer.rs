@@ -274,7 +274,7 @@ impl Renderer for PointLightRenderer {
         let mut color: Color = BLACK;
 
         for light_source in world.light_sources.iter() {
-            color += light_source.source_contribution(&hit_record, world)?;
+            color += light_source.source_contribution(&hit_record, world, pcg)?;
         }
         Ok(color)
     }
@@ -289,17 +289,20 @@ mod tests {
     use crate::brdf::DiffusiveBrdf;
     use crate::camera::OrthogonalCamera;
     use crate::color::{BLACK, Color, WHITE};
-    use crate::functions::IDENTITY_4X4;
-    use crate::geometry::{Point, Vector};
+    use crate::functions::{are_close, Within, IDENTITY_4X4};
+    use crate::geometry::{Point, Vector, X_AXIS, Y_AXIS};
     use crate::hdr_image::HDR;
     use crate::image_tracer::ImageTracer;
     use crate::materials::Material;
     use crate::pcg::PCG;
     use crate::pigments::UniformPigment;
-    use crate::shapes::Sphere;
+    use crate::shapes::{Shape, Sphere};
     use crate::transformations::{Scaling, Transformation, Translation};
     use anyhow::Result;
     use approx::assert_relative_eq;
+    use crate::lexer::Keyword::SPHERE;
+    use crate::light_source::{PointLightSource, SphericalLightSource};
+
     #[test]
     fn test_on_off_renderer() -> Result<()> {
         // Define variables
@@ -533,5 +536,113 @@ mod tests {
             assert_relative_eq!(color.b, expected, epsilon = 1e-3);
         }
         Ok(())
+    }
+
+    fn give_sphere( point: Point, color: Color ) -> Sphere<Translation> {
+        let material = Material {
+            pigment: Box::new(UniformPigment::new(color)),
+            brdf: Box::new(DiffusiveBrdf{}),
+            emitted_radiance: Box::new(UniformPigment::new(BLACK)),
+        };
+        Sphere {
+            transformation: Translation::new(point - Point::new(0.0,0.0,0.0)),
+            material,
+        }
+    }
+
+    #[test]
+    fn test_point_light_renderer_two_lights_no_overlap() {
+        let material = Material::new(
+            UniformPigment::new(WHITE),
+            DiffusiveBrdf {},
+            UniformPigment::new(BLACK),
+        );
+
+        // Sphere centered at origin
+        let sphere = Sphere::new(Transformation::new(IDENTITY_4X4), material);
+
+        // Two lights on opposite sides, different colors
+        let red_light  = PointLightSource::new(Point::new(-10.0, 0.0, 0.0), Color::new(1.0, 0.0, 0.0));
+        let blue_light = SphericalLightSource {
+            center: Point::new(10.0, 0.0, 0.0),
+            radius: 1.0,
+            color: Color::new(0.0,0.0,1.0),
+            n_points: 1000
+        };
+
+        let world = World {
+            objects: vec![Box::new(sphere)],
+            light_sources: vec![Box::new(red_light), Box::new(blue_light)],
+        };
+
+        let renderer = PointLightRenderer { background_color: BLACK };
+        let mut pcg = PCG::default();
+
+        // Ray hits the sphere on the LEFT face (-X): facing red light, back to blue
+        let ray_left = Ray::new(Point::new(-5.0, 0.0, 0.0), X_AXIS);
+        let color_left = renderer.render(&ray_left, &world, &mut pcg).unwrap();
+
+        // Ray hits the sphere on the RIGHT face (+X): facing blue light, back to red
+        let ray_right = Ray::new(Point::new(5.0, 0.0, 0.0), - X_AXIS);
+        let color_right = renderer.render(&ray_right, &world, &mut pcg).unwrap();
+
+        // Ray misses: should return background
+        let ray_miss = Ray::new(Point::new(0.0, 5.0, 0.0), Y_AXIS);
+        let color_miss = renderer.render(&ray_miss, &world, &mut pcg).unwrap();
+
+        println!("color_left:  {:?}", color_left);
+        println!("color_right: {:?}", color_right);
+        println!("color_miss:  {:?}", color_miss);
+
+        // Left hit: only red contributes (n_dot_l = 1.0), blue is occluded by the sphere itself
+        assert!(color_left.is_close(&Color::new(1.0, 0.0, 0.0)),  "left face: {:?}", color_left);
+        // Right hit: only blue contributes (n_dot_l = 1.0), red is occluded
+        assert!(are_close(color_right.r, 0.0), "right face red: {:?}", color_right.r);
+        assert!(are_close(color_right.g, 0.0), "right face green: {:?}", color_right.g);
+        assert!(color_right.b > 0.0, "right face blue should be positive: {:?}", color_right.b);
+        // Miss: background color
+        assert!(color_miss.is_close(&BLACK), "miss: {:?}", color_miss);
+    }
+
+    #[test]
+    fn test_point_light_renderer_two_lights_overlap() {
+        let material = Material::new(
+            UniformPigment::new(WHITE),
+            DiffusiveBrdf {},
+            UniformPigment::new(BLACK),
+        );
+
+        let sphere = Sphere::new(Transformation::new(IDENTITY_4X4), material);
+
+        let red_light = PointLightSource::new(Point::new(-10.0, 10.0, 0.0), Color::new(1.0, 0.0, 0.0));
+        let blue_light = PointLightSource::new(Point::new(-10.0, -10.0, 0.0), Color::new(0.0, 1.0, 0.0));
+
+        let world = World {
+            objects: vec![Box::new(sphere)],
+            light_sources: vec![Box::new(red_light), Box::new(blue_light)],
+        };
+
+        let renderer = PointLightRenderer { background_color: BLACK };
+        let mut pcg = PCG::default();
+
+        let ray = Ray::new(Point::new(-5.0, 0.0, 0.0), X_AXIS);
+        let color = renderer.render(&ray, &world, &mut pcg).unwrap();
+
+        // dir_to_red  = (-10,+10,0) - (-1,0,0) = (-9, +10, 0)
+        // dir_to_blue = (-10,-10,0) - (-1,0,0) = (-9, -10, 0)
+        // distance = sqrt(81 + 100) = sqrt(181)
+        // normalized_dir_red  = (-9, +10, 0) / sqrt(181)
+        // normalized_dir_blue = (-9, -10, 0) / sqrt(181)
+
+        // normal    = (-1, 0, 0)   (outward normal at left pole)
+
+        // normal • normalized_dir = (-1,0,0) · (-9,±10,0) / sqrt(181)
+        //     = 9 / sqrt(181)
+
+        let n_dot_l = 9.0 / 181.0_f32.sqrt();
+        let expected_color = Color::new(1.0, 1.0, 0.0) * n_dot_l;
+        println!("expected_color: {:?}", expected_color);
+        println!("color: {:?}", color);
+        assert!(color.is_close(&expected_color), "{:?}", color);
     }
 }

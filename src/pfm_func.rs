@@ -451,6 +451,10 @@ pub fn pfm_to_ldr(
     Ok(())
 }
 
+pub fn ldr_to_pfm() {
+    todo!()
+}
+
 #[cfg(test)]
 mod test {
     use crate::color::Color;

@@ -132,6 +132,25 @@ impl Color {
         self.b = self.b / (self.b + 1.0);
         Ok(())
     }
+
+
+    pub fn inverse_gamma_correction(&self, gamma: f32) -> Color {
+        // Validation must be done when application
+        Color {
+            r: (self.r / 255.0_f32).powf(gamma),
+            g: (self.g / 255.0_f32).powf(gamma),
+            b: (self.b / 255.0_f32).powf(gamma),
+        }
+    }
+
+    pub fn inverse_tone_mapping(&self, a: f32, avr_lum: f32) -> Color {
+        // validation of `a` and `avr_lum` must be done in ldr_to_hdr function.
+        Color {
+            r: avr_lum * self.r / ((1.0 - self.r) * a),
+            g: avr_lum * self.g / ((1.0 - self.g) * a),
+            b: avr_lum * self.b / ((1.0 - self.b) * a),
+        }
+    }
 }
 
 // =================================================================
@@ -498,5 +517,52 @@ mod tests {
         assert_eq!(color.r, 1.0 / (1.0 + 1.0));
         assert_eq!(color.g, 2.5 / (2.5 + 1.0));
         assert_eq!(color.b, 5.0 / (5.0 + 1.0));
+    }
+
+    #[test]
+    fn test_inverse_gamma_correction() {
+        let color = Color::new(1.0, 2.0, 3.0);
+        let gamma = 0.5;
+        let expected_color = Color {
+            r: (1.0f32 / 255.0).powf(0.5),
+            g: (2.0f32 / 255.0).powf(0.5),
+            b: (3.0f32 / 255.0).powf(0.5),
+        };
+        let result = color.inverse_gamma_correction(gamma);
+        assert!(
+            expected_color.is_close(&result),
+            "color obtained: {:?}",
+            result
+        );
+    }
+
+    #[test]
+    fn test_inverse_gamma_correction_infinity() {
+        let color = Color::new(1.0, 2.0, 3.0);
+        let gamma = f32::INFINITY;
+
+        let expected_color = Color::new(0.0, 0.0, 0.0);
+        assert!(color.inverse_gamma_correction(gamma).is_close(&expected_color));
+    }
+
+    #[test]
+    fn test_inverse_tone_mapping() {
+        let color = Color::new(0.5, 0.0, 0.2);
+        let a: f32 = 0.1;
+        let avr_lum: f32 = 10.0;
+        let expected_color = Color {
+            // 100 * 0.5/0.5
+            r: 100.0,
+            // 100 * 0 / 1
+            g: 0.0,
+            // 100 * 0.2 / 0.8
+            b: 25.0,
+        };
+        let result = color.inverse_tone_mapping(a, avr_lum);
+        assert!(
+            result.is_close(&expected_color),
+            "inverse_tone_mapping result: {:?}",
+            result
+        );
     }
 }

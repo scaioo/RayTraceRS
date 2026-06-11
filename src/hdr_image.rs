@@ -325,24 +325,6 @@ impl HDR {
 // Experimental: HDR from LDR
 // ==========================================
 
-pub fn inverse_gamma_correction(color: Color, gamma: f32) -> Color {
-    // Validation must be done when application
-    Color {
-        r: (color.r / 255.0_f32).powf(gamma),
-        g: (color.g / 255.0_f32).powf(gamma),
-        b: (color.b / 255.0_f32).powf(gamma),
-    }
-}
-
-pub fn inverse_tone_mapping(color: Color, a: f32, avr_lum: f32) -> Color {
-    // validation of `a` and `avr_lum` must be done in ldr_to_hdr function.
-    Color {
-        r: avr_lum * color.r / ((1.0 - color.r) * a),
-        g: avr_lum * color.g / ((1.0 - color.g) * a),
-        b: avr_lum * color.b / ((1.0 - color.b) * a),
-    }
-}
-
 pub fn get_pixels_vector(vec: &[u8], width: usize, height: usize) -> Result<Vec<Color>> {
     let num_pixels = width * height;
     // Avoids creating the vector and mid-operation breaks, not essential
@@ -385,7 +367,11 @@ impl HDR {
         let (width, height) = img.dimensions();
         let (width, height) = (width as usize, height as usize);
         let rgb: Vec<u8> = img.into_raw();
-        let pixels: Vec<Color> = get_pixels_vector(&rgb, width, height)?;
+        let mut pixels: Vec<Color> = get_pixels_vector(&rgb, width, height)?;
+        for pixel in &mut pixels {
+            pixel.inverse_gamma_correction(gamma);
+            pixel.inverse_tone_mapping(a, avr_lum);
+        }
 
         Ok(HDR {
             width,
@@ -828,53 +814,6 @@ mod test {
         hdr_image
             .bilinear_interpolation(&Vec2D::new(0.3, 1.5))
             .unwrap();
-    }
-
-    #[test]
-    fn test_inverse_gamma_correction() {
-        let color = Color::new(1.0, 2.0, 3.0);
-        let gamma = 0.5;
-        let expected_color = Color {
-            r: (1.0f32 / 255.0).powf(0.5),
-            g: (2.0f32 / 255.0).powf(0.5),
-            b: (3.0f32 / 255.0).powf(0.5),
-        };
-        let result = inverse_gamma_correction(color, gamma);
-        assert!(
-            expected_color.is_close(&result),
-            "color obtained: {:?}",
-            result
-        );
-    }
-
-    #[test]
-    fn test_inverse_gamma_correction_infinity() {
-        let color = Color::new(1.0, 2.0, 3.0);
-        let gamma = f32::INFINITY;
-
-        let expected_color = Color::new(0.0, 0.0, 0.0);
-        assert!(inverse_gamma_correction(color, gamma).is_close(&expected_color));
-    }
-
-    #[test]
-    fn test_inverse_tone_mapping() {
-        let color = Color::new(0.5, 0.0, 0.2);
-        let a: f32 = 0.1;
-        let avr_lum: f32 = 10.0;
-        let expected_color = Color {
-            // 100 * 0.5/0.5
-            r: 100.0,
-            // 100 * 0 / 1
-            g: 0.0,
-            // 100 * 0.2 / 0.8
-            b: 25.0,
-        };
-        let result = inverse_tone_mapping(color, a, avr_lum);
-        assert!(
-            result.is_close(&expected_color),
-            "inverse_tone_mapping result: {:?}",
-            result
-        );
     }
 
     #[test]

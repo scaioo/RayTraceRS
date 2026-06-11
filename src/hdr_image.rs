@@ -343,15 +343,39 @@ pub fn inverse_tone_mapping(color: Color, a: f32, avr_lum: f32) -> Color {
     }
 }
 
+pub fn get_pixels_vector(vec: &[u8], width: usize, height: usize) -> Result<Vec<Color>> {
+    let num_pixels = width * height;
+    // Avoids creating the vector and mid-operation breaks, not essential
+    if vec.len() != num_pixels * 3 || vec.is_empty() {
+        return Err(anyhow!(
+            "get_pixels_vector(): vector length does not match! \
+             expected: {}, got: {}",
+            num_pixels * 3,
+            vec.len()
+        ));
+    }
+
+    let pixels = vec
+        .chunks_exact(3)
+        .map(|chunk| Color::new(chunk[0] as f32, chunk[1] as f32, chunk[2] as f32))
+        .collect();
+
+    Ok(pixels)
+}
+
 impl HDR {
     pub fn load_from_ldr(path: &str, a: f32, avr_lum: f32, gamma: f32) -> Result<Self> {
         let img = image::open(path)?.into_rgb8();
         let (width, height) = img.dimensions();
+        let (width, height) = (width as usize, height as usize);
+        let rgb: Vec<u8> = img.into_raw();
+        let pixels: Vec<Color> = get_pixels_vector(&rgb, width, height)?;
 
-        let hdr = HDR::new(width as usize, height as usize);
-
-        // Must upload the pixels with the reverse transformations.
-        todo!()
+        Ok(HDR {
+            width,
+            height,
+            pixels,
+        })
     }
 }
 
@@ -835,5 +859,50 @@ mod test {
             "inverse_tone_mapping result: {:?}",
             result
         );
+    }
+
+    #[test]
+    fn test_get_pixels_vector_success() {
+        let vec: Vec<u8> = vec![100, 0, 20, 32, 3, 9, 10, 11, 255];
+        let expected_vec = vec![
+            Color::new(100.0, 0.0, 20.0),
+            Color::new(32.0, 3.0, 9.0),
+            Color::new(10.0, 11.0, 255.0),
+        ];
+        let result_vec = get_pixels_vector(&vec, 3, 1).unwrap();
+        assert_eq!(
+            result_vec.len(),
+            3,
+            "Expected vec len: 3, vec len: {}",
+            result_vec.len()
+        );
+        for i in 0..3 {
+            assert!(
+                result_vec[i].is_close(&expected_vec[i]),
+                "index: {i}, result_color[i] = {:?}",
+                result_vec[i]
+            );
+        }
+    }
+
+    #[test]
+    #[should_panic(expected = "get_pixels_vector(): vector length does not match!")]
+    fn test_get_pixels_vector_fail1() {
+        let vec: Vec<u8> = vec![100, 0, 20, 32, 3, 9, 10, 11];
+        let _ = get_pixels_vector(&vec, 3, 1).unwrap();
+    }
+
+    #[test]
+    #[should_panic(expected = "get_pixels_vector(): vector length does not match!")]
+    fn test_get_pixels_vector_fail2() {
+        let vec: Vec<u8> = vec![];
+        let _ = get_pixels_vector(&vec, 3000, 10).unwrap();
+    }
+
+    #[test]
+    #[should_panic(expected = "get_pixels_vector(): vector length does not match!")]
+    fn test_get_pixels_vector_fail3() {
+        let vec: Vec<u8> = vec![1, 0, 1];
+        let _ = get_pixels_vector(&vec, 3000, 10).unwrap();
     }
 }

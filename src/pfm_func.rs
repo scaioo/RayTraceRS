@@ -31,7 +31,7 @@ use crate::color::Color;
 use crate::hdr_image::{HDR, hdr_to_ldr};
 use anyhow::anyhow;
 use std::fs::File;
-use std::io::{BufRead, BufReader, Read};
+use std::io::{BufRead, BufReader, BufWriter, Read};
 use std::string::ToString;
 
 /// Byte order used in the PFM file.
@@ -451,8 +451,20 @@ pub fn pfm_to_ldr(
     Ok(())
 }
 
-pub fn ldr_to_pfm() {
-    todo!()
+pub fn ldr_to_pfm(
+    input_file: String,
+    avr_lum: f32,
+    factor_a: f32,
+    gamma: f32,
+    output_file: String,
+    endianness: Endianness,
+) -> anyhow::Result<()> {
+    let hdr = HDR::load_from_ldr(&input_file, factor_a, avr_lum, gamma)?;
+
+    let file = File::create(&output_file)?;
+    let disk_writer = BufWriter::new(file);
+    hdr.write_pfm(disk_writer, &endianness)?;
+    Ok(())
 }
 
 #[cfg(test)]

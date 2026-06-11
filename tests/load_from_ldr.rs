@@ -1,17 +1,26 @@
-// tests/ldr_to_hdr_integration.rs
 use image::{Rgb, RgbImage};
+use rstrace::color::Color;
 use rstrace::hdr_image::HDR;
 use tempfile::NamedTempFile;
-use rstrace::color::Color;
 
 #[test]
 fn test_load_from_ldr() {
     let pixels: Vec<[u8; 3]> = vec![
-        [1,   2,   3],   [4,   5,   6],   [7,   8,   9],
-        [10, 255,  20],  [25,  30,  50],  [60,  70, 100],
-        [11,  12, 255],  [13,  14,   0],  [15,  16,  17],
-        [18,  19,  20],  [21,  22,  23],  [21,  22,  23],
-        [0,    0, 255],  [255,  0,   0],  [0,    0, 255],
+        [1, 2, 3],
+        [4, 5, 6],
+        [7, 8, 9],
+        [10, 255, 20],
+        [25, 30, 50],
+        [60, 70, 100],
+        [11, 12, 255],
+        [13, 14, 0],
+        [15, 16, 17],
+        [18, 19, 20],
+        [21, 22, 23],
+        [21, 22, 23],
+        [0, 0, 255],
+        [255, 0, 0],
+        [0, 0, 255],
     ];
 
     // 1. Build the LDR image — outer loop is y (rows), inner is x (cols)
@@ -44,7 +53,6 @@ fn test_load_from_ldr() {
         .map(|[r, g, b]| {
             let decode = |x: u8| -> f32 {
                 let t = (x as f32 / 255.0).powf(gamma);
-                //let t = t.min(1.0 - f32::EPSILON); // guard against x=255
                 (avr_lum / a) * (t / (1.0 - t))
             };
             Color::new(decode(*r), decode(*g), decode(*b))

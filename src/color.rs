@@ -133,21 +133,18 @@ impl Color {
         Ok(())
     }
 
-
     pub fn inverse_gamma_correction(&mut self, gamma: f32) {
         // Validation must be done when application
-            self.r = (self.r / 255.0_f32).powf(gamma);
-            self.g =  (self.g / 255.0_f32).powf(gamma);
-            self.b = (self.b / 255.0_f32).powf(gamma);
-
+        self.r = (self.r / 255.0_f32).powf(gamma);
+        self.g = (self.g / 255.0_f32).powf(gamma);
+        self.b = (self.b / 255.0_f32).powf(gamma);
     }
 
     pub fn inverse_tone_mapping(&mut self, a: f32, avr_lum: f32) {
         // validation of `a` and `avr_lum` must be done in ldr_to_hdr function.
-            self.r= avr_lum * self.r / ((1.0 - self.r) * a);
-            self.g = avr_lum * self.g / ((1.0 - self.g) * a);
-            self.b = avr_lum * self.b / ((1.0 - self.b) * a);
-
+        self.r = avr_lum * self.r / ((1.0 - self.r) * a);
+        self.g = avr_lum * self.g / ((1.0 - self.g) * a);
+        self.b = avr_lum * self.b / ((1.0 - self.b) * a);
     }
 }
 

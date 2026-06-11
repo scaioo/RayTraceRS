@@ -327,11 +327,10 @@ impl HDR {
 
 pub fn inverse_gamma_correction(color: Color, gamma: f32) -> Color {
     // Validation must be done when application
-    let new_color = color / 255.0_f32;
     Color {
-        r: new_color.r.powf(gamma),
-        g: new_color.g.powf(gamma),
-        b: new_color.b.powf(gamma),
+        r: (color.r / 255.0_f32).powf(gamma),
+        g: (color.g / 255.0_f32).powf(gamma),
+        b: (color.b / 255.0_f32).powf(gamma),
     }
 }
 

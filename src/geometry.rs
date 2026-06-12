@@ -36,6 +36,13 @@ impl Vec2D {
     pub fn is_close(&self, other: &Vec2D) -> bool {
         are_close(self.x, other.x) && are_close(self.y, other.y)
     }
+
+    pub fn orient(&self) -> Vec2D {
+        Vec2D {
+            x: self.y,
+            y: -self.x,
+        }
+    }
 }
 
 // =======================================================================

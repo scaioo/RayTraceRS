@@ -135,9 +135,9 @@ impl Color {
 
     pub fn inverse_gamma_correction(&mut self, gamma: f32) {
         // Validation must be done when application
-        self.r = (self.r / 255.0_f32).powf(gamma);
-        self.g = (self.g / 255.0_f32).powf(gamma);
-        self.b = (self.b / 255.0_f32).powf(gamma);
+        self.r = (self.r / 256.0_f32).powf(gamma);
+        self.g = (self.g / 256.0_f32).powf(gamma);
+        self.b = (self.b / 256.0_f32).powf(gamma);
     }
 
     pub fn inverse_tone_mapping(&mut self, a: f32, avr_lum: f32) {
@@ -519,9 +519,9 @@ mod tests {
         let mut color = Color::new(1.0, 2.0, 3.0);
         let gamma = 0.5;
         let expected_color = Color {
-            r: (1.0f32 / 255.0).powf(0.5),
-            g: (2.0f32 / 255.0).powf(0.5),
-            b: (3.0f32 / 255.0).powf(0.5),
+            r: (1.0f32 / 256.0).powf(0.5),
+            g: (2.0f32 / 256.0).powf(0.5),
+            b: (3.0f32 / 256.0).powf(0.5),
         };
         color.inverse_gamma_correction(gamma);
         assert!(

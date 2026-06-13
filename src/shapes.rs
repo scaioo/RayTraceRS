@@ -21,7 +21,7 @@
 //! transformation parameter; apply transformations to its vertices before construction.
 
 use crate::functions::{Within, are_close, cramer};
-use crate::geometry::{Cross, Dot, Normal, Point, Vec2D, Vector};
+use crate::geometry::{Cross, Dot, Normal, Point, Vec2D, Vector, X_AXIS, Y_AXIS, Z_AXIS};
 use crate::hit_record::HitRecord;
 use crate::materials::Material;
 use crate::ray::Ray;
@@ -29,7 +29,7 @@ use crate::transformations::IsHomogeneousMatrix;
 use anyhow::{Result, anyhow};
 use std::ops::Mul;
 // ========================================================
-// Supertrait CloneShape
+// Traits: CloneShape, Shape and Volumetric
 // ========================================================
 
 /// Helper supertrait that makes `Box<dyn Shape>` cloneable.
@@ -47,6 +47,19 @@ where
     T: Shape + Clone + 'static,
 {
     fn clone_shape(&self) -> Box<dyn Shape> {
+        Box::new(self.clone())
+    }
+}
+
+pub trait CloneVolumetric {
+    fn clone_volumetric(&self) -> Box<dyn Volumetric>;
+}
+
+impl<T> CloneVolumetric for T
+where
+    T: Volumetric + Clone + 'static,
+{
+    fn clone_volumetric(&self) -> Box<dyn Volumetric> {
         Box::new(self.clone())
     }
 }
@@ -86,6 +99,21 @@ impl Clone for Box<dyn Shape> {
     }
 }
 
+/// Trait for volumetric shapes such as spheres, AABBs,
+/// and CSG solids.
+///
+// In principle this could be generalized to all `Shape`
+// implementations, but no such extension is currently planned.
+pub trait Volumetric: CloneVolumetric {
+    fn entry_exit_t(&self, ray: &Ray) -> Option<(f32, f32)>;
+}
+
+impl Clone for Box<dyn Volumetric> {
+    fn clone(&self) -> Box<dyn Volumetric> {
+        self.clone_volumetric()
+    }
+}
+
 // =================================================================================
 /// A unit sphere centered at the origin, subject to a homogeneous transformation.
 ///
@@ -113,36 +141,30 @@ impl<T: IsHomogeneousMatrix> Sphere<T> {
             material,
         }
     }
+
+    // Utility function: might be helpful in future implementations!
+    pub fn transform_ray(&self, ray: &Ray) -> Ray {
+        let inverse_transformation = self.transformation.inverse_transformation();
+        inverse_transformation * (*ray)
+    }
 }
 impl<T> Shape for Sphere<T>
 where
     T: IsHomogeneousMatrix
-        + Mul<Ray, Output = Ray>
-        + Mul<Point, Output = Point>
-        + Mul<Normal, Output = Normal>
-        + Mul<Vector, Output = Vector>
-        + Copy
-        + 'static,
+    + Mul<Ray, Output = Ray>
+    + Mul<Point, Output = Point>
+    + Mul<Normal, Output = Normal>
+    + Mul<Vector, Output = Vector>
+    + Copy
+    + 'static,
 {
     fn ray_intersection(&self, ray: &Ray) -> Option<HitRecord<'_>> {
-        let inverse_transformation = self.transformation.inverse_transformation();
-        let transformed_ray = inverse_transformation * (*ray);
+        let transformed_ray = self.transform_ray(ray);
 
-        let origin = transformed_ray.origin - Point::new(0.0, 0.0, 0.0);
-
-        let a = transformed_ray.dir.squared_norm();
-        let half_b = origin.dot(&transformed_ray.dir);
-        let cross = transformed_ray.dir.cross(&origin);
-
-        let discriminant = a - cross.squared_norm();
-
-        if discriminant < 0.0 || are_close(discriminant, 0.0) {
-            return None;
-        }
-
-        let sqrt_d = discriminant.sqrt();
-        let t1 = (-half_b - sqrt_d) / a;
-        let t2 = (-half_b + sqrt_d) / a;
+        let (t1, t2) = match self.entry_exit_t(&ray) {
+            Some((t1, t2)) => (t1, t2),
+            None => return None,
+        };
 
         let condition = |t: f32| t > transformed_ray.t_min && t < transformed_ray.t_max;
 
@@ -193,6 +215,37 @@ where
         &self.material
     }
 }
+
+impl<T> Volumetric for Sphere<T>
+where
+    T: IsHomogeneousMatrix
+    + Mul<Ray, Output = Ray>
+    + Mul<Point, Output = Point>
+    + Mul<Normal, Output = Normal>
+    + Mul<Vector, Output = Vector>
+    + Copy
+    + 'static,
+{
+    fn entry_exit_t(&self, ray: &Ray) -> Option<(f32, f32)> {
+        let transformed_ray = self.transform_ray(ray);
+        let origin = transformed_ray.origin - Point::new(0.0, 0.0, 0.0);
+
+        let a = transformed_ray.dir.squared_norm();
+        let half_b = origin.dot(&transformed_ray.dir);
+        let cross = transformed_ray.dir.cross(&origin);
+
+        let discriminant = a - cross.squared_norm();
+
+        if discriminant < 0.0 || are_close(discriminant, 0.0) {
+            return None;
+        }
+
+        let sqrt_d = discriminant.sqrt();
+        let t1 = (-half_b - sqrt_d) / a;
+        let t2 = (-half_b + sqrt_d) / a;
+        Some((t1, t2))
+    }
+}
 // =================================================================================
 /// The infinite xy-plane (`z = 0` in object space), subject to a homogeneous transformation.
 ///
@@ -226,12 +279,12 @@ impl<T: IsHomogeneousMatrix> Plane<T> {
 impl<T> Shape for Plane<T>
 where
     T: IsHomogeneousMatrix
-        + Mul<Ray, Output = Ray>
-        + Mul<Point, Output = Point>
-        + Mul<Normal, Output = Normal>
-        + Mul<Vector, Output = Vector>
-        + 'static
-        + Copy,
+    + Mul<Ray, Output = Ray>
+    + Mul<Point, Output = Point>
+    + Mul<Normal, Output = Normal>
+    + Mul<Vector, Output = Vector>
+    + 'static
+    + Copy,
 {
     fn ray_intersection(&self, ray: &Ray) -> Option<HitRecord<'_>> {
         let inverse_transformation = self.transformation.inverse_transformation();
@@ -281,6 +334,198 @@ where
         &self.material
     }
 }
+// ================================================================================
+#[derive(Clone)]
+pub struct AABB {
+    pub p_min: Point,
+    pub p_max: Point,
+    pub material: Material,
+}
+
+impl AABB {
+    pub fn new(p_min: Point, p_max: Point, material: Material) -> Result<Self> {
+        let mut min: Point = p_min;
+        let mut max: Point = p_max;
+        if are_close(p_min.x, p_max.x) || are_close(p_min.y, p_max.y) || are_close(p_min.z, p_max.z)
+        {
+            Err(anyhow!(
+                "Parallelepiped cannot be build from two adiajecent points:
+            {}, {}",
+                p_max,
+                p_min
+            ))
+        } else {
+            if max.x < min.x {
+                max.x = min.x;
+                min.x = p_max.x
+            }
+            if max.y < min.y {
+                max.y = min.y;
+                min.y = p_max.y
+            }
+            if max.z < min.z {
+                max.z = min.z;
+                min.z = p_max.z;
+            }
+            Ok(Self {
+                p_min: min,
+                p_max: max,
+                material,
+            })
+        }
+    }
+
+    // WARNING: no validation is implemented!!!
+    fn hit_face(&self, point: &Point) -> usize {
+        //Face numbering:
+        //
+        //          y |   +Y (3)
+        //            |      ↑
+        //            *-----------*
+        //           /|          /|
+        //          / |         / |
+        //         *-----------*  |     <- 1 (+X)
+        //         |   |       |  |
+        //(-X)     |   |       |  |
+        // 2 ->    |   *-------|--* ---------- x
+        //         |  /        |  /
+        //         | /         | /
+        //         |/          |/
+        //         *-----------*
+        //        /     ↑
+        //       /    -Y (4)
+        //     z
+        //        Front face : +Z (5)
+        //        Back  face : -Z (6)
+        //
+        if are_close(point.x, self.p_max.x) {
+            1
+        } else if are_close(point.x, self.p_min.x) {
+            2
+        } else if are_close(point.y, self.p_max.y) {
+            3
+        } else if are_close(point.y, self.p_min.y) {
+            4
+        } else if are_close(point.z, self.p_max.z) {
+            5
+        } else {
+            6
+        }
+    }
+}
+
+impl Default for AABB {
+    fn default() -> Self {
+        Self {
+            p_min: Point::new(-0.5, -0.5, -0.5),
+            p_max: Point::new(0.5, 0.5, 0.5),
+            material: Material::default(),
+        }
+    }
+}
+
+impl Shape for AABB {
+    fn ray_intersection(&self, ray: &Ray) -> Option<HitRecord<'_>> {
+        let (t_enter, t_exit) = match self.entry_exit_t(ray) {
+            Some(t) => t,
+            None => return None,
+        };
+
+        // Pick the front-facing hit: prefer entry, fall back to exit if entry is behind origin
+        let t = if t_enter >= ray.t_min {
+            t_enter
+        } else {
+            t_exit
+        };
+
+        if !t.is_between_open(&ray.t_min, &ray.t_max) || t_exit < 0.0 {
+            return None;
+        }
+
+        let point = ray.at(t);
+        Some(HitRecord {
+            world_point: point,
+            normal: self.normal_at(point, ray),
+            uv: self.point_to_uv(&point).unwrap(),
+            t,
+            ray: *ray,
+            material: &self.material,
+        })
+    }
+
+    fn normal_at(&self, point: Point, ray: &Ray) -> Normal {
+        let result = match self.hit_face(&point) {
+            1 => Normal::from(X_AXIS),
+            2 => Normal::from(-X_AXIS),
+            3 => Normal::from(Y_AXIS),
+            4 => Normal::from(-Y_AXIS),
+            5 => Normal::from(Z_AXIS),
+            _ => Normal::from(-Z_AXIS),
+        };
+
+        if ray.dir.dot(&result) < 0.0 {
+            result
+        } else {
+            -result
+        }
+    }
+    fn point_to_uv(&self, point: &Point) -> Result<Vec2D> {
+        let interval = Vector::new(
+            self.p_max.x - self.p_min.x,
+            self.p_max.y - self.p_min.y,
+            self.p_max.z - self.p_min.z,
+        );
+        let (u, v) = match self.hit_face(point) {
+            // ±X: projection on YZ
+            1 | 2 => (
+                (point.z - self.p_min.z) / interval.z,
+                (point.y - self.p_min.y) / interval.y,
+            ),
+            // ±Y: projection on XZ
+            3 | 4 => (
+                (point.x - self.p_min.x) / interval.x,
+                (point.z - self.p_min.z) / interval.z,
+            ),
+            // ±Z: projection on XY
+            _ => (
+                (point.x - self.p_min.x) / interval.x,
+                (point.y - self.p_min.y) / interval.y,
+            ),
+        };
+        Ok(Vec2D {
+            x: u.clamp(0.0, 1.0),
+            y: v.clamp(0.0, 1.0),
+        })
+    }
+
+    fn material(&self) -> &Material {
+        &self.material
+    }
+}
+
+impl Volumetric for AABB {
+    fn entry_exit_t(&self, ray: &Ray) -> Option<(f32, f32)> {
+        let tx1 = (self.p_min.x - ray.origin.x) / ray.dir.x;
+        let tx2 = (self.p_max.x - ray.origin.x) / ray.dir.x;
+        let ty1 = (self.p_min.y - ray.origin.y) / ray.dir.y;
+        let ty2 = (self.p_max.y - ray.origin.y) / ray.dir.y;
+        let tz1 = (self.p_min.z - ray.origin.z) / ray.dir.z;
+        let tz2 = (self.p_max.z - ray.origin.z) / ray.dir.z;
+
+        // Entry t = largest of the per-axis minimums
+        // Exit  t = smallest of the per-axis maximums
+        let t_enter = tx1.min(tx2).max(ty1.min(ty2)).max(tz1.min(tz2));
+        let t_exit = tx1.max(tx2).min(ty1.max(ty2)).min(tz1.max(tz2));
+
+        // Miss if the ray exits before entering
+        if t_enter > t_exit {
+            None
+        } else {
+            Some((t_enter, t_exit))
+        }
+    }
+}
+
 // =================================================================================
 /// A triangle defined by three world-space vertices, with flat shading.
 ///
@@ -425,11 +670,16 @@ impl Shape for Triangle {
 mod tests {
     use super::*;
     use crate::brdf::DiffusiveBrdf;
-    use crate::color::Color;
+    use crate::color::{Color, WHITE};
     use crate::functions::IDENTITY_4X4;
     use crate::geometry::{X_AXIS, is_close};
+    use crate::pcg::PCG;
     use crate::pigments::UniformPigment;
     use crate::transformations::{Scaling, Transformation, Translation};
+
+    // ============================================================================
+    // SPHERE TESTS
+    // ============================================================================
 
     fn setup1() -> (Sphere<Transformation>, [Ray; 3]) {
         let rays = [
@@ -553,7 +803,8 @@ mod tests {
 
     #[test]
     fn test_sphere_ray_normal_att2() {
-        let (sphere, ray, ray2) = setup2();
+        let (sphere, _, ray2) = setup2();
+        let ray = Ray::new(Point::new(10.0, 0.0, 2.0), Vector::new(0.0, 0.0, -1.0));
 
         let normal = Normal::new(0.0, 0.0, 1.0);
 
@@ -654,6 +905,76 @@ mod tests {
         }
     }
 
+    #[test]
+    fn test_sphere_transform_ray_identity() {
+        let sphere = Sphere::new(Transformation::new(IDENTITY_4X4), Material::default());
+        let ray = Ray::new(Point::new(1.0, 2.0, 3.0), Vector::new(1.0, 2.0, 3.0));
+        let transformed_ray = sphere.transform_ray(&ray);
+        assert!(
+            ray.is_close(transformed_ray),
+            "Transformed ray: {:?}",
+            transformed_ray
+        );
+    }
+
+    #[test]
+    fn test_sphere_transform_ray_translate() {
+        let translation = Translation::new(Vector::new(10.0, -4.0, 0.0));
+        let sphere = Sphere::new(translation, Material::default());
+        let ray = Ray::new(Point::new(1.0, 2.0, 3.0), Vector::new(4.0, 5.0, 6.0));
+        let transformed_ray = sphere.transform_ray(&ray);
+
+        let expected = Ray::new(Point::new(-9.0, 6.0, 3.0), Vector::new(4.0, 5.0, 6.0));
+        assert!(
+            expected.is_close(transformed_ray),
+            "Transformed ray: {:?}",
+            transformed_ray
+        );
+    }
+
+    #[test]
+    fn test_sphere_entry_exit_t() {
+        let sphere = Sphere::new(Transformation::new(IDENTITY_4X4), Material::default());
+        let ray = Ray::new(Point::new(0.0, 0.0, 0.0), Z_AXIS);
+
+        let (t1, t2) = sphere.entry_exit_t(&ray).unwrap();
+        assert!(are_close(t1, -1.0), "t1: {}", t1);
+        assert!(are_close(t2, 1.0), "t2: {}", t2);
+    }
+
+    #[test]
+    fn test_sphere_entry_exit_t2() {
+        let (sphere, ray1, ray2) = setup2();
+
+        let (t1, t2) = sphere.entry_exit_t(&ray1).unwrap();
+        assert!(are_close(t1, 1.0), "t1: {}", t1);
+        assert!(are_close(t2, 3.0), "t2: {}", t2);
+
+        let (t1, t2) = sphere.entry_exit_t(&ray2).unwrap();
+        assert!(are_close(t1, 2.0), "t1: {}", t1);
+        assert!(are_close(t2, 4.0), "t2: {}", t2);
+    }
+
+    #[test]
+    fn test_sphere_entry_exit_t_far_outputs() {
+        let sphere = Sphere::new(Transformation::new(IDENTITY_4X4), Material::default());
+        let ray = Ray::new(Point::new(10.0, 0.0, 0.0), X_AXIS);
+        let result = sphere.entry_exit_t(&ray).unwrap();
+        assert_eq!(result, (-11.0, -9.0), "(t1, t2) = {:?}", result);
+    }
+
+    #[test]
+    fn test_sphere_entry_exit_t_miss() {
+        let sphere = Sphere::new(Transformation::new(IDENTITY_4X4), Material::default());
+        let ray = Ray::new(Point::new(10.0, 0.0, 0.0), Y_AXIS);
+        let result = sphere.entry_exit_t(&ray);
+        assert!(result.is_none(), "(t1, t2) = {:?}", result.unwrap());
+    }
+
+    // ============================================================================
+    // PLANE TESTS
+    // ============================================================================
+
     fn setup_plane() -> (Plane<Transformation>, Ray, Ray, Ray) {
         let material = Material {
             pigment: Box::new(UniformPigment::new(Color::new(10.0, 10.0, 10.0))),
@@ -717,6 +1038,308 @@ mod tests {
         //  y = -1.3 -> -1.3 - floor(-1.3) = -1.3 - (-2.0) = 0.7
         assert!(hit.uv.is_close(&Vec2D::new(0.5, 0.7)));
     }
+
+    // ============================================================================
+    // AABB TESTS
+    // ============================================================================
+
+    #[test]
+    fn test_aabb_constructor() {
+        let p_min = Point::new(-1.0, 0.0, 1.0);
+        let p_max = Point::new(1.0, 2.0, 2.0);
+
+        let aabb = AABB::new(p_min, p_max, Material::default()).unwrap();
+
+        assert!(p_min.is_close(&aabb.p_min), "aabb.p_min: {}", aabb.p_min);
+        assert!(p_max.is_close(&aabb.p_max), "aabb.p_max: {}", aabb.p_max);
+    }
+
+    #[test]
+    fn test_aabb_constructor_possible_swaps() {
+        let p_min = Point::new(-1.0, 0.0, 1.0);
+        let p_max = Point::new(1.0, 2.0, 2.0);
+
+        // Reversed the input
+        let aabb = AABB::new(p_max, p_min, Material::default()).unwrap();
+        assert!(p_min.is_close(&aabb.p_min), "aabb.p_min: {}", aabb.p_min);
+        assert!(p_max.is_close(&aabb.p_max), "aabb.p_max: {}", aabb.p_max);
+    }
+
+    #[test]
+    fn test_aabb_constructor_wrong_corners() {
+        let p_min = Point::new(1.0, 0.0, 1.0);
+        let p_max = Point::new(-1.0, 2.0, 2.0);
+
+        let aabb = AABB::new(p_min, p_max, Material::default()).unwrap();
+
+        assert!(
+            Point::new(-1.0, 0.0, 1.0).is_close(&aabb.p_min),
+            "p_min: {}",
+            aabb.p_min
+        );
+        assert!(
+            Point::new(1.0, 2.0, 2.0).is_close(&aabb.p_max),
+            "p_max: {}",
+            aabb.p_max
+        );
+    }
+
+    #[test]
+    #[should_panic(expected = "Parallelepiped cannot be build")]
+    fn test_aabb_constructor_err() {
+        let p_min = Point::new(-1.0, 0.0, 1.0);
+        let p_max = Point::new(-1.0, 2.0, 2.0);
+        let _ = AABB::new(p_min, p_max, Material::default()).unwrap();
+    }
+
+    #[test]
+    fn test_aabb_hit_face() {
+        let cube = AABB::default();
+
+        assert_eq!(1, cube.hit_face(&Point::new(0.5, 0.0, 0.0)));
+        assert_eq!(2, cube.hit_face(&Point::new(-0.5, 0.1, 0.3)));
+        assert_eq!(3, cube.hit_face(&Point::new(0.1, 0.5, 1.5)));
+        assert_eq!(4, cube.hit_face(&Point::new(0.1, -0.5, 0.0)));
+        assert_eq!(5, cube.hit_face(&Point::new(-0.3, 0.0, 0.5)));
+        assert_eq!(6, cube.hit_face(&Point::new(0.3, 0.0, -0.5)));
+    }
+
+    #[test]
+    fn test_aabb_normal_at_cube() {
+        let cube = AABB::default();
+
+        let directions: [Vector; 6] = [X_AXIS, -X_AXIS, Y_AXIS, -Y_AXIS, X_AXIS, Y_AXIS];
+
+        for i in 0..6 {
+            let ray = Ray::new(Point::new(0.0, 0.0, 0.0), directions[i]);
+            let expected: Normal = Normal::from(-directions[i]);
+            let point = Point::from(0.5 * directions[i]);
+            let result = cube.normal_at(point, &ray);
+            assert!(result.is_close(&expected), "{}", result);
+        }
+    }
+
+    fn setup_aabb() -> AABB {
+        let point1 = Point::new(-1.0, -2.0, -3.0);
+        let point2 = Point::new(10.0, 4.0, 5.0);
+
+        AABB::new(point1, point2, Material::default()).unwrap()
+    }
+
+    #[test]
+    fn test_aabb_normal_at_normal() {
+        let aabb = setup_aabb();
+
+        // Top y-axis side
+        let ray = Ray::new(Point::new(1.0, 10.0, 0.0), -Y_AXIS);
+        let intersection_point = Point::new(1.0, 4.0, 0.0);
+        let expected: Normal = Normal::from(Y_AXIS);
+        let result = aabb.normal_at(intersection_point, &ray);
+        assert!(result.is_close(&expected), "{}", result);
+
+        // Bottom x-axis side
+        let ray = Ray::new(Point::new(-100.0, 0.0, 0.0), X_AXIS);
+        let intersection_point = Point::new(-1.0, 0.0, 0.0);
+        let expected: Normal = Normal::from(-X_AXIS);
+        let result = aabb.normal_at(intersection_point, &ray);
+        assert!(result.is_close(&expected), "{}", result);
+
+        // Inside top z-axis
+        let ray = Ray::new(Point::new(0.0, 0.0, 0.0), Z_AXIS);
+        let intersection_point = Point::new(0.0, 0.0, 5.0);
+        let expected: Normal = Normal::from(-Z_AXIS);
+        let result = aabb.normal_at(intersection_point, &ray);
+        assert!(result.is_close(&expected), "{}", result);
+    }
+
+    #[test]
+    fn test_aabb_point_to_uv_cube() {
+        let cube = AABB::default();
+        let result = cube.point_to_uv(&Point::new(0.3, -0.2, 0.5)).unwrap();
+        assert!(
+            result.is_close(&Vec2D::new(0.8, 0.3)),
+            "point_to_uv_cube: {:?}",
+            result
+        );
+    }
+
+    #[test]
+    fn test_aabb_ray_intersection() {
+        let aabb = setup_aabb();
+
+        let ray = Ray::new(Point::new(15.0, 0.0, 1.0), -X_AXIS);
+        let result = aabb.ray_intersection(&ray).unwrap();
+        let uv_expected = Vec2D::new(4.0 / 8.0, 2.0 / 6.0);
+
+        assert!(are_close(result.t, 5.0), "result.t: {}", result.t);
+        assert!(
+            result.normal.is_close(&Normal::from(X_AXIS)),
+            "result.normal: {}",
+            result.normal
+        );
+        assert!(result.uv.is_close(&uv_expected));
+        assert!(ray.is_close(result.ray), "result.t: {}", result.ray);
+        assert_eq!(
+            result.material.pigment.get_color(&uv_expected).unwrap(),
+            WHITE
+        );
+    }
+
+    #[test]
+    fn test_aabb_ray_intersection_inside() {
+        let aabb = setup_aabb();
+        let origin = Point::new(1.0, 2.0, 3.0);
+        let mut pcg = PCG::default();
+
+        for _ in 0..1000 {
+            let dir = Vector {
+                x: pcg.random_float(),
+                y: pcg.random_float(),
+                z: pcg.random_float(),
+            };
+            let ray = Ray::new(origin, dir);
+            assert!(aabb.ray_intersection(&ray).is_some());
+        }
+    }
+
+    #[test]
+    fn test_aabb_ray_intersection_fan() {
+        let aabb = setup_aabb();
+
+        for i in 0..40 {
+            let z = 2.0 - (i as f32) / 10.0;
+            let dir = Vector::new(0.0, -1.0, z);
+            let ray = Ray::new(Point::new(5.0, 7.0, 1.0), dir);
+            let result = aabb.ray_intersection(&ray);
+            if z.abs() < 4.0 / 3.0 {
+                let result = result.unwrap();
+                assert!(result.t <= 5.0);
+                assert!(
+                    result.normal.is_close(&Normal::from(Y_AXIS)),
+                    "result.normal: {}",
+                    result.normal
+                );
+            } else {
+                assert!(result.is_none(), "{}, {i}", result.unwrap().world_point)
+            }
+        }
+    }
+
+    #[test]
+    fn test_aabb_ray_intersection_out_of_range() {
+        let aabb = AABB::default();
+
+        // Too far
+        let mut ray = Ray::new(Point::new(-0.5, 2.0, 2.0), X_AXIS);
+        ray.t_max = 1.0;
+
+        let result = aabb.ray_intersection(&ray);
+        assert!(result.is_none(), "{}", result.unwrap().world_point);
+
+        // Too close
+        let mut ray = Ray::new(Point::new(-0.5, 2.0, 2.0), X_AXIS);
+        ray.t_min = 11.0;
+
+        let result = aabb.ray_intersection(&ray);
+        assert!(result.is_none(), "{}", result.unwrap().world_point);
+    }
+
+    #[test]
+    fn test_aabb_ray_intersection_borders() {
+        let aabb = setup_aabb();
+
+        let ray = Ray::new(Point::new(10.0, 10.0, 0.0), -Y_AXIS);
+        assert!(aabb.ray_intersection(&ray).is_none());
+    }
+
+    #[test]
+    fn test_aabb_entry_exit_t_inside_cube() {
+        let aabb = AABB::default();
+        let ray = Ray::new(Point::new(0.0, 0.0, 0.0), Y_AXIS);
+        let (t1, t2) = aabb.entry_exit_t(&ray).unwrap();
+        assert!(are_close(t1, -0.5), "{}", t1);
+        assert!(are_close(t2, 0.5), "{}", t2);
+    }
+
+    #[test]
+    fn test_aabb_entry_exit_t_outside_cube() {
+        let aabb = AABB::default();
+        let ray = Ray::new(Point::new(-10.0, -0.1, 0.2), X_AXIS);
+        let (t1, t2) = aabb.entry_exit_t(&ray).unwrap();
+        assert!(are_close(t1, 9.5), "{}", t1);
+        assert!(are_close(t2, 10.5), "{}", t2);
+    }
+
+    #[test]
+    fn test_aabb_entry_exit_t_back_cube() {
+        let aabb = AABB::default();
+        let ray = Ray::new(Point::new(0.0, 10.5, 0.0), Y_AXIS);
+        let (t1, t2) = aabb.entry_exit_t(&ray).unwrap();
+        assert!(are_close(t1, -11.0), "{}", t1);
+        assert!(are_close(t2, -10.0), "{}", t2);
+    }
+
+    #[test]
+    fn test_aabb_entry_exit_t() {
+        let mut pcg = PCG::default();
+        let point1 = Point::new(-1.0, -2.0, -3.0);
+        let point2 = Point::new(4.0, 5.0, 6.0);
+        let aabb = AABB::new(point1, point2, Material::default()).unwrap();
+        let bar = Point {
+            x: 0.5 * (point1.x + point2.x),
+            y: 0.5 * (point2.y + point1.y),
+            z: 0.5 * (point1.z + point2.z),
+        };
+
+        let radius = ((2.5 * 2.5 + 3.5 * 3.5 + 4.5 * 4.5) as f32).sqrt();
+
+        let f = |pcg: &mut PCG| 10.0 - 20.0 * pcg.random_float();
+
+        for _ in 0..10000 {
+            let origin = match (6.0 * pcg.random_float()) as i32 % 6 {
+                0 => Point::new(-10.0, f(&mut pcg), f(&mut pcg)),
+                1 => Point::new(10.0, f(&mut pcg), f(&mut pcg)),
+                2 => Point::new(f(&mut pcg), -10.0, f(&mut pcg)),
+                3 => Point::new(f(&mut pcg), 10.0, f(&mut pcg)),
+                4 => Point::new(f(&mut pcg), f(&mut pcg), -10.0),
+                5 => Point::new(f(&mut pcg), f(&mut pcg), 10.0),
+                _ => panic!("Check again test logic!!!"),
+            };
+
+            let dir = (bar - origin).normalize();
+            let ray = Ray::new(origin, dir);
+
+            let (t1, t2) = match aabb.entry_exit_t(&ray) {
+                Some((t1, t2)) => (t1, t2),
+                None => panic!(
+                    "SOMETHING IS NOT CORRECT!\n test_aabb_entry_exit_t\n ray:{}",
+                    ray
+                ),
+            };
+
+            let point = ray.at(t1);
+            let distance_from_bar = (point - bar).norm();
+            assert!(
+                distance_from_bar <= radius && distance_from_bar >= 2.5f32,
+                "for t1 = {}, distance from bar = {}",
+                t1,
+                distance_from_bar
+            );
+
+            let point = ray.at(t2);
+            let distance_from_bar = (point - bar).norm();
+            assert!(
+                distance_from_bar <= radius && distance_from_bar >= 2.5f32,
+                "for t2 = {}, distance from bar = {}",
+                t2,
+                distance_from_bar
+            )
+        }
+    }
+
+    // ============================================================================
+    // TRIANGLE TESTS
+    // ============================================================================
 
     fn setup_triangle1() -> Triangle {
         Triangle {

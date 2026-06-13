@@ -71,6 +71,10 @@ impl Clone for Box<dyn BRDF> {
     }
 }
 
+pub enum BRDFs {
+    Diffuse, Specular
+}
+
 // ======================================================
 // DiffusiveBrdf
 // ======================================================

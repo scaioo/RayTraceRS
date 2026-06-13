@@ -90,6 +90,7 @@ pub mod hit_record;
 pub mod image_tracer;
 pub mod lexer;
 pub mod materials;
+pub mod mesh;
 pub mod pcg;
 pub mod pfm_func;
 pub mod pigments;

@@ -1,4 +1,6 @@
 use crate::geometry::Point;
+use crate::materials::Material;
+use crate::shapes::AABB;
 
 #[derive(Clone, Debug, PartialEq)]
 pub struct IndexTriangle {
@@ -13,22 +15,54 @@ impl IndexTriangle {
     }
 }
 
-#[derive(Clone, Debug, PartialEq)]
-pub struct Mesh {
+#[derive(Clone)]
+pub struct SimpleMesh {
     pub points: Vec<Point>,
     pub index_triangles: Vec<IndexTriangle>,
-    // aabb box
+    pub aabb: AABB,
+    pub material: Material,
 }
 
-impl Mesh {
-    pub fn new(points: Vec<Point>, index_triangles: Vec<IndexTriangle>) -> Self {
-        Self {
-            points,
-            index_triangles,
-        } // To be replaced
+fn runtime_aabb(points: &Vec<Point>) -> AABB {
+    let n = points.len();
+    let mut p_min = points[0];
+    let mut p_max = points[0];
+    for i in 1..n {
+        if points[i].x < p_min.x {
+            p_min.x = points[i].x;
+        }
+        if points[i].y < p_min.y {
+            p_min.y = points[i].y;
+        }
+        if points[i].z < p_min.z {
+            p_min.z = points[i].z;
+        }
+        if points[i].x > p_max.x {
+            p_max.x = points[i].x;
+        }
+        if points[i].y > p_max.y {
+            p_max.y = points[i].y;
+        }
+        if points[i].z > p_max.z {
+            p_max.z = points[i].z;
+        }
     }
+    AABB::new(p_min, p_max, Material::default()).unwrap()
+}
 
-    //fn give_aabb(points: Vec<Point>) -> AABB { todo!() }
+impl SimpleMesh {
+    pub fn new(
+        points: Vec<Point>,
+        index_triangles: Vec<IndexTriangle>,
+        material: Material,
+    ) -> Self {
+        Self {
+            points: points.clone(),
+            index_triangles,
+            material,
+            aabb: runtime_aabb(&points),
+        }
+    }
 }
 
 // **********************************************
@@ -51,7 +85,7 @@ mod tests {
         assert_eq!(k, tri.k);
     }
 
-    fn setup_parallelepiped() -> (Vec<Point>, Vec<IndexTriangle>, Mesh) {
+    fn setup_parallelepiped() -> (Vec<Point>, Vec<IndexTriangle>, SimpleMesh) {
         let points = vec![
             Point {
                 x: 0.0,
@@ -110,14 +144,24 @@ mod tests {
             IndexTriangle { i: 5, j: 2, k: 6 },
         ];
 
-        let mesh = Mesh {
+        let mesh = SimpleMesh {
             points: points.clone(),
             index_triangles: index_triangles.clone(),
+            material: Material::default(),
+            aabb: runtime_aabb(&points),
         };
 
-        // let aabb = AABB::new(Point::new(0.0,0.0,0.0), Point::new(1.0, 2.0, 3.0));
+        (points, index_triangles, mesh)
+    }
 
-        (points, index_triangles, mesh) // aabb is planned to be another output
+    #[test]
+    fn test_mesh_runtime_aabb() {
+        let (_, _, mesh) = setup_parallelepiped();
+        let p_max = Point::new(1.0, 2.0, 3.0);
+        let p_min = Point::new(0.0, 0.0, 0.0);
+
+        assert!(mesh.aabb.p_max.is_close(&p_max));
+        assert!(mesh.aabb.p_min.is_close(&p_min));
     }
 
     #[test]

@@ -151,12 +151,12 @@ impl<T: IsHomogeneousMatrix> Sphere<T> {
 impl<T> Shape for Sphere<T>
 where
     T: IsHomogeneousMatrix
-    + Mul<Ray, Output = Ray>
-    + Mul<Point, Output = Point>
-    + Mul<Normal, Output = Normal>
-    + Mul<Vector, Output = Vector>
-    + Copy
-    + 'static,
+        + Mul<Ray, Output = Ray>
+        + Mul<Point, Output = Point>
+        + Mul<Normal, Output = Normal>
+        + Mul<Vector, Output = Vector>
+        + Copy
+        + 'static,
 {
     fn ray_intersection(&self, ray: &Ray) -> Option<HitRecord<'_>> {
         let transformed_ray = self.transform_ray(ray);
@@ -219,12 +219,12 @@ where
 impl<T> Volumetric for Sphere<T>
 where
     T: IsHomogeneousMatrix
-    + Mul<Ray, Output = Ray>
-    + Mul<Point, Output = Point>
-    + Mul<Normal, Output = Normal>
-    + Mul<Vector, Output = Vector>
-    + Copy
-    + 'static,
+        + Mul<Ray, Output = Ray>
+        + Mul<Point, Output = Point>
+        + Mul<Normal, Output = Normal>
+        + Mul<Vector, Output = Vector>
+        + Copy
+        + 'static,
 {
     fn entry_exit_t(&self, ray: &Ray) -> Option<(f32, f32)> {
         let transformed_ray = self.transform_ray(ray);
@@ -279,12 +279,12 @@ impl<T: IsHomogeneousMatrix> Plane<T> {
 impl<T> Shape for Plane<T>
 where
     T: IsHomogeneousMatrix
-    + Mul<Ray, Output = Ray>
-    + Mul<Point, Output = Point>
-    + Mul<Normal, Output = Normal>
-    + Mul<Vector, Output = Vector>
-    + 'static
-    + Copy,
+        + Mul<Ray, Output = Ray>
+        + Mul<Point, Output = Point>
+        + Mul<Normal, Output = Normal>
+        + Mul<Vector, Output = Vector>
+        + 'static
+        + Copy,
 {
     fn ray_intersection(&self, ray: &Ray) -> Option<HitRecord<'_>> {
         let inverse_transformation = self.transformation.inverse_transformation();

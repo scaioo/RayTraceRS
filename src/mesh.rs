@@ -1,6 +1,8 @@
 use crate::geometry::Point;
 use crate::materials::Material;
 use crate::shapes::AABB;
+use anyhow::{anyhow, Result};
+use std::path::Path;
 
 #[derive(Clone, Debug, PartialEq)]
 pub struct IndexTriangle {
@@ -63,6 +65,61 @@ impl SimpleMesh {
             aabb: runtime_aabb(&points),
         }
     }
+
+    pub fn from_obj(path: &Path, material: Material) -> Result<Self> {
+        let (models, _) = tobj::load_obj(path, &tobj::OFFLINE_RENDERING_LOAD_OPTIONS)?;
+
+        let mut points: Vec<Point> = Vec::new();
+        let mut index_triangles: Vec<IndexTriangle> = Vec::new();
+
+        for model in &models {
+            let mesh = &model.mesh;
+
+            // Check1: Positions must be a multiple of 3.
+            if mesh.positions.len() % 3 != 0 {
+                return Err(anyhow!(
+                    "Incorrect number of points: Model '{}' has a positions array \
+                    whose length ({}) is not divisible by 3",
+                    model.name,
+                    mesh.positions.len()
+                ));
+            }
+
+            // Check2: Indices must be a multiple of 3.
+            if mesh.indices.len() % 3 != 0 {
+                return Err(anyhow!(
+                    "Incorrect number of indices: Model '{}' has an indices array whose length ({}) \
+                    is not divisible by 3 after triangulation — check that the mesh is triangulated in Blender.",
+                    model.name,
+                    mesh.indices.len()
+                ));
+            }
+
+            // Every mesh object stored in the file adds a series of points.
+            // However, Triangle Indexing always starts from 0, so it would point
+            // always to the same ones
+            let base = points.len() as u32;
+
+            // Convert [x0,y0,z0, x1,y1,z1, ...] into Points vector.
+            for chunk in mesh.positions.chunks(3) {
+                points.push(Point::new(chunk[0], chunk[1], chunk[2]));
+            }
+
+            for tri in mesh.indices.chunks(3) {
+                index_triangles.push(IndexTriangle::new(
+                    base + tri[0],
+                    base + tri[1],
+                    base + tri[2],
+                ));
+            }
+        }
+
+        if points.is_empty() {
+            return Err(anyhow!("OBJ file at {:?} contained no geometry", path));
+        }
+
+        Ok(Self::new(points, index_triangles, material))
+    }
 }
 
 // **********************************************
@@ -91,57 +148,57 @@ mod tests {
                 x: 0.0,
                 y: 0.0,
                 z: 0.0,
-            }, // P0
+            }, // P1
             Point {
                 x: 1.0,
                 y: 0.0,
                 z: 0.0,
-            }, // P1
-            Point {
-                x: 1.0,
-                y: 2.0,
-                z: 0.0,
             }, // P2
             Point {
-                x: 0.0,
+                x: 1.0,
                 y: 2.0,
                 z: 0.0,
             }, // P3
             Point {
                 x: 0.0,
-                y: 0.0,
-                z: 3.0,
+                y: 2.0,
+                z: 0.0,
             }, // P4
             Point {
-                x: 1.0,
+                x: 0.0,
                 y: 0.0,
                 z: 3.0,
             }, // P5
             Point {
                 x: 1.0,
-                y: 2.0,
+                y: 0.0,
                 z: 3.0,
             }, // P6
+            Point {
+                x: 1.0,
+                y: 2.0,
+                z: 3.0,
+            }, // P7
             Point {
                 x: 0.0,
                 y: 2.0,
                 z: 3.0,
-            }, // P7
+            }, // P8
         ];
 
         let index_triangles = vec![
-            IndexTriangle { i: 0, j: 1, k: 2 },
-            IndexTriangle { i: 0, j: 2, k: 3 },
-            IndexTriangle { i: 0, j: 1, k: 5 },
-            IndexTriangle { i: 4, j: 5, k: 0 },
-            IndexTriangle { i: 4, j: 5, k: 7 },
-            IndexTriangle { i: 5, j: 6, k: 7 },
-            IndexTriangle { i: 3, j: 2, k: 7 },
-            IndexTriangle { i: 7, j: 2, k: 6 },
-            IndexTriangle { i: 0, j: 7, k: 3 },
-            IndexTriangle { i: 0, j: 4, k: 7 },
-            IndexTriangle { i: 1, j: 2, k: 5 },
-            IndexTriangle { i: 5, j: 2, k: 6 },
+            IndexTriangle { i: 1, j: 2, k: 3 },
+            IndexTriangle { i: 1, j: 3, k: 4 },
+            IndexTriangle { i: 1, j: 2, k: 6 },
+            IndexTriangle { i: 5, j: 6, k: 1 },
+            IndexTriangle { i: 5, j: 6, k: 8 },
+            IndexTriangle { i: 6, j: 7, k: 8 },
+            IndexTriangle { i: 4, j: 3, k: 8 },
+            IndexTriangle { i: 8, j: 3, k: 7 },
+            IndexTriangle { i: 1, j: 8, k: 4 },
+            IndexTriangle { i: 1, j: 5, k: 8 },
+            IndexTriangle { i: 2, j: 3, k: 6 },
+            IndexTriangle { i: 6, j: 3, k: 7 },
         ];
 
         let mesh = SimpleMesh {

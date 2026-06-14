@@ -412,6 +412,12 @@ impl AABB {
             6
         }
     }
+
+    pub fn in_parallelepiped(&self, point: &Point) -> bool {
+        point.x.is_between_open(&self.p_min.x, &self.p_max.x)
+            && point.y.is_between_open(&self.p_min.y, &self.p_max.y)
+            && point.z.is_between_open(&self.p_min.z, &self.p_max.z)
+    }
 }
 
 impl Default for AABB {
@@ -1124,6 +1130,15 @@ mod tests {
         let point2 = Point::new(10.0, 4.0, 5.0);
 
         AABB::new(point1, point2, Material::default()).unwrap()
+    }
+
+    #[test]
+    fn test_aabb_inside_cube() {
+        let aabb = setup_aabb();
+
+        assert!(aabb.in_parallelepiped(&Point::new(1.0, 2.0, 3.0)), "Inside point assert failed");
+        assert!(!aabb.in_parallelepiped(&Point::new(-1.0, -2.0, -3.0)), "Border assert failed");
+        assert!(!aabb.in_parallelepiped(&Point::new(-1.5, 2.0, 3.0)), "Outside point assert failed");
     }
 
     #[test]

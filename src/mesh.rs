@@ -128,6 +128,10 @@ impl SimpleMesh {
 
 #[cfg(test)]
 mod tests {
+    use std::fs::File;
+    use std::io::Write;
+    use std::path::PathBuf;
+    use tempfile::tempdir;
     use super::*;
 
     #[test]
@@ -187,18 +191,18 @@ mod tests {
         ];
 
         let index_triangles = vec![
-            IndexTriangle { i: 1, j: 2, k: 3 },
-            IndexTriangle { i: 1, j: 3, k: 4 },
-            IndexTriangle { i: 1, j: 2, k: 6 },
-            IndexTriangle { i: 5, j: 6, k: 1 },
-            IndexTriangle { i: 5, j: 6, k: 8 },
-            IndexTriangle { i: 6, j: 7, k: 8 },
-            IndexTriangle { i: 4, j: 3, k: 8 },
-            IndexTriangle { i: 8, j: 3, k: 7 },
-            IndexTriangle { i: 1, j: 8, k: 4 },
-            IndexTriangle { i: 1, j: 5, k: 8 },
-            IndexTriangle { i: 2, j: 3, k: 6 },
-            IndexTriangle { i: 6, j: 3, k: 7 },
+            IndexTriangle { i: 0, j: 1, k: 2 },
+            IndexTriangle { i: 0, j: 2, k: 3 },
+            IndexTriangle { i: 4, j: 5, k: 0 },
+            IndexTriangle { i: 0, j: 1, k: 5 },
+            IndexTriangle { i: 5, j: 6, k: 7 },
+            IndexTriangle { i: 4, j: 5, k: 7 },
+            IndexTriangle { i: 3, j: 2, k: 7 },
+            IndexTriangle { i: 7, j: 2, k: 6 },
+            IndexTriangle { i: 0, j: 7, k: 3 },
+            IndexTriangle { i: 0, j: 4, k: 7 },
+            IndexTriangle { i: 1, j: 2, k: 5 },
+            IndexTriangle { i: 5, j: 2, k: 6 },
         ];
 
         let mesh = SimpleMesh {
@@ -243,5 +247,74 @@ mod tests {
         for (l, point) in points.iter().enumerate() {
             assert!(point.is_close(&mesh_points[l]));
         }
+    }
+
+    fn create_test_file(path: &PathBuf) -> Result<()> {
+        let mut file = File::create(path)?;
+
+        let content = r#"# Parallelepiped Mesh
+v 0.0 0.0 0.0
+v 1.0 0.0 0.0
+v 1.0 2.0 0.0
+v 0.0 2.0 0.0
+v 0.0 0.0 3.0
+v 1.0 0.0 3.0
+v 1.0 2.0 3.0
+v 0.0 2.0 3.0
+
+f 1 2 3
+f 1 3 4
+f 5 6 1
+f 1 2 6
+f 6 7 8
+f 5 6 8
+f 4 3 8
+f 8 3 7
+f 1 8 4
+f 1 5 8
+f 2 3 6
+f 6 3 7
+"#;
+
+        file.write_all(content.as_bytes())?;
+        Ok(())
+    }
+
+    #[test]
+    fn test_from_obj() -> Result<()>{
+        // 1. Create a temporary directory
+        let dir = tempdir()?;
+
+        // 2. Define input and output paths inside the temp directory
+        let path = dir.path().join("parallelepiped.obj");
+        create_test_file(&path)?;
+
+        // 3.1 Download mesh from file
+        let mesh = SimpleMesh::from_obj(&path, Material::default())?;
+        // 3.2 Create expected mesh
+        let (_, _, expected_mesh) = setup_parallelepiped();
+
+        // 4. Points asserts
+        let points = mesh.points.clone();
+        let expected_points = expected_mesh.points.clone();
+
+        for (i, point) in points.iter().enumerate() {
+            assert!(point.is_close(&expected_points[i]),
+                "Broken assert {i} line:\npoint: {:?}\nexpected: {:?}", point, expected_points[i]
+            );
+        }
+
+        // 5. Index asserts
+        let indices = mesh.index_triangles.clone();
+        let expected_indices = expected_mesh.index_triangles.clone();
+
+        for (i, index) in indices.iter().enumerate() {
+            assert!(&expected_indices[i] == index,
+                    "Broken assert {i} line:\nindex: {:?}\nexpected: {:?}",
+                    index, expected_indices[i]
+            );
+        }
+
+        Ok(())
     }
 }

@@ -1,11 +1,11 @@
+use crate::functions::Within;
 use crate::geometry::{Normal, Point, Vec2D};
+use crate::hit_record::HitRecord;
 use crate::materials::Material;
-use crate::shapes::{Shape, Triangle, AABB};
+use crate::ray::Ray;
+use crate::shapes::{AABB, Shape, Triangle};
 use anyhow::{Result, anyhow};
 use std::path::Path;
-use crate::functions::Within;
-use crate::hit_record::HitRecord;
-use crate::ray::Ray;
 
 #[derive(Clone, Debug, PartialEq)]
 pub struct IndexTriangle {
@@ -124,14 +124,14 @@ impl SimpleMesh {
         Ok(Self::new(points, index_triangles, material))
     }
 
-    pub fn triangle_hit(&self, ray: &Ray) -> Option<(Triangle, f32, f32, f32)> {
+    fn triangle_hit(&self, ray: &Ray) -> Option<(Triangle, f32, f32, f32)> {
         // AABB optimization
         self.aabb.ray_intersection(ray)?;
 
         // Parameters
         let mut t_min: f32 = f32::MAX;
-        let mut b= 0.0;
-        let mut g= 0.0;
+        let mut b = 0.0;
+        let mut g = 0.0;
         let mut hit_index: Option<u32> = None;
 
         // Hit loop
@@ -140,11 +140,11 @@ impl SimpleMesh {
                 self.points[triangle.i as usize],
                 self.points[triangle.j as usize],
                 self.points[triangle.k as usize],
-                Material::default()
+                Material::default(),
             );
 
             let Ok((t, beta, gamma)) = helper_triangle.intersection(*ray) else {
-                continue
+                continue;
             };
 
             if t.is_between_open(&0.0, &t_min) {
@@ -193,6 +193,8 @@ impl Shape for SimpleMesh {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::functions::are_close;
+    use crate::geometry::{Y_AXIS, Z_AXIS};
     use std::fs::File;
     use std::io::Write;
     use std::path::PathBuf;
@@ -384,5 +386,137 @@ f 6 3 7
         }
 
         Ok(())
+    }
+
+    fn setup_pyramid() -> SimpleMesh {
+        let points = vec![
+            Point::new(1.0, 1.0, 0.0),   //P0
+            Point::new(-1.0, 1.0, 0.0),  //P1
+            Point::new(-1.0, -1.0, 0.0), //P2
+            Point::new(1.0, -1.0, 0.0),  //P3
+            Point::new(0.0, 0.0, 1.0),   //P4
+        ];
+        let indices = vec![
+            IndexTriangle::new(0, 1, 4),
+            IndexTriangle::new(2, 1, 4),
+            IndexTriangle::new(3, 2, 4),
+            IndexTriangle::new(4, 3, 0),
+            IndexTriangle::new(1, 3, 0),
+            IndexTriangle::new(2, 3, 1),
+        ];
+
+        SimpleMesh::new(points, indices, Material::default())
+    }
+
+    #[test]
+    fn test_triangle_hit_parallelepiped_miss() {
+        let (_, _, parallelepiped) = setup_parallelepiped();
+        let miss_ray = Ray::new(Point::new(1.5, 1.0, 10.0), -Z_AXIS);
+        let result = parallelepiped.triangle_hit(&miss_ray);
+        assert!(result.is_none(), "Assert missed-mesh failed!");
+        let aabb = parallelepiped.aabb;
+        let result = aabb.ray_intersection(&miss_ray);
+        assert!(result.is_none(), "Assert missed AABB failed!");
+    }
+
+    #[test]
+    fn test_triangle_hit_pyramid_miss() {
+        let pyramid = setup_pyramid();
+        let ray: Ray = Ray::new(Point::new(0.5, -10.0, 0.9), Y_AXIS);
+        let result = pyramid.triangle_hit(&ray);
+        assert!(result.is_none(), "Assert missed Mesh failed!");
+        let aabb = pyramid.aabb;
+        let result = aabb.ray_intersection(&ray);
+        assert!(result.is_some(), "Assert hitted AABB failed!");
+    }
+
+    #[test]
+    fn test_triangle_hit_parallelepiped_hit() {
+        let (_, _, parallelepiped) = setup_parallelepiped();
+        let ray: Ray = Ray::new(Point::new(0.25, 4.0, 3.0 / 4.0), -Y_AXIS);
+        let (triangle, t_min, beta, gamma) = parallelepiped.triangle_hit(&ray).unwrap();
+
+        assert!(
+            are_close(t_min, 2.0),
+            "Assert 1 fails: t_min: {}\nexpected_t: 2.0",
+            t_min
+        );
+        assert!(
+            are_close(beta, 0.25),
+            "Assert 2 fails: beta: {}\nexpect_b: 0.5",
+            beta
+        );
+        assert!(
+            are_close(gamma, 0.25),
+            "Assert 3 fails: gamma: {}\nexpect_g: 0.25",
+            gamma
+        );
+
+        let points: [Point; 3] = [
+            Point::new(0.0, 2.0, 0.0),
+            Point::new(0.0, 2.0, 3.0),
+            Point::new(1.0, 2.0, 0.0),
+        ];
+
+        assert!(
+            points.contains(&triangle.a),
+            "Assert 4 fails: triangle.a: {}",
+            triangle.a
+        );
+        assert!(
+            points.contains(&triangle.b),
+            "Assert 5 fails: triangle.b: {}",
+            triangle.b
+        );
+        assert!(
+            points.contains(&triangle.c),
+            "Assert 6 fails: triangle.c: {}",
+            triangle.c
+        );
+    }
+
+    #[test]
+    fn test_triangle_hit_pyramid_hit() {
+        let pyramid = setup_pyramid();
+        let ray: Ray = Ray::new(Point::new(0.0, 0.5, 1.0), -Z_AXIS);
+        let (triangle, t_min, beta, gamma) = pyramid.triangle_hit(&ray).unwrap();
+
+        assert!(
+            are_close(t_min, 0.5),
+            "Assert 1 fails: t_min: {}\nexpected_t: 0.5",
+            t_min
+        );
+        assert!(
+            are_close(beta, 0.25),
+            "Assert 2 fails: beta: {}\nexpect_b: 0.5",
+            beta
+        );
+        assert!(
+            are_close(gamma, 0.5),
+            "Assert 3 fails: gamma: {}\nexpect_g: 0.5",
+            gamma
+        );
+
+        let points: [Point; 3] = [
+            Point::new(1.0, 1.0, 0.0),
+            Point::new(-1.0, 1.0, 0.0),
+            Point::new(0.0, 0.0, 1.0),
+        ];
+
+        assert!(
+            points.contains(&triangle.a),
+            "Assert 4 fails: triangle.a: {}",
+            triangle.a
+        );
+        assert!(
+            points.contains(&triangle.b),
+            "Assert 5 fails: triangle.b: {}",
+            triangle.b
+        );
+        assert!(
+            points.contains(&triangle.c),
+            "Assert 6 fails: triangle.c: {}",
+            triangle.c
+        );
     }
 }

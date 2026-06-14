@@ -59,6 +59,8 @@ pub struct InputStream<B: BufRead> {
     pub saved_location: Option<SourceLocation>,
     /// The `\t` spaces.
     pub tabulation: usize,
+    /// The token to look ahead
+    pub saved_token: Option<Token>,
 }
 
 impl<B: BufRead> InputStream<B> {
@@ -73,7 +75,9 @@ impl<B: BufRead> InputStream<B> {
             },
             saved_char: None,
             saved_location: None,
+            saved_token: None,
             tabulation,
+
         }
     }
 }
@@ -353,6 +357,16 @@ impl<B: BufRead> InputStream<B> {
         }
     }
 
+    /// Saves a token that has just been read so that it can be returned on the next call
+    pub fn unread_token(&mut self, token: Token) -> anyhow::Result<()> {
+        if self.saved_token.is_none() {
+            self.saved_token = Some(token);
+            Ok(())
+        } else {
+            Err(anyhow::anyhow!("I can't mark more than one token as unread!"))
+        }
+    }
+
     /// Reads the next token from the stream.
     ///
     /// Skips whitespace and comments, then classifies the current character:
@@ -366,6 +380,9 @@ impl<B: BufRead> InputStream<B> {
     /// Returns an error if the character does not belong to any of the
     /// categories above, or if an internal read fails.
     pub fn read_token(&mut self) -> anyhow::Result<Token> {
+        if let Some(token) = self.saved_token.take() {
+            return Ok(token);
+        }
         let ch: char;
         match self.skip_whitespace() {
             Ok(true) => Ok(Token {
@@ -406,7 +423,7 @@ impl<B: BufRead> InputStream<B> {
 // Token and TokenKind
 // ==========================================
 
-/// The type of token recognised by the lexer.
+/// The type of token recognized by the lexer.
 #[derive(Debug, PartialEq)]
 pub enum TokenKind {
     /// A reserved keyword of the scene language (e.g. `new`, `sphere`, `camera`).
@@ -436,7 +453,7 @@ pub struct Token {
 ///
 /// Identify the constructs of a scene file:
 /// object types, materials, transformations, and cameras.
-#[derive(Debug, PartialEq)]
+#[derive(Debug, PartialEq, Copy, Clone)]
 pub enum Keyword {
     NEW,
     MATERIAL,
@@ -500,7 +517,7 @@ sphere(sphere_material, translation([0, 0, 1]))
 camera(perspective, rotation_z(30) * translation([-4, 0, 1]), 1.0, 1.0)";
 
     fn setup1() -> InputStream<Cursor<&'static str>> {
-        let stream = std::io::Cursor::new(TEST_FILE);
+        let stream = Cursor::new(TEST_FILE);
         InputStream::new(stream, 0, 8)
     }
 

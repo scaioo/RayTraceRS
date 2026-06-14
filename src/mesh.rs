@@ -1,8 +1,11 @@
-use crate::geometry::Point;
+use crate::geometry::{Normal, Point, Vec2D};
 use crate::materials::Material;
-use crate::shapes::AABB;
+use crate::shapes::{Shape, Triangle, AABB};
 use anyhow::{Result, anyhow};
 use std::path::Path;
+use crate::functions::Within;
+use crate::hit_record::HitRecord;
+use crate::ray::Ray;
 
 #[derive(Clone, Debug, PartialEq)]
 pub struct IndexTriangle {
@@ -119,6 +122,67 @@ impl SimpleMesh {
         }
 
         Ok(Self::new(points, index_triangles, material))
+    }
+
+    pub fn triangle_hit(&self, ray: &Ray) -> Option<(Triangle, f32, f32, f32)> {
+        // AABB optimization
+        self.aabb.ray_intersection(ray)?;
+
+        // Parameters
+        let mut t_min: f32 = f32::MAX;
+        let mut b= 0.0;
+        let mut g= 0.0;
+        let mut hit_index: Option<u32> = None;
+
+        // Hit loop
+        for (idx, triangle) in self.index_triangles.iter().enumerate() {
+            let helper_triangle = Triangle::new(
+                self.points[triangle.i as usize],
+                self.points[triangle.j as usize],
+                self.points[triangle.k as usize],
+                Material::default()
+            );
+
+            let Ok((t, beta, gamma)) = helper_triangle.intersection(*ray) else {
+                continue
+            };
+
+            if t.is_between_open(&0.0, &t_min) {
+                t_min = t;
+                hit_index = Some(idx as u32);
+                (b, g) = (beta, gamma);
+            }
+        }
+
+        // Return the result if it hits
+        hit_index.map(|idx| {
+            let tri_idx = &self.index_triangles[idx as usize];
+            let triangle = Triangle {
+                a: self.points[tri_idx.i as usize],
+                b: self.points[tri_idx.j as usize],
+                c: self.points[tri_idx.k as usize],
+                material: self.material.clone(),
+            };
+            (triangle, t_min, b, g)
+        })
+    }
+}
+
+impl Shape for SimpleMesh {
+    fn ray_intersection(&self, ray: &Ray) -> Option<HitRecord<'_>> {
+        todo!()
+    }
+
+    fn normal_at(&self, point: Point, ray: &Ray) -> Normal {
+        todo!()
+    }
+
+    fn point_to_uv(&self, point: &Point) -> Result<Vec2D> {
+        todo!()
+    }
+
+    fn material(&self) -> &Material {
+        &self.material
     }
 }
 

@@ -413,7 +413,7 @@ impl AABB {
         }
     }
 
-    pub fn in_parallelepiped(&self, point: &Point) -> bool {
+    pub fn contains(&self, point: &Point) -> bool {
         point.x.is_between_open(&self.p_min.x, &self.p_max.x)
             && point.y.is_between_open(&self.p_min.y, &self.p_max.y)
             && point.z.is_between_open(&self.p_min.z, &self.p_max.z)
@@ -1136,9 +1136,18 @@ mod tests {
     fn test_aabb_inside_cube() {
         let aabb = setup_aabb();
 
-        assert!(aabb.in_parallelepiped(&Point::new(1.0, 2.0, 3.0)), "Inside point assert failed");
-        assert!(!aabb.in_parallelepiped(&Point::new(-1.0, -2.0, -3.0)), "Border assert failed");
-        assert!(!aabb.in_parallelepiped(&Point::new(-1.5, 2.0, 3.0)), "Outside point assert failed");
+        assert!(
+            aabb.contains(&Point::new(1.0, 2.0, 3.0)),
+            "Inside point assert failed"
+        );
+        assert!(
+            !aabb.contains(&Point::new(-1.0, -2.0, -3.0)),
+            "Border assert failed"
+        );
+        assert!(
+            !aabb.contains(&Point::new(-1.5, 2.0, 3.0)),
+            "Outside point assert failed"
+        );
     }
 
     #[test]

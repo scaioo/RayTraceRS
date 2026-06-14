@@ -125,11 +125,13 @@ impl SimpleMesh {
     }
 
     fn triangle_hit(&self, ray: &Ray) -> Option<(Triangle, f32, f32, f32)> {
-        // AABB optimization
-        self.aabb.ray_intersection(ray)?;
+        // AABB optimization check
+        if !self.aabb.contains(&ray.origin) {
+            self.aabb.ray_intersection(&ray)?;
+        }
 
         // Parameters
-        let mut t_min: f32 = f32::MAX;
+        let mut t_min: f32 = ray.t_max;
         let mut b = 0.0;
         let mut g = 0.0;
         let mut hit_index: Option<u32> = None;
@@ -147,7 +149,7 @@ impl SimpleMesh {
                 continue;
             };
 
-            if t.is_between_open(&0.0, &t_min) {
+            if t.is_between_open(&ray.t_min, &t_min) && t > 0.0 {
                 t_min = t;
                 hit_index = Some(idx as u32);
                 (b, g) = (beta, gamma);
@@ -170,7 +172,17 @@ impl SimpleMesh {
 
 impl Shape for SimpleMesh {
     fn ray_intersection(&self, ray: &Ray) -> Option<HitRecord<'_>> {
-        todo!()
+        let (triangle, t, beta, gamma) = self.triangle_hit(&ray)?;
+        let world_point = ray.at(t);
+
+        Some(HitRecord {
+            world_point,
+            normal: triangle.normal_at(world_point, ray),
+            uv: Vec2D::new(beta, gamma),
+            t,
+            ray: *ray,
+            material: &self.material,
+        })
     }
 
     fn normal_at(&self, point: Point, ray: &Ray) -> Normal {
@@ -200,6 +212,7 @@ mod tests {
     use std::path::PathBuf;
     use tempfile::tempdir;
 
+    // ---- IndexTriangle constructor ----------------------------
     #[test]
     fn test_index_triangle_constructor() {
         let i: u32 = 1;
@@ -211,6 +224,8 @@ mod tests {
         assert_eq!(j, tri.j);
         assert_eq!(k, tri.k);
     }
+
+    // ---- SimpleMesh parallelepiped ----------------------------
 
     fn setup_parallelepiped() -> (Vec<Point>, Vec<IndexTriangle>, SimpleMesh) {
         let points = vec![
@@ -281,6 +296,8 @@ mod tests {
         (points, index_triangles, mesh)
     }
 
+    // ---- SimpleMesh aabb computing ----------------------------
+
     #[test]
     fn test_mesh_runtime_aabb() {
         let (_, _, mesh) = setup_parallelepiped();
@@ -290,6 +307,8 @@ mod tests {
         assert!(mesh.aabb.p_max.is_close(&p_max));
         assert!(mesh.aabb.p_min.is_close(&p_min));
     }
+
+    // ---- SimpleMesh constructor ----------------------------
 
     #[test]
     fn test_mesh_constructor_triangles() {
@@ -314,6 +333,8 @@ mod tests {
             assert!(point.is_close(&mesh_points[l]));
         }
     }
+
+    // ---- SimpleMesh loading function -----------------------
 
     fn create_test_file(path: &PathBuf) -> Result<()> {
         let mut file = File::create(path)?;
@@ -388,6 +409,8 @@ f 6 3 7
         Ok(())
     }
 
+    // ---- SimpleMesh pyramid helper ----------------------------
+
     fn setup_pyramid() -> SimpleMesh {
         let points = vec![
             Point::new(1.0, 1.0, 0.0),   //P0
@@ -408,6 +431,8 @@ f 6 3 7
         SimpleMesh::new(points, indices, Material::default())
     }
 
+    // ---- SimpleMesh triangle_hit ----------------------------
+    // ---- Outside -> Miss
     #[test]
     fn test_triangle_hit_parallelepiped_miss() {
         let (_, _, parallelepiped) = setup_parallelepiped();
@@ -430,6 +455,7 @@ f 6 3 7
         assert!(result.is_some(), "Assert hitted AABB failed!");
     }
 
+    // ---- Outside -> Hit
     #[test]
     fn test_triangle_hit_parallelepiped_hit() {
         let (_, _, parallelepiped) = setup_parallelepiped();
@@ -518,5 +544,142 @@ f 6 3 7
             "Assert 6 fails: triangle.c: {}",
             triangle.c
         );
+    }
+
+    // ---- Inside -> Hit
+    #[test]
+    fn test_triangle_hit_pyramid_inside() {
+        let pyramid = setup_pyramid();
+        let ray: Ray = Ray::new(Point::new(0.0, 0.5, 0.1), Z_AXIS);
+        let (triangle, t_min, beta, gamma) = pyramid.triangle_hit(&ray).unwrap();
+
+        assert!(
+            are_close(t_min, 0.4),
+            "Assert 1 fails: t_min: {}\nexpected_t: 0.5",
+            t_min
+        );
+        assert!(
+            are_close(beta, 0.25),
+            "Assert 2 fails: beta: {}\nexpect_b: 0.5",
+            beta
+        );
+        assert!(
+            are_close(gamma, 0.5),
+            "Assert 3 fails: gamma: {}\nexpect_g: 0.5",
+            gamma
+        );
+
+        let points: [Point; 3] = [
+            Point::new(1.0, 1.0, 0.0),
+            Point::new(-1.0, 1.0, 0.0),
+            Point::new(0.0, 0.0, 1.0),
+        ];
+
+        assert!(
+            points.contains(&triangle.a),
+            "Assert 4 fails: triangle.a: {}",
+            triangle.a
+        );
+        assert!(
+            points.contains(&triangle.b),
+            "Assert 5 fails: triangle.b: {}",
+            triangle.b
+        );
+        assert!(
+            points.contains(&triangle.c),
+            "Assert 6 fails: triangle.c: {}",
+            triangle.c
+        );
+    }
+
+    // ---- Inside -> Miss
+    #[test]
+    fn test_triangle_hit_pyramid_ray_range_miss() {
+        let pyramid = setup_pyramid();
+        let ray: Ray = Ray {
+            origin: Point::new(0.0, 0.5, 0.1),
+            dir: Z_AXIS,
+            t_max: 0.3,
+            t_min: 0.0,
+            depth: 0,
+        };
+
+        assert!(pyramid.triangle_hit(&ray).is_none(), "pyramid is hit!");
+    }
+
+    // ---- Inside -> Hit SimpleMesh, Miss AABB
+    #[test]
+    fn test_triangle_hit_pyramid_ray_miss_aabb_but_hit() {
+        let pyramid = setup_pyramid();
+        let ray = Ray {
+            origin: Point::new(0.0, -0.5, 0.1),
+            dir: Z_AXIS,
+            t_max: 0.7,
+            t_min: 0.0,
+            depth: 0,
+        };
+
+        assert!(pyramid.aabb.ray_intersection(&ray).is_none(), "pyramid's aabb is hit!");
+        assert!(pyramid.triangle_hit(&ray).is_some(), "pyramid is not hit!");
+    }
+
+    // ---- Inside -> Miss SimpleMesh, Hit AABB
+    #[test]
+    fn test_triangle_hit_pyramid_ray_inside_aabb_miss() {
+        let pyramid = setup_pyramid();
+        let ray = Ray {
+            origin: Point::new(0.0, -0.5, 0.7),
+            dir: Z_AXIS,
+            t_max: f32::INFINITY,
+            t_min: 0.0,
+            depth: 0,
+        };
+
+        assert!(pyramid.aabb.ray_intersection(&ray).is_some(), "pyramid's aabb is not hit!");
+        assert!(pyramid.triangle_hit(&ray).is_none(), "pyramid is hit!");
+    }
+
+    // ---- SimpleMesh ray_intersection ----------------------------
+    // ---- Outside -> Hit Parallelepiped
+    #[test]
+    fn test_ray_intersection_out_hit() {
+        let (_, _, parallelepiped) = setup_parallelepiped();
+        let ray: Ray = Ray::new(Point::new(0.25, 1.5, -1.0), Z_AXIS);
+        let intersection = parallelepiped.ray_intersection(&ray).unwrap();
+        
+        let expected = HitRecord {
+            world_point: Point::new(0.25, 1.5, 0.0),
+            normal: Normal::from(- 2.0 * Z_AXIS),
+            uv: Vec2D {x: 0.25, y: 0.5 },
+            t: 1.0,
+            ray,
+            material: &Default::default(),
+        };
+        
+        assert!(expected.world_point.is_close(&intersection.world_point), "intersection point: {}", intersection.world_point.x);
+        assert!(expected.normal.is_close(&intersection.normal), "normal: {}", intersection.normal);
+        assert!(expected.uv.is_close(&intersection.uv), "uv: {:?}", intersection.uv);
+        assert!(are_close(expected.t, intersection.t), "t: {}", intersection.t);
+    }
+
+    // ---- Outside -> Inside AABB and Hits Parallelepiped
+    #[test]
+    fn test_ray_intersection_in_aabb_hit() {
+        let pyramid = setup_pyramid();
+        let dir = - (Z_AXIS + Y_AXIS);
+        let origin = Point::new(0.0, 0.0, 0.0) - 0.75 * dir;
+        let ray: Ray = Ray::new(origin, dir);
+        let expected = Point::new(0.0, 0.5, 0.5);
+        let hit = pyramid.ray_intersection(&ray).unwrap();
+
+        assert!(expected.is_close(&hit.world_point), "intersection point: {}", hit.world_point);
+    }
+
+    // ---- Outside -> Miss AABB and Parallelepiped
+    #[test]
+    fn test_ray_intersection_out_miss() {
+        let (_, _, parallelepiped) = setup_parallelepiped();
+        let ray: Ray = Ray::new(Point::new(0.25, 2.5, -1.0), Z_AXIS);
+        assert!(parallelepiped.ray_intersection(&ray).is_none(), "parallelepiped is hit!");
     }
 }

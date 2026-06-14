@@ -1,7 +1,7 @@
 use crate::geometry::Point;
 use crate::materials::Material;
 use crate::shapes::AABB;
-use anyhow::{anyhow, Result};
+use anyhow::{Result, anyhow};
 use std::path::Path;
 
 #[derive(Clone, Debug, PartialEq)]
@@ -128,11 +128,11 @@ impl SimpleMesh {
 
 #[cfg(test)]
 mod tests {
+    use super::*;
     use std::fs::File;
     use std::io::Write;
     use std::path::PathBuf;
     use tempfile::tempdir;
-    use super::*;
 
     #[test]
     fn test_index_triangle_constructor() {
@@ -281,7 +281,7 @@ f 6 3 7
     }
 
     #[test]
-    fn test_from_obj() -> Result<()>{
+    fn test_from_obj() -> Result<()> {
         // 1. Create a temporary directory
         let dir = tempdir()?;
 
@@ -299,8 +299,11 @@ f 6 3 7
         let expected_points = expected_mesh.points.clone();
 
         for (i, point) in points.iter().enumerate() {
-            assert!(point.is_close(&expected_points[i]),
-                "Broken assert {i} line:\npoint: {:?}\nexpected: {:?}", point, expected_points[i]
+            assert!(
+                point.is_close(&expected_points[i]),
+                "Broken assert {i} line:\npoint: {:?}\nexpected: {:?}",
+                point,
+                expected_points[i]
             );
         }
 
@@ -309,9 +312,10 @@ f 6 3 7
         let expected_indices = expected_mesh.index_triangles.clone();
 
         for (i, index) in indices.iter().enumerate() {
-            assert!(&expected_indices[i] == index,
-                    "Broken assert {i} line:\nindex: {:?}\nexpected: {:?}",
-                    index, expected_indices[i]
+            assert_eq!(
+                &expected_indices[i], index,
+                "Broken assert {i} line:\nindex: {:?}\nexpected: {:?}",
+                index, expected_indices[i]
             );
         }
 

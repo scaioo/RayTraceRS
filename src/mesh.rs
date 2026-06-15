@@ -1,13 +1,13 @@
-use std::ops::Mul;
 use crate::functions::Within;
 use crate::geometry::{Normal, Point, Vec2D};
 use crate::hit_record::HitRecord;
 use crate::materials::Material;
 use crate::ray::Ray;
 use crate::shapes::{AABB, Shape, Triangle};
-use anyhow::{Result, anyhow};
-use std::path::Path;
 use crate::transformations::IsHomogeneousMatrix;
+use anyhow::{Result, anyhow};
+use std::ops::Mul;
+use std::path::Path;
 
 #[derive(Clone, Debug, PartialEq)]
 pub struct IndexTriangle {
@@ -72,7 +72,8 @@ impl SimpleMesh {
     }
 
     pub fn from_obj<T>(path: &Path, material: Material, transformation: T) -> Result<Self>
-    where T: IsHomogeneousMatrix + Mul<Point, Output = Point>,
+    where
+        T: IsHomogeneousMatrix + Mul<Point, Output = Point>,
     {
         let (models, _) = tobj::load_obj(path, &tobj::OFFLINE_RENDERING_LOAD_OPTIONS)?;
 
@@ -125,10 +126,7 @@ impl SimpleMesh {
             return Err(anyhow!("OBJ file at {:?} contained no geometry", path));
         }
 
-        let transformed_points = points
-            .iter()
-            .map(|p| transformation * *p)
-            .collect();
+        let transformed_points = points.iter().map(|p| transformation * *p).collect();
 
         Ok(Self::new(transformed_points, index_triangles, material))
     }
@@ -216,11 +214,11 @@ mod tests {
     use super::*;
     use crate::functions::are_close;
     use crate::geometry::{Y_AXIS, Z_AXIS};
+    use crate::transformations::{IDENTITY_TRANSFORMATION, Translation};
     use std::fs::File;
     use std::io::Write;
     use std::path::PathBuf;
     use tempfile::tempdir;
-    use crate::transformations::{Translation, IDENTITY_TRANSFORMATION};
 
     // ---- IndexTriangle constructor ----------------------------
     #[test]
@@ -422,7 +420,9 @@ f 6 3 7
     // ---- SimpleMesh pyramid helper ----------------------------
 
     fn setup_pyramid<T>(transformation: T) -> SimpleMesh
-    where T: IsHomogeneousMatrix + Mul<Point, Output = Point> + Clone{
+    where
+        T: IsHomogeneousMatrix + Mul<Point, Output = Point> + Clone,
+    {
         let points = vec![
             Point::new(1.0, 1.0, 0.0),   //P0
             Point::new(-1.0, 1.0, 0.0),  //P1
@@ -455,22 +455,22 @@ f 6 3 7
 
         // Expected: same parallelepiped points, each translated by Z_AXIS
         let (points, index_triangles, _) = setup_parallelepiped();
-        let expected_points: Vec<Point> = points
-            .iter()
-            .map(|p| transformation * *p)
-            .collect();
+        let expected_points: Vec<Point> = points.iter().map(|p| transformation * *p).collect();
 
         for (i, point) in mesh.points.iter().enumerate() {
             assert!(
                 point.is_close(&expected_points[i]),
-                "Point {i}: got {:?}, expected {:?}", point, expected_points[i]
+                "Point {i}: got {:?}, expected {:?}",
+                point,
+                expected_points[i]
             );
         }
 
         for (i, index) in mesh.index_triangles.iter().enumerate() {
             assert_eq!(
                 &index_triangles[i], index,
-                "Triangle {i}: got {:?}, expected {:?}", index, index_triangles[i]
+                "Triangle {i}: got {:?}, expected {:?}",
+                index, index_triangles[i]
             );
         }
 
@@ -665,7 +665,10 @@ f 6 3 7
             depth: 0,
         };
 
-        assert!(pyramid.aabb.ray_intersection(&ray).is_none(), "pyramid's aabb is hit!");
+        assert!(
+            pyramid.aabb.ray_intersection(&ray).is_none(),
+            "pyramid's aabb is hit!"
+        );
         assert!(pyramid.triangle_hit(&ray).is_some(), "pyramid is not hit!");
     }
 
@@ -681,7 +684,10 @@ f 6 3 7
             depth: 0,
         };
 
-        assert!(pyramid.aabb.ray_intersection(&ray).is_some(), "pyramid's aabb is not hit!");
+        assert!(
+            pyramid.aabb.ray_intersection(&ray).is_some(),
+            "pyramid's aabb is not hit!"
+        );
         assert!(pyramid.triangle_hit(&ray).is_none(), "pyramid is hit!");
     }
 
@@ -692,33 +698,53 @@ f 6 3 7
         let (_, _, parallelepiped) = setup_parallelepiped();
         let ray: Ray = Ray::new(Point::new(0.25, 1.5, -1.0), Z_AXIS);
         let intersection = parallelepiped.ray_intersection(&ray).unwrap();
-        
+
         let expected = HitRecord {
             world_point: Point::new(0.25, 1.5, 0.0),
-            normal: Normal::from(- 2.0 * Z_AXIS),
-            uv: Vec2D {x: 0.25, y: 0.5 },
+            normal: Normal::from(-2.0 * Z_AXIS),
+            uv: Vec2D { x: 0.25, y: 0.5 },
             t: 1.0,
             ray,
             material: &Default::default(),
         };
-        
-        assert!(expected.world_point.is_close(&intersection.world_point), "intersection point: {}", intersection.world_point.x);
-        assert!(expected.normal.is_close(&intersection.normal), "normal: {}", intersection.normal);
-        assert!(expected.uv.is_close(&intersection.uv), "uv: {:?}", intersection.uv);
-        assert!(are_close(expected.t, intersection.t), "t: {}", intersection.t);
+
+        assert!(
+            expected.world_point.is_close(&intersection.world_point),
+            "intersection point: {}",
+            intersection.world_point.x
+        );
+        assert!(
+            expected.normal.is_close(&intersection.normal),
+            "normal: {}",
+            intersection.normal
+        );
+        assert!(
+            expected.uv.is_close(&intersection.uv),
+            "uv: {:?}",
+            intersection.uv
+        );
+        assert!(
+            are_close(expected.t, intersection.t),
+            "t: {}",
+            intersection.t
+        );
     }
 
     // ---- Outside -> Inside AABB and Hits Parallelepiped
     #[test]
     fn test_ray_intersection_in_aabb_hit() {
         let pyramid = setup_pyramid(IDENTITY_TRANSFORMATION);
-        let dir = - (Z_AXIS + Y_AXIS);
+        let dir = -(Z_AXIS + Y_AXIS);
         let origin = Point::new(0.0, 0.0, 0.0) - 0.75 * dir;
         let ray: Ray = Ray::new(origin, dir);
         let expected = Point::new(0.0, 0.5, 0.5);
         let hit = pyramid.ray_intersection(&ray).unwrap();
 
-        assert!(expected.is_close(&hit.world_point), "intersection point: {}", hit.world_point);
+        assert!(
+            expected.is_close(&hit.world_point),
+            "intersection point: {}",
+            hit.world_point
+        );
     }
 
     // ---- Outside -> Miss AABB and Parallelepiped
@@ -726,6 +752,9 @@ f 6 3 7
     fn test_ray_intersection_out_miss() {
         let (_, _, parallelepiped) = setup_parallelepiped();
         let ray: Ray = Ray::new(Point::new(0.25, 2.5, -1.0), Z_AXIS);
-        assert!(parallelepiped.ray_intersection(&ray).is_none(), "parallelepiped is hit!");
+        assert!(
+            parallelepiped.ray_intersection(&ray).is_none(),
+            "parallelepiped is hit!"
+        );
     }
 }

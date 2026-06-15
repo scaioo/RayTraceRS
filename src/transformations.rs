@@ -33,7 +33,7 @@ pub static IDENTITY_TRANSFORMATION: Transformation = Transformation {
 ///
 /// The inverse-transposed matrix is crucial in raytracing to correctly transform
 /// normal vectors when non-uniform scaling is applied.
-pub trait IsHomogeneousMatrix : Copy{
+pub trait IsHomogeneousMatrix: Copy {
     /// Returns a reference to the 16-element array representing the 4x4 transformation matrix.
     fn mat(&self) -> &[f32; 16];
 

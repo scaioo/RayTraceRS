@@ -14,6 +14,15 @@ use crate::geometry::{Normal, Point, Vector};
 use std::ops::Mul;
 
 // =======================================================================
+// CONSTANTS
+// =======================================================================
+
+pub static IDENTITY_TRANSFORMATION: Transformation = Transformation {
+    mat: IDENTITY_4X4,
+    it_mat: IDENTITY_4X4,
+};
+
+// =======================================================================
 // TRAIT DEFINITIONS
 // =======================================================================
 /// A marker and utility trait for all homogeneous transformations.
@@ -24,7 +33,7 @@ use std::ops::Mul;
 ///
 /// The inverse-transposed matrix is crucial in raytracing to correctly transform
 /// normal vectors when non-uniform scaling is applied.
-pub trait IsHomogeneousMatrix {
+pub trait IsHomogeneousMatrix : Copy{
     /// Returns a reference to the 16-element array representing the 4x4 transformation matrix.
     fn mat(&self) -> &[f32; 16];
 

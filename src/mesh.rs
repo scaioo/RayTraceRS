@@ -1,3 +1,4 @@
+use std::ops::Mul;
 use crate::functions::Within;
 use crate::geometry::{Normal, Point, Vec2D};
 use crate::hit_record::HitRecord;
@@ -6,6 +7,7 @@ use crate::ray::Ray;
 use crate::shapes::{AABB, Shape, Triangle};
 use anyhow::{Result, anyhow};
 use std::path::Path;
+use crate::transformations::IsHomogeneousMatrix;
 
 #[derive(Clone, Debug, PartialEq)]
 pub struct IndexTriangle {
@@ -69,7 +71,9 @@ impl SimpleMesh {
         }
     }
 
-    pub fn from_obj(path: &Path, material: Material) -> Result<Self> {
+    pub fn from_obj<T>(path: &Path, material: Material, transformation: T) -> Result<Self>
+    where T: IsHomogeneousMatrix + Mul<Point, Output = Point>,
+    {
         let (models, _) = tobj::load_obj(path, &tobj::OFFLINE_RENDERING_LOAD_OPTIONS)?;
 
         let mut points: Vec<Point> = Vec::new();
@@ -121,7 +125,12 @@ impl SimpleMesh {
             return Err(anyhow!("OBJ file at {:?} contained no geometry", path));
         }
 
-        Ok(Self::new(points, index_triangles, material))
+        let transformed_points = points
+            .iter()
+            .map(|p| transformation * *p)
+            .collect();
+
+        Ok(Self::new(transformed_points, index_triangles, material))
     }
 
     fn triangle_hit(&self, ray: &Ray) -> Option<(Triangle, f32, f32, f32)> {
@@ -211,6 +220,7 @@ mod tests {
     use std::io::Write;
     use std::path::PathBuf;
     use tempfile::tempdir;
+    use crate::transformations::{Translation, IDENTITY_TRANSFORMATION};
 
     // ---- IndexTriangle constructor ----------------------------
     #[test]
@@ -377,7 +387,7 @@ f 6 3 7
         create_test_file(&path)?;
 
         // 3.1 Download mesh from file
-        let mesh = SimpleMesh::from_obj(&path, Material::default())?;
+        let mesh = SimpleMesh::from_obj(&path, Material::default(), IDENTITY_TRANSFORMATION)?;
         // 3.2 Create expected mesh
         let (_, _, expected_mesh) = setup_parallelepiped();
 
@@ -411,7 +421,8 @@ f 6 3 7
 
     // ---- SimpleMesh pyramid helper ----------------------------
 
-    fn setup_pyramid() -> SimpleMesh {
+    fn setup_pyramid<T>(transformation: T) -> SimpleMesh
+    where T: IsHomogeneousMatrix + Mul<Point, Output = Point> + Clone{
         let points = vec![
             Point::new(1.0, 1.0, 0.0),   //P0
             Point::new(-1.0, 1.0, 0.0),  //P1
@@ -419,6 +430,9 @@ f 6 3 7
             Point::new(1.0, -1.0, 0.0),  //P3
             Point::new(0.0, 0.0, 1.0),   //P4
         ];
+
+        let points = points.iter().map(|p| transformation.clone() * *p).collect();
+
         let indices = vec![
             IndexTriangle::new(0, 1, 4),
             IndexTriangle::new(2, 1, 4),
@@ -429,6 +443,38 @@ f 6 3 7
         ];
 
         SimpleMesh::new(points, indices, Material::default())
+    }
+    #[test]
+    fn test_from_obj_with_translation() -> Result<()> {
+        let dir = tempdir()?;
+        let path = dir.path().join("parallelepiped.obj");
+        create_test_file(&path)?;
+
+        let transformation = Translation::new(Z_AXIS);
+        let mesh = SimpleMesh::from_obj(&path, Material::default(), transformation)?;
+
+        // Expected: same parallelepiped points, each translated by Z_AXIS
+        let (points, index_triangles, _) = setup_parallelepiped();
+        let expected_points: Vec<Point> = points
+            .iter()
+            .map(|p| transformation * *p)
+            .collect();
+
+        for (i, point) in mesh.points.iter().enumerate() {
+            assert!(
+                point.is_close(&expected_points[i]),
+                "Point {i}: got {:?}, expected {:?}", point, expected_points[i]
+            );
+        }
+
+        for (i, index) in mesh.index_triangles.iter().enumerate() {
+            assert_eq!(
+                &index_triangles[i], index,
+                "Triangle {i}: got {:?}, expected {:?}", index, index_triangles[i]
+            );
+        }
+
+        Ok(())
     }
 
     // ---- SimpleMesh triangle_hit ----------------------------
@@ -446,7 +492,7 @@ f 6 3 7
 
     #[test]
     fn test_triangle_hit_pyramid_miss() {
-        let pyramid = setup_pyramid();
+        let pyramid = setup_pyramid(IDENTITY_TRANSFORMATION);
         let ray: Ray = Ray::new(Point::new(0.5, -10.0, 0.9), Y_AXIS);
         let result = pyramid.triangle_hit(&ray);
         assert!(result.is_none(), "Assert missed Mesh failed!");
@@ -503,7 +549,7 @@ f 6 3 7
 
     #[test]
     fn test_triangle_hit_pyramid_hit() {
-        let pyramid = setup_pyramid();
+        let pyramid = setup_pyramid(IDENTITY_TRANSFORMATION);
         let ray: Ray = Ray::new(Point::new(0.0, 0.5, 1.0), -Z_AXIS);
         let (triangle, t_min, beta, gamma) = pyramid.triangle_hit(&ray).unwrap();
 
@@ -549,7 +595,7 @@ f 6 3 7
     // ---- Inside -> Hit
     #[test]
     fn test_triangle_hit_pyramid_inside() {
-        let pyramid = setup_pyramid();
+        let pyramid = setup_pyramid(IDENTITY_TRANSFORMATION);
         let ray: Ray = Ray::new(Point::new(0.0, 0.5, 0.1), Z_AXIS);
         let (triangle, t_min, beta, gamma) = pyramid.triangle_hit(&ray).unwrap();
 
@@ -595,7 +641,7 @@ f 6 3 7
     // ---- Inside -> Miss
     #[test]
     fn test_triangle_hit_pyramid_ray_range_miss() {
-        let pyramid = setup_pyramid();
+        let pyramid = setup_pyramid(IDENTITY_TRANSFORMATION);
         let ray: Ray = Ray {
             origin: Point::new(0.0, 0.5, 0.1),
             dir: Z_AXIS,
@@ -610,7 +656,7 @@ f 6 3 7
     // ---- Inside -> Hit SimpleMesh, Miss AABB
     #[test]
     fn test_triangle_hit_pyramid_ray_miss_aabb_but_hit() {
-        let pyramid = setup_pyramid();
+        let pyramid = setup_pyramid(IDENTITY_TRANSFORMATION);
         let ray = Ray {
             origin: Point::new(0.0, -0.5, 0.1),
             dir: Z_AXIS,
@@ -626,7 +672,7 @@ f 6 3 7
     // ---- Inside -> Miss SimpleMesh, Hit AABB
     #[test]
     fn test_triangle_hit_pyramid_ray_inside_aabb_miss() {
-        let pyramid = setup_pyramid();
+        let pyramid = setup_pyramid(IDENTITY_TRANSFORMATION);
         let ray = Ray {
             origin: Point::new(0.0, -0.5, 0.7),
             dir: Z_AXIS,
@@ -665,7 +711,7 @@ f 6 3 7
     // ---- Outside -> Inside AABB and Hits Parallelepiped
     #[test]
     fn test_ray_intersection_in_aabb_hit() {
-        let pyramid = setup_pyramid();
+        let pyramid = setup_pyramid(IDENTITY_TRANSFORMATION);
         let dir = - (Z_AXIS + Y_AXIS);
         let origin = Point::new(0.0, 0.0, 0.0) - 0.75 * dir;
         let ray: Ray = Ray::new(origin, dir);

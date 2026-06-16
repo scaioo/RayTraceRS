@@ -17,7 +17,7 @@ fn test_from_obj_two_pawns() -> Result<()> {
     // LLMs found orphan in position 183 of the file.
 
     // Build the pawns SimpleMesh
-    let path = PathBuf::from("assets/2_pawns.obj");
+    let path = PathBuf::from("tests/assets/2_pawns.obj");
     let pawns = SimpleMesh::from_obj(&path, Material::default(), IDENTITY_TRANSFORMATION)?;
 
     // Two pawns: 183 + 183 = 367 vertices, 362 + 362 = 724 triangles.

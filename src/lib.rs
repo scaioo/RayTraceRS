@@ -12,6 +12,8 @@
 //!            │        image_tracer  ←  renderer            │
 //!            │               ↑            ↑                │
 //!            │            camera         world             │
+//!            │                            ↑                │
+//!            │                      light_source           │
 //!            ├─────────────────────────────────────────────┤
 //!            │                   Scene                     │
 //!            │     shapes  ←  materials  ←  pigments       │
@@ -57,7 +59,12 @@
 //! - [`hit_record`] — [`HitRecord`](hit_record::HitRecord), the intersection
 //!   data returned by shape queries (world point, normal, UV, `t`, material).
 //! - [`world`] — [`World`](world::World), the scene container that holds a
-//!   collection of shapes and finds the closest ray intersection.
+//!   collection of shapes and light sources, and finds the closest ray intersection.
+//! - [`light_source`] — the [`LightSource`](light_source::LightSource) trait and
+//!   implementations: [`PointLightSource`](light_source::PointLightSource) (punctual
+//!   emitter with shadow testing) and
+//!   [`SphericalLightSource`](light_source::SphericalLightSource) (area light via
+//!   Monte Carlo disk sampling).
 //!
 //! ### Rendering pipeline
 //!
@@ -65,8 +72,10 @@
 //!   [`OrthogonalCamera`](camera::OrthogonalCamera)) and ray generation.
 //! - [`renderer`] — the [`Renderer`](renderer::Renderer) trait and implementations:
 //!   [`OnOffRenderer`](renderer::OnOffRenderer) (debug),
-//!   [`FlatRenderer`](renderer::FlatRenderer) (unlit), and
-//!   [`PathTracer`](renderer::PathTracer) (full Monte Carlo path tracing).
+//!   [`FlatRenderer`](renderer::FlatRenderer) (unlit),
+//!   [`PointLightRenderer`](renderer::PointLightRenderer) (Whitted-style direct
+//!   illumination), and [`PathTracer`](renderer::PathTracer) (full Monte Carlo
+//!   path tracing).
 //! - [`image_tracer`] — [`ImageTracer`](image_tracer::ImageTracer), which drives
 //!   the rendering loop: fires rays through every pixel and writes colours to an HDR image.
 //!

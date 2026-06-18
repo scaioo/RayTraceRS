@@ -1,5 +1,7 @@
 ## Head
 
+- Implement Whitted point-light renderer with `PointLightSource` and `SphericalLightSource`
+  ([PR#28](https://github.com/scaioo/RayTraceRS/pull/28)).
 - Implement Antialiasing ([PR#22](https://github.com/scaioo/RayTraceRS/pull/22)).
 - Build lexer ([PR#18](https://github.com/scaioo/RayTraceRS/pull/18)).
 

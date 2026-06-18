@@ -389,11 +389,11 @@ mod tests {
 
         color1 += Color::new(4.0, 5.0, 6.0);
         let expected = Color::new(5.0, 7.0, 9.0);
-        assert!(color1.is_close(&expected),
-                   "expected : {expected:?}\ncolor : {color1:?}"
+        assert!(
+            color1.is_close(&expected),
+            "expected : {expected:?}\ncolor : {color1:?}"
         );
     }
-
 
     #[test]
     fn product_col_col() {

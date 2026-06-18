@@ -1,3 +1,10 @@
+//! Light source types for direct illumination.
+//!
+//! Defines the [`LightSource`] trait and two implementations:
+//! - [`PointLightSource`]: a single infinitesimal point emitter with shadow testing.
+//! - [`SphericalLightSource`]: an area light approximated by Monte Carlo sampling
+//!   over a disk of configurable radius and sample count.
+
 use crate::color::{BLACK, Color};
 use crate::functions::Within;
 use crate::geometry::{Dot, Normal, Point, Vec2D, Vector, branchless_onb};
@@ -23,6 +30,9 @@ where
     }
 }
 pub trait LightSource: CloneLightSource {
+    /// Computes the direct illumination contribution of a light source at a hit point.
+    ///
+    /// Returns [`BLACK`] for points in shadow.
     fn source_contribution(
         &self,
         hit_record: &HitRecord,
@@ -41,6 +51,10 @@ impl Clone for Box<dyn LightSource> {
 // PointLightSource
 // =================================================================
 
+/// A point light source at a fixed position in world space.
+///
+/// Casts a shadow ray toward the light; if unoccluded, applies
+/// `contribution = pigment × light_color × max(n·l, 0)`.
 #[derive(Clone, Debug, Copy, PartialEq)]
 pub struct PointLightSource {
     pub point: Point,
@@ -89,6 +103,11 @@ impl LightSource for PointLightSource {
 // =================================================================
 // SphericalLightSource
 // =================================================================
+
+/// A spherical area light approximated by uniform disk sampling.
+///
+/// Samples `n_points` positions uniformly over a disk of the given `radius`
+/// centered at `center`, averages their [`PointLightSource`] contributions.
 #[derive(Clone, Debug, Copy, PartialEq)]
 pub struct SphericalLightSource {
     pub center: Point,

@@ -35,7 +35,7 @@ use std::io::{BufRead, BufReader, BufWriter, Read};
 use std::string::ToString;
 
 /// Byte order used in the PFM file.
-#[derive(Debug, PartialEq)]
+#[derive(Debug, PartialEq, Clone)]
 pub enum Endianness {
     /// Least significant byte first
     LittleEndian,

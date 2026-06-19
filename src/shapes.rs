@@ -104,7 +104,7 @@ impl Clone for Box<dyn Shape> {
 ///
 // In principle this could be generalized to all `Shape`
 // implementations, but no such extension is currently planned.
-pub trait Volumetric: CloneVolumetric {
+pub trait Volumetric: CloneVolumetric + Shape {
     fn entry_exit_t(&self, ray: &Ray) -> Option<(f32, f32)>;
 }
 

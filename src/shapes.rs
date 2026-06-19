@@ -161,7 +161,7 @@ where
     fn ray_intersection(&self, ray: &Ray) -> Option<HitRecord<'_>> {
         let transformed_ray = self.transform_ray(ray);
 
-        let (t1, t2) = match self.entry_exit_t(&ray) {
+        let (t1, t2) = match self.entry_exit_t(ray) {
             Some((t1, t2)) => (t1, t2),
             None => return None,
         };
@@ -431,10 +431,7 @@ impl Default for AABB {
 
 impl Shape for AABB {
     fn ray_intersection(&self, ray: &Ray) -> Option<HitRecord<'_>> {
-        let (t_enter, t_exit) = match self.entry_exit_t(ray) {
-            Some(t) => t,
-            None => return None,
-        };
+        let (t_enter, t_exit) = self.entry_exit_t(ray)?;
 
         // Pick the front-facing hit: prefer entry, fall back to exit if entry is behind origin
         let t = if t_enter >= ray.t_min {
@@ -443,6 +440,7 @@ impl Shape for AABB {
             t_exit
         };
 
+        // The second condition considers the possibility of ray.t_min < 0.0;
         if !t.is_between_open(&ray.t_min, &ray.t_max) || t_exit < 0.0 {
             return None;
         }

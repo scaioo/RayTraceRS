@@ -63,11 +63,12 @@ impl SimpleMesh {
         index_triangles: Vec<IndexTriangle>,
         material: Material,
     ) -> Self {
+        let aabb = runtime_aabb(&points);
         Self {
-            points: points.clone(),
+            points,
             index_triangles,
             material,
-            aabb: runtime_aabb(&points),
+            aabb,
         }
     }
 
@@ -138,7 +139,7 @@ impl SimpleMesh {
         }
 
         // Parameters
-        let mut t_min: f32 = ray.t_max;
+        let mut closest_t: f32 = ray.t_max;
         let mut b = 0.0;
         let mut g = 0.0;
         let mut hit_index: Option<u32> = None;
@@ -156,8 +157,8 @@ impl SimpleMesh {
                 continue;
             };
 
-            if t.is_between_open(&ray.t_min, &t_min) && t > 0.0 {
-                t_min = t;
+            if t.is_between_open(&ray.t_min, &closest_t) && t > 0.0 {
+                closest_t = t;
                 hit_index = Some(idx as u32);
                 (b, g) = (beta, gamma);
             }
@@ -172,7 +173,7 @@ impl SimpleMesh {
                 c: self.points[tri_idx.k as usize],
                 material: self.material.clone(),
             };
-            (triangle, t_min, b, g)
+            (triangle, closest_t, b, g)
         })
     }
 }

@@ -342,37 +342,36 @@ pub struct AABB {
     pub material: Material,
 }
 
+fn fixed_interval(pmax: f32, pmin: f32) -> Result<(f32, f32)> {
+    let diff = pmax - pmin;
+    let signum = diff.signum();
+    if are_close(diff, 0.0) {
+        match signum {
+            1.0 => Ok((pmin - 1e-4, pmax + 1e-4)),
+            -1.0 => Ok((pmax - 1e-4, pmin + 1e-4)),
+            _ => Err(anyhow!("Input number is NaN!")),
+        }
+    } else {
+        match signum {
+            1.0 => Ok((pmin, pmax)),
+            -1.0 => Ok((pmax, pmin)),
+            _ => Err(anyhow!("Input number is NaN!")),
+        }
+    }
+}
+
 impl AABB {
     pub fn new(p_min: Point, p_max: Point, material: Material) -> Result<Self> {
         let mut min: Point = p_min;
         let mut max: Point = p_max;
-        if are_close(p_min.x, p_max.x) || are_close(p_min.y, p_max.y) || are_close(p_min.z, p_max.z)
-        {
-            Err(anyhow!(
-                "Parallelepiped cannot be build from two adiajecent points:
-            {}, {}",
-                p_max,
-                p_min
-            ))
-        } else {
-            if max.x < min.x {
-                max.x = min.x;
-                min.x = p_max.x
-            }
-            if max.y < min.y {
-                max.y = min.y;
-                min.y = p_max.y
-            }
-            if max.z < min.z {
-                max.z = min.z;
-                min.z = p_max.z;
-            }
-            Ok(Self {
-                p_min: min,
-                p_max: max,
-                material,
-            })
-        }
+        (min.x, max.x) = fixed_interval(p_max.x, p_min.x)?;
+        (min.y, max.y) = fixed_interval(p_max.y, p_min.y)?;
+        (min.z, max.z) = fixed_interval(p_max.z, p_min.z)?;
+        Ok(Self {
+            p_min: min,
+            p_max: max,
+            material,
+        })
     }
 
     // WARNING: no validation is implemented!!!
@@ -1091,11 +1090,26 @@ mod tests {
     }
 
     #[test]
-    #[should_panic(expected = "Parallelepiped cannot be build")]
-    fn test_aabb_constructor_err() {
-        let p_min = Point::new(-1.0, 0.0, 1.0);
-        let p_max = Point::new(-1.0, 2.0, 2.0);
-        let _ = AABB::new(p_min, p_max, Material::default()).unwrap();
+    fn test_aabb_constructor_side() {
+        let aabb = AABB::new(
+            Point::new(-1.0, 0.0, 1.0),
+            Point::new(1.0, 2.0, 1.0),
+            Material::default(),
+        )
+        .unwrap();
+        let p_min = Point::new(-1.0, 0.0, 1.0 - 1e-4);
+        let p_max = Point::new(1.0, 2.0, 1.0 + 1e-4);
+
+        assert!(
+            p_min.is_close(&aabb.p_min),
+            "aabb.p_min: {}\np_min {p_min}",
+            aabb.p_min
+        );
+        assert!(
+            p_max.is_close(&aabb.p_max),
+            "aabb.p_max: {}\np_max {p_max}",
+            aabb.p_max
+        );
     }
 
     #[test]

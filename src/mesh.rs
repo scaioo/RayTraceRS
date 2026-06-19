@@ -758,4 +758,97 @@ f 6 3 7
             "parallelepiped is hit!"
         );
     }
+
+    // ---- Flat SimpleMesh case -----------------
+    fn setup_flat() -> SimpleMesh {
+        //
+        //             *  P5
+        //            /|
+        //           / |
+        //          /  |
+        //     P6  * - *   P4
+        //         |   |\
+        //         |   | \
+        //         |   |  \
+        //         * - * - *
+        //        P1  P2   P3
+        //   (Scaling is not correct)
+        let points: Vec<Point> = vec![
+            Point::new(-1.0, 0.0, 0.0), //P1
+            Point::new(0.0, 0.0, 0.0),  //P2
+            Point::new(1.0, 0.0, 0.0),  //P3
+            Point::new(0.0, 1.0, 0.0),  //P4
+            Point::new(0.0, 2.0, 0.0),  //P5
+            Point::new(-1.0, 1.0, 0.0), //P6
+        ];
+
+        let triangles: Vec<IndexTriangle> = vec![
+            IndexTriangle::new(2, 3, 1),
+            IndexTriangle::new(0, 3, 1),
+            IndexTriangle::new(3, 4, 5),
+            IndexTriangle::new(0, 3, 5),
+        ];
+
+        SimpleMesh::new(points, triangles, Material::default())
+    }
+
+    #[test]
+    fn test_flat_case_aabb_construction() {
+        let object = setup_flat();
+
+        // Assert aabb is correctly constructed
+        assert!(
+            object.aabb.p_min.is_close(&Point::new(-1.0, 0.0, -1e-4)),
+            "aabb.p_min : {:?}",
+            object.aabb.p_min
+        );
+        assert!(
+            object.aabb.p_max.is_close(&Point::new(1.0, 2.0, 1e-4)),
+            "aabb.p_max : {:?}",
+            object.aabb.p_max
+        );
+    }
+
+    #[test]
+    fn test_flat_case_hit() {
+        let object = setup_flat();
+
+        // Assert ray hits - border case
+        let origin = Point::new(-0.5, 0.3, 1.0);
+        let ray = Ray::new(origin, -Z_AXIS);
+        // check aabb is hit
+        assert!(
+            object.aabb.ray_intersection(&ray).is_some(),
+            "Failed aabb intersection asset: ray doesn't hit!"
+        );
+        // check the actual intersection is none since it's parallel to the plane
+        let hit = object.ray_intersection(&ray).unwrap();
+        let hit_point = hit.world_point;
+        assert!(
+            hit_point.is_close(&Point::new(-0.5, 0.3, 0.0)),
+            "{:?}",
+            hit_point
+        );
+        let normal = hit.normal;
+        assert!(normal.is_close(&Normal::from(Z_AXIS)), "{:?}", normal);
+    }
+
+    #[test]
+    fn test_flat_case_border() {
+        let object = setup_flat();
+
+        // Assert ray hits - border case
+        let origin = Point::new(0.0, -10.0, 0.0);
+        let ray = Ray::new(origin, Y_AXIS);
+        // check aabb is hit
+        assert!(
+            object.aabb.ray_intersection(&ray).is_some(),
+            "Failed aabb intersection asset: ray doesn't hit!"
+        );
+        // check the actual intersection is none since it's parallel to the plane
+        assert!(
+            object.ray_intersection(&ray).is_none(),
+            "Failed ray intersection assert: ray hits!"
+        );
+    }
 }

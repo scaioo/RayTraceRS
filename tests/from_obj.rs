@@ -12,7 +12,7 @@ fn contains_point(points: &[Point], target: &Point) -> bool {
 #[test]
 fn test_from_obj_two_pawns() -> Result<()> {
     // Note: In the file 184 vertices are present for the first, however one is orphan
-    // so tobj::load_obj doesn't stores it in SimpleMes.
+    // so tobj::load_obj doesn't store it in SimpleMes.
     //
     // LLMs found orphan in position 183 of the file.
 
@@ -20,7 +20,7 @@ fn test_from_obj_two_pawns() -> Result<()> {
     let path = PathBuf::from("tests/assets/2_pawns.obj");
     let pawns = SimpleMesh::from_obj(&path, Material::default(), IDENTITY_TRANSFORMATION)?;
 
-    // Two pawns: 183 + 183 = 367 vertices, 362 + 362 = 724 triangles.
+    // Two pawns: 183 + 183 = 366 vertices, 362 + 362 = 724 triangles.
     let n = pawns.points.len() as u32;
     assert_eq!(
         n,
@@ -35,7 +35,7 @@ fn test_from_obj_two_pawns() -> Result<()> {
         pawns.index_triangles.len()
     );
 
-    // If the base offset is wrong, second-object indices will exceed 367.
+    // If the base offset is wrong, second-object indices will exceed 366.
     for (idx, triangle) in pawns.index_triangles.iter().enumerate() {
         assert!(
             triangle.i < n,
@@ -56,7 +56,7 @@ fn test_from_obj_two_pawns() -> Result<()> {
 
     // Points manually picked
     let expected_points = vec![
-        // First pawn (vertices 0..184)
+        // First pawn (vertices 0..183)
         Point::new(-0.033697, -4.026902, -0.000088), // vertex 0
         Point::new(0.252794, -4.595588, 2.538875),   // vertex 40
         Point::new(-0.469561, -5.410888, 1.412636),  // vertex 110

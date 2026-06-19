@@ -30,28 +30,27 @@ pub struct SimpleMesh {
     pub material: Material,
 }
 
-fn runtime_aabb(points: &Vec<Point>) -> AABB {
-    let n = points.len();
+fn runtime_aabb(points: &[Point]) -> AABB {
     let mut p_min = points[0];
     let mut p_max = points[0];
-    for i in 1..n {
-        if points[i].x < p_min.x {
-            p_min.x = points[i].x;
+    for point in points.iter() {
+        if point.x < p_min.x {
+            p_min.x = point.x;
         }
-        if points[i].y < p_min.y {
-            p_min.y = points[i].y;
+        if point.y < p_min.y {
+            p_min.y = point.y;
         }
-        if points[i].z < p_min.z {
-            p_min.z = points[i].z;
+        if point.z < p_min.z {
+            p_min.z = point.z;
         }
-        if points[i].x > p_max.x {
-            p_max.x = points[i].x;
+        if point.x > p_max.x {
+            p_max.x = point.x;
         }
-        if points[i].y > p_max.y {
-            p_max.y = points[i].y;
+        if point.y > p_max.y {
+            p_max.y = point.y;
         }
-        if points[i].z > p_max.z {
-            p_max.z = points[i].z;
+        if point.z > p_max.z {
+            p_max.z = point.z;
         }
     }
     AABB::new(p_min, p_max, Material::default()).unwrap()
@@ -135,7 +134,7 @@ impl SimpleMesh {
     fn triangle_hit(&self, ray: &Ray) -> Option<(Triangle, f32, f32, f32)> {
         // AABB optimization check
         if !self.aabb.contains(&ray.origin) {
-            self.aabb.ray_intersection(&ray)?;
+            self.aabb.ray_intersection(ray)?;
         }
 
         // Parameters
@@ -180,7 +179,7 @@ impl SimpleMesh {
 
 impl Shape for SimpleMesh {
     fn ray_intersection(&self, ray: &Ray) -> Option<HitRecord<'_>> {
-        let (triangle, t, beta, gamma) = self.triangle_hit(&ray)?;
+        let (triangle, t, beta, gamma) = self.triangle_hit(ray)?;
         let world_point = ray.at(t);
 
         Some(HitRecord {
@@ -193,11 +192,11 @@ impl Shape for SimpleMesh {
         })
     }
 
-    fn normal_at(&self, point: Point, ray: &Ray) -> Normal {
+    fn normal_at(&self, _point: Point, _ray: &Ray) -> Normal {
         todo!()
     }
 
-    fn point_to_uv(&self, point: &Point) -> Result<Vec2D> {
+    fn point_to_uv(&self, _point: &Point) -> Result<Vec2D> {
         todo!()
     }
 

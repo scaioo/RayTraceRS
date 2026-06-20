@@ -1,5 +1,7 @@
 ## Head
 
+- Fix an issue with UV coordinate orientation
+  ([#25](https://github.com/scaioo/RayTraceRS/issues/25), [PR#27](https://github.com/scaioo/RayTraceRS/pull/27)).
 - Implement Antialiasing ([PR#22](https://github.com/scaioo/RayTraceRS/pull/22)).
 - Build lexer ([PR#18](https://github.com/scaioo/RayTraceRS/pull/18)).
 
@@ -42,8 +44,7 @@
   [EUPL](https://joinup.ec.europa.eu/collection/eupl/eupl-text-eupl-12).
 - Fix an issue with the vertical order of the images
   ([#7](https://github.com/scaioo/RayTraceRS/issues/7), [PR#8](https://github.com/scaioo/RayTraceRS/pull/8)).
-- Fix an issue with sphere-ray intersections
-- [#15](https://github.com/scaioo/RayTraceRS/issues/15), [PR#16](https://github.com/scaioo/RayTraceRS/pull/16).
+- Fix an issue with sphere-ray intersections [#15](https://github.com/scaioo/RayTraceRS/issues/15), [PR#16](https://github.com/scaioo/RayTraceRS/pull/16).
 
 ---
 

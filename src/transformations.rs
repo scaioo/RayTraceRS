@@ -16,7 +16,12 @@ use std::ops::Mul;
 // =======================================================================
 // CONSTANTS
 // =======================================================================
-
+/// The identity transformation: leaves points, vectors, and normals unchanged.
+///
+/// Both `mat` and `it_mat` are set to [`IDENTITY_4X4`], so applying this
+/// transformation is a no-op. Use it as a default argument wherever a
+/// [`SimpleMesh::from_obj`](crate::mesh::SimpleMesh::from_obj) or similar
+/// function requires a transformation but no repositioning is needed.
 pub static IDENTITY_TRANSFORMATION: Transformation = Transformation {
     mat: IDENTITY_4X4,
     it_mat: IDENTITY_4X4,
@@ -33,6 +38,10 @@ pub static IDENTITY_TRANSFORMATION: Transformation = Transformation {
 ///
 /// The inverse-transposed matrix is crucial in raytracing to correctly transform
 /// normal vectors when non-uniform scaling is applied.
+///
+/// The `Copy` supertrait is required so that transformation values can be passed
+/// by value to generic functions (such as [`SimpleMesh::from_obj`](crate::mesh::SimpleMesh::from_obj))
+/// without incurring heap allocation.
 pub trait IsHomogeneousMatrix: Copy {
     /// Returns a reference to the 16-element array representing the 4x4 transformation matrix.
     fn mat(&self) -> &[f32; 16];

@@ -1,5 +1,17 @@
 ## Head
 
+- Add `SimpleMesh` with OBJ loading via `tobj` 
+  ([PR#26](https://github.com/scaioo/RayTraceRS/pull/26)).
+- Add `IndexTriangle` for compact index-based triangle connectivity
+  ([PR#26](https://github.com/scaioo/RayTraceRS/pull/26)).
+- Add `AABB` (axis-aligned bounding box) with slab-method intersection and `contains` check
+  ([PR#26](https://github.com/scaioo/RayTraceRS/pull/26)).
+- Add `BRDFs` enum for lightweight BRDF variant tagging
+  ([PR#26](https://github.com/scaioo/RayTraceRS/pull/26)).
+- Add `IDENTITY_TRANSFORMATION` constant
+  ([PR#26](https://github.com/scaioo/RayTraceRS/pull/26)).
+- Add `Copy` supertrait bound to `IsHomogeneousMatrix`
+  ([PR#26](https://github.com/scaioo/RayTraceRS/pull/26)).
 - Implement Antialiasing ([PR#22](https://github.com/scaioo/RayTraceRS/pull/22)).
 - Build lexer ([PR#18](https://github.com/scaioo/RayTraceRS/pull/18)).
 

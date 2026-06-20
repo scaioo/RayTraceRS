@@ -1,3 +1,23 @@
+// This file is licensed under the EUPL-1.2. See LICENSE.md.
+
+//! # Mesh
+//!
+//! This module defines triangle mesh geometry for the ray-tracer.
+//!
+//! ## Structure
+//!
+//! - [`IndexTriangle`] — three vertex indices referencing a shared [`SimpleMesh::points`] array.
+//! - [`SimpleMesh`] — a flat triangle mesh stored as a shared vertex list plus index triples.
+//!
+//! ## Design note
+//!
+//! `SimpleMesh` operates entirely in world space. Transformations are applied once at load time
+//! (see [`SimpleMesh::from_obj`]) rather than at every intersection query.
+//! An axis-aligned bounding box is computed automatically at construction.
+//! Flat meshes may be expanded by a small epsilon along degenerate axes.
+//!
+//! BVH acceleration is not included here and is planned as a separate follow-up.
+
 use crate::functions::Within;
 use crate::geometry::{Normal, Point, Vec2D};
 use crate::hit_record::HitRecord;
@@ -9,28 +29,74 @@ use anyhow::{Result, anyhow};
 use std::ops::Mul;
 use std::path::Path;
 
+/// A triangle specified by three indices into a [`SimpleMesh::points`] array.
+///
+/// Using indices rather than storing three vertices directly lets multiple triangles
+/// share the same point data without duplication, and keeps the struct small
+/// (3 × `u32` = 12 bytes).
 #[derive(Clone, Debug, PartialEq)]
 pub struct IndexTriangle {
+    /// Index of the first vertex.
     pub i: u32,
+    /// Index of the second vertex.
     pub j: u32,
+    /// Index of the third vertex.
     pub k: u32,
 }
 
 impl IndexTriangle {
+    /// Creates a new [`IndexTriangle`] from three vertex indices.
     pub fn new(i: u32, j: u32, k: u32) -> IndexTriangle {
         IndexTriangle { i, j, k }
     }
 }
 
+/// A triangle mesh stored as a shared vertex list and a list of [`IndexTriangle`]s.
+///
+/// All vertices are held in world space — any transformation supplied to
+/// [`SimpleMesh::from_obj`] is baked into [`SimpleMesh::points`] at load time.
+///
+/// ## Intersection strategy
+///
+/// Intersection is a two-phase process:
+/// 1. **Broad phase** — the ray is tested against the mesh's [`AABB`]. If the ray origin
+///    is outside the box and the box is missed, the entire mesh is skipped.
+/// 2. **Narrow phase** — every triangle is tested in turn; the closest hit within
+///    `[ray.t_min, ray.t_max]` is returned.
+///
+/// ## UV coordinates
+///
+/// The UV at a hit point is the barycentric pair `(β, γ)` of the struck triangle,
+/// consistent with how [`Triangle`] reports UV. Full texture mapping is left as future work.
+///
+/// ## Note on transformations
+///
+/// Unlike [`Sphere`] and [`Plane`], `SimpleMesh` is not generic over a transformation.
+/// Pass a transformation to [`SimpleMesh::from_obj`]; it is applied to every vertex once
+/// during loading. For meshes constructed directly via [`SimpleMesh::new`], pre-transform
+/// the points before passing them in.
 #[derive(Clone)]
 pub struct SimpleMesh {
+    /// World-space vertices shared by all triangles.
     pub points: Vec<Point>,
+    /// Triangle connectivity encoded as index triples into [`SimpleMesh::points`].
     pub index_triangles: Vec<IndexTriangle>,
+    /// Tight axis-aligned bounding box over all vertices, used for broad-phase rejection.
     pub aabb: AABB,
+    /// Surface material applied to every triangle in the mesh.
     pub material: Material,
 }
 
-fn runtime_aabb(points: &[Point]) -> AABB {
+/// Computes the tight axis-aligned bounding box over `points`.
+///
+/// # Errors
+///
+/// Returns an error if `points` is empty or if `AABB::new`
+/// cannot construct a valid bounding box from the supplied points.
+fn runtime_aabb(points: &[Point]) -> Result<AABB> {
+    if points.is_empty() {
+        return Err(anyhow!("runtime_aabb(): empty points"));
+    }
     let mut p_min = points[0];
     let mut p_max = points[0];
     for point in points.iter() {
@@ -53,24 +119,49 @@ fn runtime_aabb(points: &[Point]) -> AABB {
             p_max.z = point.z;
         }
     }
-    AABB::new(p_min, p_max, Material::default()).unwrap()
+    AABB::new(p_min, p_max, Material::default())
 }
 
 impl SimpleMesh {
+    /// Creates a [`SimpleMesh`] from pre-built vertex and index data.
+    ///
+    /// The bounding box is computed automatically from `points`.
+    ///
+    /// # Errors
+    ///
+    /// Returns an error if `points` is empty or if `AABB::new`
+    /// cannot construct a valid bounding box from the supplied points.
     pub fn new(
         points: Vec<Point>,
         index_triangles: Vec<IndexTriangle>,
         material: Material,
-    ) -> Self {
-        let aabb = runtime_aabb(&points);
-        Self {
+    ) -> Result<Self> {
+        let aabb = runtime_aabb(&points)?;
+        Ok(Self {
             points,
             index_triangles,
             material,
             aabb,
-        }
+        })
     }
 
+    /// Loads a triangle mesh from a Wavefront OBJ file and returns a [`SimpleMesh`].
+    ///
+    /// All models present in the file are merged into a single mesh. The supplied
+    /// `transformation` is applied to every vertex after loading, letting the caller
+    /// place or orient the mesh in world space without a separate pass.
+    ///
+    /// The file is loaded with [`tobj::OFFLINE_RENDERING_LOAD_OPTIONS`], which
+    /// triangulates polygons automatically; the indices check is therefore a
+    /// defensive safety net rather than a common code path.
+    ///
+    /// # Errors
+    ///
+    /// Returns `Err` if:
+    /// - the OBJ file cannot be read or parsed by `tobj`,
+    /// - any model's positions array length is not divisible by 3,
+    /// - any model's indices array length is not divisible by 3,
+    /// - the file contains no geometry.
     pub fn from_obj<T>(path: &Path, material: Material, transformation: T) -> Result<Self>
     where
         T: IsHomogeneousMatrix + Mul<Point, Output = Point>,
@@ -128,9 +219,16 @@ impl SimpleMesh {
 
         let transformed_points = points.iter().map(|p| transformation * *p).collect();
 
-        Ok(Self::new(transformed_points, index_triangles, material))
+        Self::new(transformed_points, index_triangles, material)
     }
 
+    /// Returns the closest triangle hit by `ray`, together with the ray parameter and
+    /// barycentric coordinates `(β, γ)` at the hit point.
+    ///
+    /// Uses the mesh [`AABB`] as a broad-phase guard: if the ray origin lies outside
+    /// the bounding box and the box is missed, `None` is returned immediately without
+    /// testing any triangles. Rays originating inside the box always proceed to the
+    /// narrow phase.
     fn triangle_hit(&self, ray: &Ray) -> Option<(Triangle, f32, f32, f32)> {
         // AABB optimization check
         if !self.aabb.contains(&ray.origin) {
@@ -178,6 +276,10 @@ impl SimpleMesh {
 }
 
 impl Shape for SimpleMesh {
+    /// Returns the closest [`HitRecord`] for `ray` against this mesh, or `None` on a miss.
+    ///
+    /// The normal is computed per-triangle (flat shading). UV coordinates are the
+    /// barycentric pair `(β, γ)` of the hit triangle.
     fn ray_intersection(&self, ray: &Ray) -> Option<HitRecord<'_>> {
         let (triangle, t, beta, gamma) = self.triangle_hit(ray)?;
         let world_point = ray.at(t);
@@ -192,10 +294,20 @@ impl Shape for SimpleMesh {
         })
     }
 
+    /// Not implemented for `SimpleMesh`.
+    ///
+    /// Normals are computed inside [`SimpleMesh::ray_intersection`] via the struck
+    /// [`Triangle`] directly. This method is provided only to satisfy the [`Shape`]
+    /// trait and will panic if called.
     fn normal_at(&self, _point: Point, _ray: &Ray) -> Normal {
         todo!()
     }
 
+    /// Not implemented for `SimpleMesh`.
+    ///
+    /// UV coordinates are returned as barycentric pairs `(β, γ)` directly from
+    /// [`SimpleMesh::ray_intersection`]. This method is provided only to satisfy the
+    /// [`Shape`] trait and will panic if called.
     fn point_to_uv(&self, _point: &Point) -> Result<Vec2D> {
         todo!()
     }
@@ -298,7 +410,7 @@ mod tests {
             points: points.clone(),
             index_triangles: index_triangles.clone(),
             material: Material::default(),
-            aabb: runtime_aabb(&points),
+            aabb: runtime_aabb(&points).unwrap(),
         };
 
         (points, index_triangles, mesh)
@@ -442,7 +554,7 @@ f 6 3 7
             IndexTriangle::new(2, 3, 1),
         ];
 
-        SimpleMesh::new(points, indices, Material::default())
+        SimpleMesh::new(points, indices, Material::default()).unwrap()
     }
     #[test]
     fn test_from_obj_with_translation() -> Result<()> {
@@ -788,7 +900,7 @@ f 6 3 7
             IndexTriangle::new(0, 3, 5),
         ];
 
-        SimpleMesh::new(points, triangles, Material::default())
+        SimpleMesh::new(points, triangles, Material::default()).unwrap()
     }
 
     #[test]

@@ -133,6 +133,26 @@ impl Color {
         Ok(())
     }
 
+    /// Applies inverse gamma correction to convert an LDR pixel from gamma-encoded
+    /// space back to a linear light value.
+    ///
+    /// Each channel is decoded as:
+    ///
+    /// ```text
+    /// c_linear = (c_encoded / 256.0) ^ gamma
+    /// ```
+    ///
+    /// # Arguments
+    /// * `gamma` — The gamma exponent used during the original encoding (typically `2.2`).
+    ///   Must be positive; validation is delegated to the caller ([`HDR::load_from_ldr`]).
+    ///
+    /// # Notes
+    /// - The input channel values are assumed to be in the range `[0, 255]` (raw `u8`
+    ///   cast to `f32`).
+    /// - The divisor is `256.0` rather than `255.0`: this keeps pure white (`255`)
+    ///   slightly below `1.0`, which avoids a division by zero in the subsequent
+    ///   [`inverse_tone_mapping`] step (where `1 - c` appears in the denominator).
+    ///   As a result, white is recovered as `≈ 0.996` rather than exactly `1.0`.
     pub fn inverse_gamma_correction(&mut self, gamma: f32) {
         // Validation must be done when application
         self.r = (self.r / 256.0_f32).powf(gamma);
@@ -140,11 +160,33 @@ impl Color {
         self.b = (self.b / 256.0_f32).powf(gamma);
     }
 
-    pub fn inverse_tone_mapping(&mut self, a: f32, avr_lum: f32) {
+    /// Applies the inverse of the Reinhard tone mapping operator, recovering an
+    /// approximate HDR luminance from a clamped LDR value.
+    ///
+    /// This is the algebraic inverse of the Reinhard operator `c_ldr = c_hdr / (1 + c_hdr)`,
+    /// scaled by the normalization factor `a / avr_lum`. Each channel is recovered as:
+    ///
+    /// ```text
+    /// c_hdr = (avr_lum * c_ldr) / ((1 - c_ldr) * a)
+    /// ```
+    ///
+    /// # Arguments
+    /// * `factor_a` — The exposure normalization factor used during the forward tone mapping
+    ///   (typically `0.18`). Must be positive; validation is delegated to the caller.
+    /// * `avr_lum` — The log-average luminance of the original HDR scene, used to
+    ///   undo the normalization step. Must be positive; validation is delegated to the caller.
+    ///
+    /// # Notes
+    /// - Channel values must lie strictly in `(0, 1)` before this step. Values at
+    ///   exactly `0` produce `0.0` (safe); values at exactly `1` produce a division
+    ///   by zero (`inf`). In practice this is avoided by using `256.0` instead of
+    ///   `255.0` in [`inverse_gamma_correction`], which keeps `c_ldr < 1`.
+    /// - Validation of `factor_a` and `avr_lum` is the responsibility of the calling function.
+    pub fn inverse_tone_mapping(&mut self, factor_a: f32, avr_lum: f32) {
         // validation of `a` and `avr_lum` must be done in ldr_to_hdr function.
-        self.r = avr_lum * self.r / ((1.0 - self.r) * a);
-        self.g = avr_lum * self.g / ((1.0 - self.g) * a);
-        self.b = avr_lum * self.b / ((1.0 - self.b) * a);
+        self.r = avr_lum * self.r / ((1.0 - self.r) * factor_a);
+        self.g = avr_lum * self.g / ((1.0 - self.g) * factor_a);
+        self.b = avr_lum * self.b / ((1.0 - self.b) * factor_a);
     }
 }
 

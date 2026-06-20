@@ -1,5 +1,10 @@
 ## Head
 
+- Implement `ldr2pfm` command
+  ([PR#29](https://github.com/scaioo/RayTraceRS/pull/29)).
+- Add `load_from_ldr` to `HdrImage` to support PNG/JPEG textures via
+  inverse gamma correction and inverse tone mapping
+  ([PR#29](https://github.com/scaioo/RayTraceRS/pull/29)).
 - Fix an issue with UV coordinate orientation
   ([#25](https://github.com/scaioo/RayTraceRS/issues/25), [PR#27](https://github.com/scaioo/RayTraceRS/pull/27)).
 - Implement Antialiasing ([PR#22](https://github.com/scaioo/RayTraceRS/pull/22)).

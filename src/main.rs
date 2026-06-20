@@ -9,14 +9,14 @@ use rstrace::image_tracer::ImageTracer;
 use rstrace::materials::Material;
 use rstrace::pcg::PCG;
 use rstrace::pfm_func::{Endianness, ldr_to_pfm, pfm_to_ldr};
-use rstrace::pigments::{CheckeredPigment, ImagePigment, UniformPigment};
+use rstrace::pigments::{CheckeredPigment, UniformPigment};
 use rstrace::ray::Ray;
 use rstrace::renderer::{FlatRenderer, OnOffRenderer, PathTracer, Renderer};
 use rstrace::shapes::{Plane, Shape, Sphere};
 use rstrace::transformations::{Scaling, Transformation, Translation, ZRotation};
 use rstrace::world::World;
 use std::fs::File;
-use std::io::{BufReader, BufWriter};
+use std::io::BufWriter;
 use std::time::Instant;
 
 #[derive(Parser)]
@@ -251,8 +251,8 @@ fn main() -> Result<()> {
             };
             ldr_to_pfm(
                 input_file,
-                luminosity,
                 factor_a,
+                luminosity,
                 gamma,
                 output_file.clone(),
                 endianness,

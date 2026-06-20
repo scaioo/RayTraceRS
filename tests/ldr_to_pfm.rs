@@ -1,13 +1,13 @@
 #[cfg(test)]
 mod test {
+    use image::{Rgb, RgbImage};
+    use rstrace::color::Color;
+    use rstrace::hdr_image::HDR;
+    use rstrace::pfm_func::{Endianness, ldr_to_pfm, read_pfm};
     use std::fs::File;
     use std::io::BufReader;
-    use image::{Rgb, RgbImage};
-    use tempfile::tempdir;
-    use rstrace::color::Color;
-    use rstrace::pfm_func::{ldr_to_pfm, read_pfm, Endianness};
-    use rstrace::hdr_image::HDR;
     use tempfile::NamedTempFile;
+    use tempfile::tempdir;
 
     #[test]
     fn test_load_from_ldr() {
@@ -108,8 +108,8 @@ mod test {
         // 4. Run ldr_to_pfm
         ldr_to_pfm(
             input_path.to_string_lossy().to_string(),
-            avr_lum,
             factor_a,
+            avr_lum,
             gamma,
             output_path.to_string_lossy().to_string(),
             endianness,
@@ -120,7 +120,7 @@ mod test {
             .iter()
             .map(|[r, g, b]| {
                 let decode = |x: u8| -> f32 {
-                    let t = (x as f32 / 255.0).powf(gamma);
+                    let t = (x as f32 / 256.0).powf(gamma);
                     (avr_lum / factor_a) * (t / (1.0 - t))
                 };
                 Color::new(decode(*r), decode(*g), decode(*b))
@@ -140,7 +140,9 @@ mod test {
             assert!(
                 got.is_close(exp),
                 "pixel {}: expected {:?}, got {:?}",
-                i, exp, got
+                i,
+                exp,
+                got
             );
         }
 

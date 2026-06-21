@@ -434,12 +434,17 @@ mod tests {
             "Mismatch at (0,1)"
         );
         // Verify that flat_renderer return the color of the sphere
+        let expected_color = Color {
+            r: 1.0/(1.0 + 1.0),
+            g: 2.0 / (2.0 + 1.0),
+            b: 3.0/(3.0 + 1.0),
+        };
         assert!(
             tracer
                 .image
                 .get_pixel(1, 1)
                 .expect("Pixel (1,1) should exist")
-                .is_close(&sphere_color),
+                .is_close(&expected_color),
             "Mismatch at (1,1)"
         );
         assert!(

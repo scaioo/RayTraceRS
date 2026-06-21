@@ -435,9 +435,9 @@ mod tests {
         );
         // Verify that flat_renderer return the color of the sphere
         let expected_color = Color {
-            r: 1.0/(1.0 + 1.0),
+            r: 1.0 / (1.0 + 1.0),
             g: 2.0 / (2.0 + 1.0),
-            b: 3.0/(3.0 + 1.0),
+            b: 3.0 / (3.0 + 1.0),
         };
         assert!(
             tracer

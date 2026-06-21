@@ -149,35 +149,53 @@ impl Default for Material {
 
 #[cfg(test)]
 mod tests {
+    use super::*;
     use crate::color::WHITE;
     use crate::pigments::CheckeredPigment;
-    use super::*;
-    
+
     #[test]
     fn test_material_clamped() {
-        let pigment = CheckeredPigment::new(Color::new(1.0,2.0,3.0), Color::new(4.0, 5.0, 6.0), 2);
-        let brdf = DiffusiveBrdf{};
-        let emitted_radiance = UniformPigment::new(Color::new(1000.0,2.0,1.0));
-        
-        let material = Material::new(pigment, brdf, emitted_radiance);
-        
-        let color = material.pigment.get_color(&Vec2D::new(0.25, 0.25)).unwrap();
-        let expected = Color::new(0.5, 2.0/ 3.0, 0.75);
-        assert!(color.is_close(&expected), "Pigment clamping assert failed:\ncolor: {:?}, expected: {:?}", color, expected);
-        
-        let color = material.emitted_radiance.get_color(&Vec2D::new(0.25, 0.25)).unwrap();
-        let expected = Color::new(1000.0,2.0,1.0);
-        assert!(color.is_close(&expected), "Emissive assert failed:\ncolor: {:?}, expected: {:?}", color, expected);
+        let pigment =
+            CheckeredPigment::new(Color::new(1.0, 2.0, 3.0), Color::new(4.0, 5.0, 6.0), 2);
+        let brdf = DiffusiveBrdf {};
+        let emitted_radiance = UniformPigment::new(Color::new(1000.0, 2.0, 1.0));
 
+        let material = Material::new(pigment, brdf, emitted_radiance);
+
+        let color = material.pigment.get_color(&Vec2D::new(0.25, 0.25)).unwrap();
+        let expected = Color::new(0.5, 2.0 / 3.0, 0.75);
+        assert!(
+            color.is_close(&expected),
+            "Pigment clamping assert failed:\ncolor: {:?}, expected: {:?}",
+            color,
+            expected
+        );
+
+        let color = material
+            .emitted_radiance
+            .get_color(&Vec2D::new(0.25, 0.25))
+            .unwrap();
+        let expected = Color::new(1000.0, 2.0, 1.0);
+        assert!(
+            color.is_close(&expected),
+            "Emissive assert failed:\ncolor: {:?}, expected: {:?}",
+            color,
+            expected
+        );
     }
-    
+
     #[test]
     fn test_clamp_pigment_ok() {
         let pigment = Box::new(UniformPigment::default());
         let clamp_pigment = ClampPigment::new(pigment);
 
         let color = clamp_pigment.get_color(&Vec2D::new(0.0, 0.0)).unwrap();
-        assert!(color.is_close(&WHITE), "color: {:?}\n expected: {:?}", color, WHITE );
+        assert!(
+            color.is_close(&WHITE),
+            "color: {:?}\n expected: {:?}",
+            color,
+            WHITE
+        );
     }
 
     #[test]
@@ -186,7 +204,12 @@ mod tests {
         let clamp_pigment = ClampPigment::new(Box::new(pigment));
 
         let color = clamp_pigment.get_color(&Vec2D::new(0.0, 0.0)).unwrap();
-        let expected = Color::new(10.0/11.0, 100.0/101.0, 0.5);
-        assert!(color.is_close(&expected),"color: {:?}\n expected: {:?}", color, expected);
+        let expected = Color::new(10.0 / 11.0, 100.0 / 101.0, 0.5);
+        assert!(
+            color.is_close(&expected),
+            "color: {:?}\n expected: {:?}",
+            color,
+            expected
+        );
     }
 }

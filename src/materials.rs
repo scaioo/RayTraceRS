@@ -19,7 +19,6 @@
 
 use crate::brdf::{BRDF, DiffusiveBrdf};
 use crate::color::{BLACK, Color};
-use crate::functions::Within;
 use crate::geometry::Vec2D;
 use crate::pigments::{Pigment, UniformPigment};
 
@@ -33,25 +32,17 @@ pub struct ClampPigment {
 
 impl ClampPigment {
     pub fn new(pigment: Box<dyn Pigment>) -> Self {
-        ClampPigment { pigment }
-    }
-
-    fn clamping_condition(color: &Color) -> bool {
-        color.r.is_between_close(&0.0, &1.0)
-            && color.g.is_between_close(&0.0, &1.0)
-            && color.b.is_between_close(&0.0, &1.0)
+        Self {
+            pigment
+        }
     }
 }
 
 impl Pigment for ClampPigment {
     fn get_color(&self, uv: &Vec2D) -> anyhow::Result<Color> {
         let mut color = self.pigment.get_color(uv)?;
-        if ClampPigment::clamping_condition(&color) {
+            color.rescale()?;
             Ok(color)
-        } else {
-            color.tone_map()?;
-            Ok(color)
-        }
     }
 }
 
@@ -204,7 +195,7 @@ mod tests {
         let clamp_pigment = ClampPigment::new(Box::new(pigment));
 
         let color = clamp_pigment.get_color(&Vec2D::new(0.0, 0.0)).unwrap();
-        let expected = Color::new(10.0 / 11.0, 100.0 / 101.0, 0.5);
+        let expected = Color::new(10.0 / 100.0, 100.0 / 100.0, 1.0/100.0);
         assert!(
             color.is_close(&expected),
             "color: {:?}\n expected: {:?}",

@@ -132,6 +132,17 @@ impl Color {
         self.b = self.b / (self.b + 1.0);
         Ok(())
     }
+
+    pub fn rescale(&mut self) -> Result<()> {
+        self.self_check()?;
+        let highest = self.r.max(self.g.max(self.b));
+        if highest > 1.0 {
+            self.r = self.r / highest;
+            self.g = self.g / highest;
+            self.b = self.b / highest;
+        }
+        Ok(())
+    }
 }
 
 // =================================================================
@@ -498,5 +509,21 @@ mod tests {
         assert_eq!(color.r, 1.0 / (1.0 + 1.0));
         assert_eq!(color.g, 2.5 / (2.5 + 1.0));
         assert_eq!(color.b, 5.0 / (5.0 + 1.0));
+    }
+
+    #[test]
+    fn test_rescale() {
+        let mut color = Color::new(1.0, 2.0, 4.0);
+        let expected = Color::new(0.25, 0.4, 1.0);
+        color.rescale().unwrap();
+        assert!(color.is_close(&expected), "color: {:?}\nexpected: {:?}", color, expected);
+    }
+
+    #[test]
+    fn test_rescale_null() {
+        let mut color = Color::new(0.25, 0.4, 1.0);
+        let expected = color;
+        color.rescale().unwrap();
+        assert!(color.is_close(&expected), "color: {:?}\nexpected: {:?}", color, expected);
     }
 }

@@ -614,7 +614,7 @@ mod test {
         // Test the empty image
         let mut img1 = HDR::new(0, 0);
         assert!(img1.normalization(Some(&1.0)).is_err());
-        
+
         let mut img = HDR::new(1, 4);
         let mut img1 = HDR::new(1, 4);
         let mut img2 = HDR::new(1, 4);

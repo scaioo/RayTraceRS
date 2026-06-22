@@ -1,17 +1,19 @@
-use std::collections::{HashMap, HashSet};
-use std::io::BufRead;
-use anyhow::{Result, bail, anyhow};
-use crate::brdf::{DiffusiveBrdf, SpecularBrdf, BRDF};
+use crate::brdf::{BRDF, DiffusiveBrdf, SpecularBrdf};
 use crate::camera::{Camera, OrthogonalCamera, PerspectiveCamera};
 use crate::color::Color;
 use crate::geometry::Vector;
-use crate::materials::Material;
-use crate::world::World;
 use crate::lexer::{InputStream, Keyword, TokenKind};
+use crate::materials::Material;
 use crate::pfm_func::read_pfm_file;
 use crate::pigments::{CheckeredPigment, ImagePigment, Pigment, UniformPigment};
 use crate::shapes::{Plane, Sphere};
-use crate::transformations::{Scaling, Transformation, Translation, XRotation, YRotation, ZRotation};
+use crate::transformations::{
+    Scaling, Transformation, Translation, XRotation, YRotation, ZRotation,
+};
+use crate::world::World;
+use anyhow::{Result, anyhow, bail};
+use std::collections::{HashMap, HashSet};
+use std::io::BufRead;
 
 /// A scene read from a scene file.
 ///
@@ -79,7 +81,10 @@ pub fn expect_symbol<B: BufRead>(stream: &mut InputStream<B>, symbol: char) -> R
 ///
 /// Note: make sure to add `#[derive(Copy, Clone)]` to your `Keyword` enum
 /// in the `lexer.rs` file so that it can be easily returned.
-pub fn expect_keywords<B: BufRead>(stream: &mut InputStream<B>, keywords: &[Keyword]) -> Result<Keyword> {
+pub fn expect_keywords<B: BufRead>(
+    stream: &mut InputStream<B>,
+    keywords: &[Keyword],
+) -> Result<Keyword> {
     let token = stream.read_token()?;
     match token.kind {
         TokenKind::Keyword(k) => {
@@ -194,8 +199,14 @@ pub fn parse_color<B: BufRead>(stream: &mut InputStream<B>, scene: &Scene) -> Re
 }
 
 /// Parses a pigment. Supports uniform, checkered, and image pigments.
-pub fn parse_pigment<B: BufRead>(stream: &mut InputStream<B>, scene: &Scene) -> Result<Box<dyn Pigment>> {
-    let keyword = expect_keywords(stream, &[Keyword::UNIFORM, Keyword::CHECKERED, Keyword::IMAGE])?;
+pub fn parse_pigment<B: BufRead>(
+    stream: &mut InputStream<B>,
+    scene: &Scene,
+) -> Result<Box<dyn Pigment>> {
+    let keyword = expect_keywords(
+        stream,
+        &[Keyword::UNIFORM, Keyword::CHECKERED, Keyword::IMAGE],
+    )?;
     expect_symbol(stream, '(')?;
 
     let result: Box<dyn Pigment> = match keyword {
@@ -226,7 +237,7 @@ pub fn parse_pigment<B: BufRead>(stream: &mut InputStream<B>, scene: &Scene) -> 
 }
 
 /// Parses a BRDF. Supports diffuse and specular.
-pub fn parse_brdf<B: BufRead>(stream: &mut InputStream<B>, scene: &Scene) -> Result<Box<dyn BRDF>> {
+pub fn parse_brdf<B: BufRead>(stream: &mut InputStream<B>) -> Result<Box<dyn BRDF>> {
     let keyword = expect_keywords(stream, &[Keyword::DIFFUSE, Keyword::SPECULAR])?;
     expect_symbol(stream, '(')?;
 
@@ -241,13 +252,16 @@ pub fn parse_brdf<B: BufRead>(stream: &mut InputStream<B>, scene: &Scene) -> Res
 }
 
 /// Parses a material definition: `material_name(brdf, emitted_radiance)`
-pub fn parse_material<B: BufRead>(stream: &mut InputStream<B>, scene: &Scene) -> Result<(String, Material)> {
+pub fn parse_material<B: BufRead>(
+    stream: &mut InputStream<B>,
+    scene: &Scene,
+) -> Result<(String, Material)> {
     let name = expect_identifier(stream)?;
     expect_symbol(stream, '(')?;
 
     let base_pigment = parse_pigment(stream, scene)?;
     expect_symbol(stream, ',')?;
-    let brdf = parse_brdf(stream, scene)?;
+    let brdf = parse_brdf(stream)?;
     expect_symbol(stream, ',')?;
     let emitted_radiance = parse_pigment(stream, scene)?;
 
@@ -264,7 +278,10 @@ pub fn parse_material<B: BufRead>(stream: &mut InputStream<B>, scene: &Scene) ->
 
 /// Parses a sequence of transformations chained by `*`
 /// Parses a sequence of transformations chained by `*`
-pub fn parse_transformation<B: BufRead>(stream: &mut InputStream<B>, scene: &Scene) -> Result<Transformation> {
+pub fn parse_transformation<B: BufRead>(
+    stream: &mut InputStream<B>,
+    scene: &Scene,
+) -> Result<Transformation> {
     let mut result = Transformation::new(crate::functions::IDENTITY_4X4);
 
     loop {
@@ -281,8 +298,7 @@ pub fn parse_transformation<B: BufRead>(stream: &mut InputStream<B>, scene: &Sce
         )?;
 
         match keyword {
-            Keyword::IDENTITY => {
-            }
+            Keyword::IDENTITY => {}
             Keyword::TRANSLATION => {
                 expect_symbol(stream, '(')?;
                 let vec = parse_vector(stream, scene)?;
@@ -320,16 +336,16 @@ pub fn parse_transformation<B: BufRead>(stream: &mut InputStream<B>, scene: &Sce
         // HANDLING THE “*” SYMBOL (BEWARE OF LOOKAHEAD!)
         // ====================================================
         let next_token = stream.read_token()?;
-        if let TokenKind::Symbol(s) = next_token.kind {
-            if s == '*' {
-                // There's an asterisk, so let's continue the loop to read the next transformation!
-                continue;
-            }
+        if let TokenKind::Symbol(s) = next_token.kind
+            && s == '*'
+        {
+            // There's an asterisk, so let's continue the loop to read the next transformation!
+            continue;
         }
 
-        // Se arriviamo qui, il token NON era un '*'.
-        // Questo significa che la catena di trasformazioni è finita (es. abbiamo trovato una virgola o una parentesi chiusa).
-        // Dobbiamo RIMETTERE il token nello stream altrimenti il prossimo parser se lo perde!
+        // If we get this far, the token was NOT a “*”.
+        // This means that the transformation chain has ended (e.g. we’ve found a comma or a closing bracket).
+        // We must PUT the token BACK into the stream, otherwise the next parser will miss it!
         stream.unread_token(next_token)?;
         break;
     }
@@ -338,14 +354,19 @@ pub fn parse_transformation<B: BufRead>(stream: &mut InputStream<B>, scene: &Sce
 }
 
 /// Parses a sphere: `sphere(material_name, transformation)`
-pub fn parse_sphere<B: BufRead>(stream: &mut InputStream<B>, scene: &Scene) -> Result<Sphere<Transformation>> {
+pub fn parse_sphere<B: BufRead>(
+    stream: &mut InputStream<B>,
+    scene: &Scene,
+) -> Result<Sphere<Transformation>> {
     expect_symbol(stream, '(')?;
     let material_name = expect_identifier(stream)?;
     expect_symbol(stream, ',')?;
     let transformation = parse_transformation(stream, scene)?;
     expect_symbol(stream, ')')?;
 
-    let material = scene.materials.get(&material_name)
+    let material = scene
+        .materials
+        .get(&material_name)
         .ok_or_else(|| anyhow!("Unknown material '{}' for sphere", material_name))?
         .clone();
     Ok(Sphere {
@@ -355,14 +376,19 @@ pub fn parse_sphere<B: BufRead>(stream: &mut InputStream<B>, scene: &Scene) -> R
 }
 
 /// Parses a plane: `plane(material_name, transformation)`
-pub fn parse_plane<B: BufRead>(stream: &mut InputStream<B>, scene: &Scene) -> Result<Plane<Transformation>> {
+pub fn parse_plane<B: BufRead>(
+    stream: &mut InputStream<B>,
+    scene: &Scene,
+) -> Result<Plane<Transformation>> {
     expect_symbol(stream, '(')?;
     let material_name = expect_identifier(stream)?;
     expect_symbol(stream, ',')?;
     let transformation = parse_transformation(stream, scene)?;
     expect_symbol(stream, ')')?;
 
-    let material = scene.materials.get(&material_name)
+    let material = scene
+        .materials
+        .get(&material_name)
         .ok_or_else(|| anyhow!("Unknown material '{}' for plane", material_name))?
         .clone();
 
@@ -374,7 +400,10 @@ pub fn parse_plane<B: BufRead>(stream: &mut InputStream<B>, scene: &Scene) -> Re
 }
 
 /// Parses a camera: `camera(perspective, transformation, aspect_ratio, distance)`
-pub fn parse_camera<B: BufRead>(stream: &mut InputStream<B>, scene: &Scene) -> Result<Box<dyn Camera>> {
+pub fn parse_camera<B: BufRead>(
+    stream: &mut InputStream<B>,
+    scene: &Scene,
+) -> Result<Box<dyn Camera>> {
     expect_symbol(stream, '(')?;
     let cam_type = expect_keywords(stream, &[Keyword::PERSPECTIVE, Keyword::ORTHOGONAL])?;
     expect_symbol(stream, ',')?;
@@ -404,7 +433,10 @@ pub fn parse_camera<B: BufRead>(stream: &mut InputStream<B>, scene: &Scene) -> R
 }
 
 /// Main loop: parses the entire scene file until StopToken is reached.
-pub fn parse_scene<B: BufRead>(stream: &mut InputStream<B>, initial_variables: HashMap<String, f32>) -> Result<Scene> {
+pub fn parse_scene<B: BufRead>(
+    stream: &mut InputStream<B>,
+    initial_variables: HashMap<String, f32>,
+) -> Result<Scene> {
     let mut scene = Scene::new();
     scene.float_variables = initial_variables;
 
@@ -456,8 +488,11 @@ pub fn parse_scene<B: BufRead>(stream: &mut InputStream<B>, initial_variables: H
 
 #[cfg(test)]
 mod test {
-    use crate::lexer::{InputStream};
     use super::*;
+    use crate::color::Color;
+    use crate::geometry::Vec2D;
+    use crate::lexer::InputStream;
+    use std::collections::HashMap;
     #[test]
     fn test_input_stream_python_translation() {
         // We initialize the stream with the same string as the Python test
@@ -519,17 +554,9 @@ mod test {
         assert_eq!(stream.read_char().unwrap(), None);
     }
 
-    #[cfg(test)]
-    mod tests {
-        use super::*;
-        use crate::color::Color;
-        use crate::geometry::Vec2D;
-        use std::collections::HashMap;
-
-        #[test]
-        fn test_parse_scene() -> Result<()> {
-
-            let text = r#"
+    #[test]
+    fn test_parse_scene() -> Result<()> {
+        let text = r#"
         float clock(150)
 
         material sky_material(
@@ -561,57 +588,86 @@ mod test {
         camera(perspective, rotation_z(30) * translation([-4, 0, 1]), 1.0, 2.0)
         "#;
 
-            let cursor = std::io::Cursor::new(text);
-            let mut stream = InputStream::new(cursor, 0, 4);
+        let cursor = std::io::Cursor::new(text);
+        let mut stream = InputStream::new(cursor, 0, 4);
 
-            let initial_vars = HashMap::new();
-            let scene = parse_scene(&mut stream, initial_vars)?;
+        let initial_vars = HashMap::new();
+        let scene = parse_scene(&mut stream, initial_vars)?;
 
-            // ==========================================
-            // 1. Check float variables
-            // ==========================================
-            assert_eq!(scene.float_variables.len(), 1);
-            assert!(scene.float_variables.contains_key("clock"));
-            assert_eq!(scene.float_variables["clock"], 150.0);
+        // ==========================================
+        // 1. Check float variables
+        // ==========================================
+        assert_eq!(scene.float_variables.len(), 1);
+        assert!(scene.float_variables.contains_key("clock"));
+        assert_eq!(scene.float_variables["clock"], 150.0);
 
-            // ==========================================
-            // 2. Check materials
-            // ==========================================
-            assert_eq!(scene.materials.len(), 3);
-            assert!(scene.materials.contains_key("sphere_material"));
-            assert!(scene.materials.contains_key("sky_material"));
-            assert!(scene.materials.contains_key("ground_material"));
+        // ==========================================
+        // 2. Check materials
+        // ==========================================
+        assert_eq!(scene.materials.len(), 3);
+        assert!(scene.materials.contains_key("sphere_material"));
+        assert!(scene.materials.contains_key("sky_material"));
+        assert!(scene.materials.contains_key("ground_material"));
 
-            let sky_material = &scene.materials["sky_material"];
-            let ground_material = &scene.materials["ground_material"];
-            let sphere_material = &scene.materials["sphere_material"];
+        let sky_material = &scene.materials["sky_material"];
+        let ground_material = &scene.materials["ground_material"];
+        let sphere_material = &scene.materials["sphere_material"];
 
-            // Let's test the BEHAVIOR rather than the TYPE (no `isinstance`!)
-            let uv_test = Vec2D { x: 0.0, y: 0.0}; // A random UV spot to test the pigments
+        // Let's test the BEHAVIOR rather than the TYPE (no `isinstance`!)
+        let uv_test = Vec2D { x: 0.0, y: 0.0 }; // A random UV spot to test the pigments
 
-            // Sky Material
-            assert!(sky_material.pigment.get_color(&uv_test)?.is_close(&Color::new(0.0, 0.0, 0.0)));
-            assert!(sky_material.emitted_radiance.get_color(&uv_test)?.is_close(&Color::new(0.7, 0.5, 1.0)));
+        // Sky Material
+        assert!(
+            sky_material
+                .pigment
+                .get_color(&uv_test)?
+                .is_close(&Color::new(0.0, 0.0, 0.0))
+        );
+        assert!(
+            sky_material
+                .emitted_radiance
+                .get_color(&uv_test)?
+                .is_close(&Color::new(0.7, 0.5, 1.0))
+        );
 
-            // Ground Material
-            assert!(ground_material.pigment.get_color(&uv_test)?.is_close(&Color::new(0.3, 0.5, 0.1)));
-            assert!(ground_material.emitted_radiance.get_color(&uv_test)?.is_close(&Color::new(0.0, 0.0, 0.0)));
+        // Ground Material
+        assert!(
+            ground_material
+                .pigment
+                .get_color(&uv_test)?
+                .is_close(&Color::new(0.3, 0.5, 0.1))
+        );
+        assert!(
+            ground_material
+                .emitted_radiance
+                .get_color(&uv_test)?
+                .is_close(&Color::new(0.0, 0.0, 0.0))
+        );
 
-            // Sphere Material
-            assert!(sphere_material.pigment.get_color(&uv_test)?.is_close(&Color::new(0.5, 0.5, 0.5)));
-            assert!(sphere_material.emitted_radiance.get_color(&uv_test)?.is_close(&Color::new(0.0, 0.0, 0.0)));
+        // Sphere Material
+        assert!(
+            sphere_material
+                .pigment
+                .get_color(&uv_test)?
+                .is_close(&Color::new(0.5, 0.5, 0.5))
+        );
+        assert!(
+            sphere_material
+                .emitted_radiance
+                .get_color(&uv_test)?
+                .is_close(&Color::new(0.0, 0.0, 0.0))
+        );
 
-            // ==========================================
-            // 3. Check shapes
-            // ==========================================
-            assert_eq!(scene.world.objects.len(), 3);
+        // ==========================================
+        // 3. Check shapes
+        // ==========================================
+        assert_eq!(scene.world.objects.len(), 3);
 
-            // ==========================================
-            // 4. Check camera
-            // ==========================================
-            assert!(scene.camera.is_some());
+        // ==========================================
+        // 4. Check camera
+        // ==========================================
+        assert!(scene.camera.is_some());
 
-            Ok(())
-        }
+        Ok(())
     }
 }

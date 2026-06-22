@@ -1,4 +1,4 @@
-use anyhow::Result;
+use anyhow::{Result, anyhow};
 use clap::Parser;
 use rstrace::brdf::{DiffusiveBrdf, SpecularBrdf};
 use rstrace::camera::{Camera, OrthogonalCamera, PerspectiveCamera};
@@ -15,8 +15,9 @@ use rstrace::renderer::{FlatRenderer, OnOffRenderer, PathTracer, Renderer};
 use rstrace::shapes::{Plane, Shape, Sphere};
 use rstrace::transformations::{Scaling, Transformation, Translation, ZRotation};
 use rstrace::world::World;
+use std::collections::HashMap;
 use std::fs::File;
-use std::io::BufWriter;
+use std::io::{BufReader, BufWriter};
 use std::time::Instant;
 
 #[derive(Parser)]
@@ -60,6 +61,38 @@ enum Commands {
         output_file: String,
         factor_a: f32,
         gamma: f32,
+    },
+
+    Render {
+        input_scene_name: String,
+
+        #[arg(long, default_value = "pathtracing")]
+        algorithm: String,
+
+        #[arg(long, default_value = "output.pfm")]
+        pfm_output: String,
+
+        #[arg(long, default_value = "output.png")]
+        png_output: String,
+
+        #[arg(long, default_value_t = 10)]
+        num_of_rays: usize,
+
+        #[arg(long, default_value_t = 3)]
+        max_depth: usize,
+
+        #[arg(long, default_value_t = 45)]
+        init_state: u64,
+
+        #[arg(long, default_value_t = 54)]
+        init_seq: u64,
+
+        #[arg(long, default_value_t = 1)]
+        samples_per_pixel: usize,
+
+        /// Declare a variable. Syntax: VAR:VALUE. Example: --declare-float=clock:150
+        #[arg(short = 'd', long = "declare-float")]
+        declare_float: Vec<String>,
     },
 }
 
@@ -119,6 +152,26 @@ fn demo_world() -> World {
     World { objects }
 }
 
+/// Helper function to parse variables from the CLI into a HashMap
+fn build_variable_table(declare_float: &[String]) -> HashMap<String, f32> {
+    let mut variables = HashMap::new();
+    for decl in declare_float {
+        let parts: Vec<&str> = decl.split(':').collect();
+        if parts.len() == 2 {
+            if let Ok(val) = parts[1].parse::<f32>() {
+                variables.insert(parts[0].to_string(), val);
+            } else {
+                eprintln!("Warning: Could not parse value for variable '{}'", parts[0]);
+            }
+        } else {
+            eprintln!(
+                "Warning: Invalid variable declaration format: '{}'. Use VAR:VALUE",
+                decl
+            );
+        }
+    }
+    variables
+}
 // ====================================================================
 // MAIN PROGRAM
 // ====================================================================
@@ -227,6 +280,92 @@ fn main() -> Result<()> {
 
             let duration = now.elapsed();
             println!("Program finished in {:?}", duration);
+            Ok(())
+        }
+
+        Commands::Render {
+            input_scene_name,
+            algorithm,
+            pfm_output,
+            png_output,
+            num_of_rays,
+            max_depth,
+            init_state,
+            init_seq,
+            samples_per_pixel,
+            declare_float,
+        } => {
+            // 1. Check Anti-aliasing samples
+            let samples_per_side = (samples_per_pixel as f64).sqrt() as usize;
+            if samples_per_side * samples_per_side != samples_per_pixel {
+                panic!(
+                    "Error, the number of samples per pixel ({}) must be a perfect square",
+                    samples_per_pixel
+                );
+            }
+
+            // 2. Parse command line variables
+            let variables = build_variable_table(&declare_float);
+
+            // 3. Open and Parse the Scene File
+            let file = File::open(&input_scene_name)
+                .map_err(|e| anyhow!("Could not open scene file {}: {}", input_scene_name, e))?;
+            let reader = BufReader::new(file);
+
+            // Initialize the InputStream (assuming a tab size of 4)
+            let mut stream = rstrace::lexer::InputStream::new(reader, 0, 4);
+
+            println!("Parsing scene '{}'...", input_scene_name);
+            let scene = rstrace::parser::parse_scene(&mut stream, variables)?;
+
+            // 4. Setup Image and Camera
+            let mut img = HDR::new(cli.width, cli.height);
+            let camera = scene
+                .camera
+                .expect("Error: No camera defined in the scene file!");
+
+            println!("Generating a {}x{} image", cli.width, cli.height);
+
+            let mut imagetracer = ImageTracer::new(img, camera);
+
+            // 5. Setup Renderer
+            let flat_renderer = FlatRenderer::new(BLACK);
+            let onoff_renderer = OnOffRenderer::default();
+
+            let mut pcg = PCG::new(init_state, init_seq);
+            let path_tracer = PathTracer::new(BLACK, num_of_rays, max_depth, 2);
+
+            let render_closure = |ray: Ray, world: &World| -> Result<Color> {
+                if algorithm == "onoff" {
+                    onoff_renderer.render(&ray, world, &mut pcg)
+                } else if algorithm == "flat" {
+                    flat_renderer.render(&ray, world, &mut pcg)
+                } else if algorithm == "pathtracing" {
+                    path_tracer.render(&ray, world, &mut pcg)
+                } else {
+                    panic!("Unknown renderer: {}", algorithm);
+                }
+            };
+
+            // 6. Execute Render
+            println!("Rendering in progress...");
+            imagetracer.fire_all_rays(&scene.world, render_closure)?;
+            img = imagetracer.image;
+
+            // 7. Save outputs
+            std::fs::create_dir_all("outputs")?;
+
+            let file = File::create(&pfm_output)?;
+            let disk_writer = BufWriter::new(&file);
+            img.write_pfm(disk_writer, &Endianness::BigEndian)?;
+            println!("HDR demo image written to {}", pfm_output);
+
+            pfm_to_ldr(pfm_output, 0.18, 2.2, png_output.clone())?;
+            println!("PNG demo image written to {}", png_output);
+
+            let elapsed_time = now.elapsed();
+            println!("Rendering completed in {:.1} s", elapsed_time.as_secs_f32());
+
             Ok(())
         }
     }

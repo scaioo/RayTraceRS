@@ -77,7 +77,6 @@ impl<B: BufRead> InputStream<B> {
             saved_location: None,
             saved_token: None,
             tabulation,
-
         }
     }
 }
@@ -363,7 +362,9 @@ impl<B: BufRead> InputStream<B> {
             self.saved_token = Some(token);
             Ok(())
         } else {
-            Err(anyhow::anyhow!("I can't mark more than one token as unread!"))
+            Err(anyhow::anyhow!(
+                "I can't mark more than one token as unread!"
+            ))
         }
     }
 

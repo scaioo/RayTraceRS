@@ -36,6 +36,19 @@ pub trait Camera {
     fn fire_ray(&self, u: f32, v: f32) -> Ray;
 }
 
+/// Enable to render a generic Camera from a file.txt
+impl Camera for Box<dyn Camera> {
+    fn set_aspect_ratio(&mut self, aspect_ratio: f32) -> Result<()> {
+        // The double asterisk (**self) is used to:
+        // 1. Dereference the borrowed reference (&mut)
+        // 2. Dereference the Box to access the actual object inside it
+        (**self).set_aspect_ratio(aspect_ratio)
+    }
+
+    fn fire_ray(&self, u: f32, v: f32) -> Ray {
+        (**self).fire_ray(u, v)
+    }
+}
 // =======================================================================
 // ORTHOGONAL CAMERA
 // =======================================================================

@@ -109,6 +109,9 @@ impl Shape for CSG {
                 };
 
                 obj.ray_intersection(ray)
+
+                // the solution below would be faster, check problems for Difference below to see why i'm not using it
+
                   /* let world_point = ray.at(t_hit);
                 let normal = obj.normal_at(world_point, ray);
                     Some(HitRecord {
@@ -137,6 +140,19 @@ impl Shape for CSG {
                     None => int2,
                 }
             }
+
+            //Difference needs some fixing:
+            // - normal_at returns a normal in local space, to put it in world space it needs to be multiplied by self.object2.transformation
+            // (if the object is a sphere at least).
+            // objects in csg are of a generic type, self.object2.transformation cannot be called since it is not a method for Volumetric
+            // this problem for intersection could be ignored since we could return obj.ray_intersection(ray)
+            // for Difference we need to calculate normal_at for exit point of the subtracted object, ray_intersection cannot be used in this case
+
+            // i tried returning self.transformation * result in normal_at for Sphere instead of doing it right after the funcion call
+            // (the same operation is performed in tey_intersection: self.transformation * self.normal_at(hit_point, ray);
+            // i still don't know why this solution does not return the correct normal
+
+
             OperationsCSGType::Difference => {
                 let ent_ex_1 = self.object1.entry_exit_t(ray);
                 let ent_ex_2 = self.object2.entry_exit_t(ray);
@@ -147,15 +163,15 @@ impl Shape for CSG {
                                 if t1_diff < t1 {
                                     if t2_diff > t2 { return None } //obj2 makes a hole in obj1
                                     if t2_diff > t1 {
-                                        let world_point = transformed_ray.at(t2_diff);
-                                        return Some(HitRecord {
+                                        //let world_point = transformed_ray.at(t2_diff);
+                                        /*return Some(HitRecord {
                                             world_point,
                                             normal: -self.object2.transformation * self.object2.normal_at(world_point, ray),
                                             uv: self.object1.point_to_uv(&world_point).unwrap(),
                                             t: t2_diff,
                                             ray: *ray,
                                             material: self.object1.material(),
-                                        })
+                                        })*/
 
                                     /*let world_point = ray.at(t2_diff)
                                     let mut hit = HitRecord{

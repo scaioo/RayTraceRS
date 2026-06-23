@@ -181,7 +181,7 @@ where
 
         Some(HitRecord {
             world_point: self.transformation * hit_point,
-            normal: self.normal_at(hit_point, &ray),
+            normal: self.transformation * self.normal_at(hit_point, &ray),
             uv,
             t,
             ray: *ray,
@@ -199,8 +199,6 @@ where
         } else {
            result = - result;
         }
-        let world_normal = self.transformation * result;
-        world_normal.normalize()
     }
 
     fn point_to_uv(&self, point: &Point) -> Result<Vec2D> {

@@ -132,7 +132,7 @@ impl Renderer for FlatRenderer {
             Some(hit) => {
                 // The ray hit an object!
                 // We ask the material's pigment for the color at the specific (u, v) coordinates.
-                let color = hit.material.pigment.get_color(&(hit.uv).orient())?;
+                let color = hit.material.pigment.get_color(&hit.uv.orient())?;
                 Ok(color)
             }
             None => {

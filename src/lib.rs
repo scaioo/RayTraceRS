@@ -52,12 +52,11 @@
 //! ### Scene
 //!
 //! - [`shapes`] — geometric primitives ([`Sphere`](shapes::Sphere),
-//!   [`Plane`](shapes::Plane), [`Triangle`](shapes::Triangle)) and the
-//!   [`Shape`](shapes::Shape) trait.
-//! - [`hit_record`] — [`HitRecord`](hit_record::HitRecord), the intersection
-//!   data returned by shape queries (world point, normal, UV, `t`, material).
-//! - [`world`] — [`World`](world::World), the scene container that holds a
-//!   collection of shapes and finds the closest ray intersection.
+//!   [`Plane`](shapes::Plane), [`Triangle`](shapes::Triangle),
+//!   [`AABB`](shapes::AABB)) and the [`Shape`](shapes::Shape) trait.
+//! - [`mesh`] — [`SimpleMesh`](mesh::SimpleMesh), a triangle mesh loaded from
+//!   Wavefront OBJ files. Triangles share a vertex array via [`IndexTriangle`](mesh::IndexTriangle)
+//!   indices; a tight [`AABB`](shapes::AABB) provides broad-phase rejection.
 //!
 //! ### Rendering pipeline
 //!
@@ -90,6 +89,7 @@ pub mod hit_record;
 pub mod image_tracer;
 pub mod lexer;
 pub mod materials;
+pub mod mesh;
 pub mod pcg;
 pub mod pfm_func;
 pub mod pigments;

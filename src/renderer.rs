@@ -132,7 +132,7 @@ impl Renderer for FlatRenderer {
             Some(hit) => {
                 // The ray hit an object!
                 // We ask the material's pigment for the color at the specific (u, v) coordinates.
-                let color = hit.material.pigment.get_color(&hit.uv)?;
+                let color = hit.material.pigment.get_color(&hit.uv.orient())?;
                 Ok(color)
             }
             None => {
@@ -207,8 +207,10 @@ impl Renderer for PathTracer {
         };
 
         let material = &hit_record.material;
-        let mut hit_color = material.pigment.get_color(&hit_record.uv)?;
-        let emitted_radiance = material.emitted_radiance.get_color(&hit_record.uv)?;
+        let mut hit_color = material.pigment.get_color(&(hit_record.uv.orient()))?;
+        let emitted_radiance = material
+            .emitted_radiance
+            .get_color(&(hit_record.uv.orient()))?;
 
         let hit_color_lum = hit_color.r.max(hit_color.g).max(hit_color.b);
 

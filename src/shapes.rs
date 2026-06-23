@@ -195,9 +195,9 @@ where
         let mut result = Normal::new(point.x, point.y, point.z);
         let vector = point - Point::new(0.0, 0.0, 0.0);
         if (vector.dot(&tr_ray.dir)) < 0.0 {
-
+            result
         } else {
-           result = - result;
+            - result
         }
     }
 

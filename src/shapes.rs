@@ -181,7 +181,7 @@ where
 
         Some(HitRecord {
             world_point: self.transformation * hit_point,
-            normal: self.transformation * self.normal_at(hit_point, &transformed_ray),
+            normal: self.normal_at(hit_point, &ray),
             uv,
             t,
             ray: *ray,
@@ -190,13 +190,17 @@ where
     }
 
     fn normal_at(&self, point: Point, ray: &Ray) -> Normal {
-        let result = Normal::new(point.x, point.y, point.z);
+        let tr_ray = self.transform_ray(ray);
+
+        let mut result = Normal::new(point.x, point.y, point.z);
         let vector = point - Point::new(0.0, 0.0, 0.0);
-        if (vector.dot(&ray.dir)) < 0.0 {
-            result
+        if (vector.dot(&tr_ray.dir)) < 0.0 {
+
         } else {
-            -result
+           result = - result;
         }
+        let world_normal = self.transformation * result;
+        world_normal.normalize()
     }
 
     fn point_to_uv(&self, point: &Point) -> Result<Vec2D> {

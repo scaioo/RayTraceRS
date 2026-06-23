@@ -2,13 +2,14 @@
 
 //! Constructive Solid Geometry module.
 
-use anyhow::anyhow;
-use crate::functions::{are_close, Within};
-use crate::geometry::{Normal, Point, Vec2D};
+use crate::functions::{Within, are_close};
+use crate::geometry::{Dot, Normal, Point, Vec2D};
 use crate::hit_record::HitRecord;
 use crate::materials::Material;
 use crate::ray::Ray;
 use crate::shapes::{Shape, Volumetric};
+use anyhow::anyhow;
+use std::cmp::min;
 
 #[derive(Clone)]
 pub enum OperationsCSGType {
@@ -43,21 +44,17 @@ impl CSG {
         match self.object1.entry_exit_t(ray) {
             None => return None,
             Some((a, b)) => {
-                println!("object1: ({a},{b})");
                 (a1, b1) = (a, b)
             }
         }
         match self.object2.entry_exit_t(ray) {
             None => return None,
             Some((a, b)) => {
-                println!("object2: ({a},{b})");
                 (a2, b2) = (a, b)
             }
         }
         let entry = a1.max(a2);
-        println!("entry: {}", entry);
         let exit = b1.min(b2);
-        println!("exit: {}", exit);
         if entry < exit {
             // No borders
             Some((entry, exit))
@@ -70,33 +67,113 @@ impl CSG {
     pub fn eet_difference(&self, ray: &Ray) -> anyhow::Result<Option<(f32, f32)>> {
         match self.object1.entry_exit_t(ray) {
             None => Ok(None),
-            Some((a, b)) => {
-                match self.object2.entry_exit_t(ray) {
-                    None => Ok(Some((a, b))),
-                    Some((c, d)) => {
-                        if a < c && b.is_between_close(&c,&d) {
-                            Ok(Some((a,c)))
-                        } else if c < a && d.is_between_close(&a, &b) {
-                            Ok(Some((d,b)))
-                        } else {
-                            Err(anyhow!(
-    "Unsupported CSG difference configuration:
+            Some((a, b)) => match self.object2.entry_exit_t(ray) {
+                None => Ok(Some((a, b))),
+                Some((c, d)) => {
+                    if a < c && b.is_between_close(&c, &d) {
+                        Ok(Some((a, c)))
+                    } else if c < a && d.is_between_close(&a, &b) {
+                        Ok(Some((d, b)))
+                    } else {
+                        Err(anyhow!(
+                            "Unsupported CSG difference configuration:
 object1 interval = ({a}, {b})
 object2 interval = ({c}, {d})
 
 The current implementation only supports a single partial overlap."
-))
-                        }
+                        ))
                     }
                 }
-            }
+            },
         }
     }
 }
 
 impl Shape for CSG {
     fn ray_intersection(&self, ray: &Ray) -> Option<HitRecord<'_>> {
-        todo!()
+        match self.operation {
+            OperationsCSGType::Intersection => {
+
+                    let (t1_a, t2_a) = self.object1.entry_exit_t(ray)?;
+                    let (t1_b, t2_b) = self.object2.entry_exit_t(ray)?;
+
+
+                let entry = t1_a.max(t1_b);
+                let exit  = t2_a.min(t2_b);
+                if entry >= exit || entry < 0.0 { return None; }
+
+                let (obj, t_hit) = if are_close(entry, t1_a){
+                    (&self.object1, entry)
+                } else {
+                    (&self.object2, entry)
+                };
+
+                obj.ray_intersection(ray)
+                  /* let world_point = ray.at(t_hit);
+                let normal = obj.normal_at(world_point, ray);
+                    Some(HitRecord {
+                        world_point,
+                        normal,
+                        uv: obj.point_to_uv(&world_point).unwrap(),
+                        t: t_hit,
+                        ray: *ray,
+                        material: obj.material(),
+                    })*/
+                }
+
+            OperationsCSGType::Union => {
+                let int1 = self.object1.ray_intersection(ray);
+                let int2 = self.object2.ray_intersection(ray);
+                match int1 {
+                    Some(int1) => match int2 {
+                        Some(int2) => {
+                            if int1.t < int2.t {
+                                return Some(int1);
+                            }
+                            Some(int2)
+                        }
+                        None => Some(int1),
+                    },
+                    None => int2,
+                }
+            }
+            OperationsCSGType::Difference => {
+                let ent_ex_1 = self.object1.entry_exit_t(ray);
+                let ent_ex_2 = self.object2.entry_exit_t(ray);
+                match ent_ex_1 {
+                    Some((t1, t2)) => {
+                        match ent_ex_2 {
+                            Some((t1_diff, t2_diff)) => {
+                                if t1_diff < t1 {
+                                    if t2_diff > t2 { return None } //obj2 makes a hole in obj1
+                                    if t2_diff > t1 {
+                                        let world_point = transformed_ray.at(t2_diff);
+                                        return Some(HitRecord {
+                                            world_point,
+                                            normal: -self.object2.transformation * self.object2.normal_at(world_point, ray),
+                                            uv: self.object1.point_to_uv(&world_point).unwrap(),
+                                            t: t2_diff,
+                                            ray: *ray,
+                                            material: self.object1.material(),
+                                        })
+
+                                    /*let world_point = ray.at(t2_diff)
+                                    let mut hit = HitRecord{
+                                        world_point,
+
+                                    */
+                                    }
+
+                                }
+                                self.object1.ray_intersection(ray)
+                        },
+                            None => self.object1.ray_intersection(ray)
+                        }
+                    },
+                    None => None
+                }
+            }
+        }
     }
 
     fn normal_at(&self, point: Point, ray: &Ray) -> Normal {

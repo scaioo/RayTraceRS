@@ -3,7 +3,9 @@ use clap::Parser;
 use rstrace::brdf::{DiffusiveBrdf, SpecularBrdf};
 use rstrace::camera::{Camera, OrthogonalCamera, PerspectiveCamera};
 use rstrace::color::{BLACK, Color};
-use rstrace::geometry::Vector;
+use rstrace::csg::CSG;
+use rstrace::csg::OperationsCSGType::{Difference, Intersection, Union};
+use rstrace::geometry::{Normal, Vector};
 use rstrace::hdr_image::HDR;
 use rstrace::image_tracer::ImageTracer;
 use rstrace::materials::Material;
@@ -21,10 +23,10 @@ use std::time::Instant;
 
 #[derive(Parser)]
 struct Cli {
-    #[arg(long, default_value_t = 1000)]
+    #[arg(long, default_value_t = 100)]
     width: usize,
 
-    #[arg(long, default_value_t = 750)]
+    #[arg(long, default_value_t = 100)]
     height: usize,
 
     #[arg(long)]
@@ -103,12 +105,12 @@ fn demo_world() -> World {
 
     // 3. DIFFUSE SPHERE
     let sphere_material = Material {
-        pigment: Box::new(UniformPigment::new(Color::new(0.3, 0.4, 0.8))),
+        pigment: Box::new(UniformPigment::new(Color::new(0.3, 0.4, 0.2))),
         brdf: Box::new(DiffusiveBrdf {}),
         emitted_radiance: Box::new(UniformPigment::new(BLACK)),
     };
-    let s1_transform = Translation::new(Vector::new(0.0, 0.0, 1.0));
-    objects.push(Box::new(Sphere::new(s1_transform, sphere_material)));
+    let s1_transform = Translation::new(Vector::new(-0.2, 0.3, 1.1));
+    //objects.push(Box::new(Sphere::new(s1_transform, mirror_material)));
 
     // 4. MIRROR SPHERE
     let mirror_material = Material {
@@ -116,9 +118,16 @@ fn demo_world() -> World {
         brdf: Box::new(SpecularBrdf {}),
         emitted_radiance: Box::new(UniformPigment::new(BLACK)),
     };
-    let s2_transform = Translation::new(Vector::new(1.0, 2.5, 0.0));
-    objects.push(Box::new(Sphere::new(s2_transform, mirror_material)));
 
+    let s2_transform = Translation::new(Vector::new(-0.3, 0.3, 1.1));
+    //objects.push(Box::new(Sphere::new(s2_transform, mirror_material)));
+
+   let csg = Box::new(CSG::new(
+        Box::new(Sphere::new(s1_transform, mirror_material)),
+        Box::new(Sphere::new(s2_transform, sphere_material)),
+        Difference,
+    ));
+    objects.push(csg);
     World { objects }
 }
 

@@ -14,7 +14,7 @@
 
 use crate::functions::are_close;
 use anyhow::{Result, anyhow};
-use std::ops::{Add, Div, Mul};
+use std::ops::{Add, AddAssign, Div, Mul};
 
 /// RGB color stored as three linear floating-point components.
 ///
@@ -250,6 +250,15 @@ impl Div<f32> for Color {
     }
 }
 
+/// Adds `rhs` component-wise in place: `self.r += rhs.r`, etc.
+impl AddAssign for Color {
+    fn add_assign(&mut self, rhs: Color) {
+        self.r += rhs.r;
+        self.g += rhs.g;
+        self.b += rhs.b;
+    }
+}
+
 // =========================================================
 // Predefined colors and palettes
 // =========================================================
@@ -372,6 +381,18 @@ mod tests {
         };
 
         assert_eq!(c1 + c2, c3);
+    }
+
+    #[test]
+    fn test_add_assign() {
+        let mut color1 = Color::new(1.0, 2.0, 3.0);
+
+        color1 += Color::new(4.0, 5.0, 6.0);
+        let expected = Color::new(5.0, 7.0, 9.0);
+        assert!(
+            color1.is_close(&expected),
+            "expected : {expected:?}\ncolor : {color1:?}"
+        );
     }
 
     #[test]

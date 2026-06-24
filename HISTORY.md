@@ -1,5 +1,7 @@
 ## Head
 
+- Implement Whitted point-light renderer with `PointLightSource` and `SphericalLightSource`
+  ([PR#28](https://github.com/scaioo/RayTraceRS/pull/28)).
 - Add `SimpleMesh` with OBJ loading via `tobj` 
   ([PR#26](https://github.com/scaioo/RayTraceRS/pull/26)).
 - Add `IndexTriangle` for compact index-based triangle connectivity

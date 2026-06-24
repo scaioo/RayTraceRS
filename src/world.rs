@@ -54,11 +54,12 @@ impl Add for World {
 
     /// Merges two [`World`] instances into one.
     ///
-    /// This operation consumes both worlds and returns a new world containing
-    /// the combined collection of objects. The objects from `rhs` are appended
-    /// to the end of the existing object list.
+    /// Consumes both worlds and returns a new world whose `objects` and
+    /// `light_sources` lists are the concatenation of `self`'s followed by
+    /// `rhs`'s respectively.
     fn add(mut self, rhs: World) -> World {
         self.objects.extend(rhs.objects);
+        self.light_sources.extend(rhs.light_sources);
         self
     }
 }

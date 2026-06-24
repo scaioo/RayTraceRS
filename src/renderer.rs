@@ -13,6 +13,7 @@
 //! | [`OnOffRenderer`] | Binary hit/miss colouring | Scene debugging, silhouettes |
 //! | [`FlatRenderer`] | Surface colour, no lighting | Material and UV debugging |
 //! | [`PathTracer`] | Full Monte Carlo path tracing | Final physically-based renders |
+//! | [`PointLightRenderer`] | Direct illumination, explicit lights | Whitted-style lit scene previews   |
 //!
 
 use crate::color::{BLACK, Color, WHITE};
@@ -258,13 +259,37 @@ impl Renderer for PathTracer {
 // =================================================================
 // Whitted Algorithm
 // =================================================================
+
+/// A direct-illumination renderer based on the Whitted point-light model.
+///
+/// For each ray–surface intersection it queries every [`LightSource`] in the
+/// scene and accumulates their contributions, which already handle shadow
+/// testing and the Lambert cosine factor internally. No indirect bounces are
+/// computed: the result is an approximation suitable for scenes lit by explicit
+/// point or spherical lights without global illumination.
+///
+/// # Use case
+///
+/// Useful for previewing scenes with explicit light sources where the full cost
+/// of path tracing is not needed.
 pub struct PointLightRenderer {
+    /// Color returned when a ray does not hit any object.
     pub background_color: Color,
 }
 
 impl PointLightRenderer {}
 
 impl Renderer for PointLightRenderer {
+    /// Computes the direct-illumination color for `ray` in `world`.
+    ///
+    /// Iterates over all [`LightSource`]s in `world.light_sources` and sums
+    /// their contributions at the hit point. Returns `background_color` on a
+    /// miss.
+    ///
+    /// # Errors
+    ///
+    /// Propagates errors from [`LightSource::source_contribution`] (e.g. a
+    /// pigment evaluation failure).
     fn render(&self, ray: &Ray, world: &World, pcg: &mut PCG) -> Result<Color> {
         let hit_record = match world.ray_intersection(ray) {
             Some(hit) => hit,

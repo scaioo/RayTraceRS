@@ -2,8 +2,10 @@ use crate::brdf::{BRDF, DiffusiveBrdf, SpecularBrdf};
 use crate::camera::{Camera, OrthogonalCamera, PerspectiveCamera};
 use crate::color::Color;
 use crate::geometry::{Point, Vector};
+use crate::lexer::Keyword::SIMPLEMESH;
 use crate::lexer::{InputStream, Keyword, TokenKind};
 use crate::materials::Material;
+use crate::mesh::SimpleMesh;
 use crate::pfm_func::read_pfm_file;
 use crate::pigments::{CheckeredPigment, GradientPigment, ImagePigment, Pigment, UniformPigment};
 use crate::shapes::{AABB, Plane, Sphere};
@@ -13,7 +15,9 @@ use crate::transformations::{
 use crate::world::World;
 use anyhow::{Result, anyhow, bail};
 use std::collections::{HashMap, HashSet};
+use std::fs::File;
 use std::io::BufRead;
+use std::path::PathBuf;
 
 /// A scene read from a scene file.
 ///
@@ -441,6 +445,25 @@ pub fn parse_box<B: BufRead>(stream: &mut InputStream<B>, scene: &Scene) -> Resu
     Ok(aabb)
 }
 
+pub fn parse_simple_mesh<B: BufRead>(
+    stream: &mut InputStream<B>,
+    scene: &Scene,
+) -> Result<SimpleMesh> {
+    expect_symbol(stream, '(')?;
+    let material_name = expect_identifier(stream)?;
+    expect_symbol(stream, ',')?;
+    let path = PathBuf::from(expect_string(stream)?);
+    expect_symbol(stream, ',')?;
+    let transformation = parse_transformation(stream, scene)?;
+    expect_symbol(stream, ')')?;
+    let material = scene
+        .materials
+        .get(&material_name)
+        .ok_or_else(|| anyhow!("Unknown material '{}' for SimpleMesh", material_name))?
+        .clone();
+    Ok(SimpleMesh::from_obj(&path, material, transformation)?)
+}
+
 /// Parses a camera: `camera(perspective, transformation, aspect_ratio, distance)`
 pub fn parse_camera<B: BufRead>(
     stream: &mut InputStream<B>,
@@ -513,6 +536,10 @@ pub fn parse_scene<B: BufRead>(
                 let box_shape = parse_box(stream, &scene)?;
                 scene.world.objects.push(Box::new(box_shape));
             }
+            TokenKind::Keyword(Keyword::SIMPLEMESH) => {
+                let simple_mesh = parse_simple_mesh(stream, &scene)?;
+                scene.world.objects.push(Box::new(simple_mesh));
+            }
             TokenKind::Keyword(Keyword::CAMERA) => {
                 let camera = parse_camera(stream, &scene)?;
                 scene.camera = Some(camera);
@@ -539,6 +566,9 @@ mod test {
     use crate::geometry::Vec2D;
     use crate::lexer::InputStream;
     use std::collections::HashMap;
+    use std::io::Write;
+    use tempfile::tempdir;
+
     #[test]
     fn test_input_stream_python_translation() {
         // We initialize the stream with the same string as the Python test
@@ -760,6 +790,76 @@ point([2.0, 1.0, 1.0])
 
         // ---- check box -----------------------
         assert_eq!(scene.world.objects.len(), 1);
+
+        Ok(())
+    }
+
+    #[test]
+    fn test_simple_mesh_light_sources() -> Result<()> {
+        // Build the test-file
+        let dir = tempdir()?;
+        let path = dir.path().join("parallelepiped.obj");
+        let mut file = File::create(path.clone())?;
+
+        let content = r#"# Parallelepiped Mesh
+v 0.0 0.0 0.0
+v 1.0 0.0 0.0
+v 1.0 2.0 0.0
+v 0.0 2.0 0.0
+v 0.0 0.0 3.0
+v 1.0 0.0 3.0
+v 1.0 2.0 3.0
+v 0.0 2.0 3.0
+
+f 1 2 3
+f 1 3 4
+f 5 6 1
+f 1 2 6
+f 6 7 8
+f 5 6 8
+f 4 3 8
+f 8 3 7
+f 1 8 4
+f 1 5 8
+f 2 3 6
+f 6 3 7
+"#;
+
+        file.write_all(content.as_bytes())?;
+
+        // Actual parser test
+        let text = format!(
+            r#"
+    material mesh_material(
+        uniform(<0.0, 0.5, 0.9>),
+        specular(),
+        uniform(<0, 0, 0>)
+    )
+
+    simple_mesh(mesh_material, "{}", scaling([0.1, 0.1, 0.1]))
+    "#,
+            path.display()
+        );
+
+        let cursor = std::io::Cursor::new(text);
+        let mut stream = InputStream::new(cursor, 0, 4);
+
+        let initial_vars = HashMap::new();
+        let scene = parse_scene(&mut stream, initial_vars)?;
+
+        assert_eq!(
+            scene.materials.len(),
+            1,
+            "Expected 1 material but found {}",
+            scene.materials.len()
+        );
+
+        assert_eq!(
+            scene.world.objects.len(),
+            1,
+            "Expected 1 object but found {}",
+            scene.world.objects.len()
+        );
 
         Ok(())
     }

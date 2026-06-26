@@ -280,6 +280,7 @@ impl<B: BufRead> InputStream<B> {
             "plane" => TokenKind::Keyword(Keyword::PLANE),
             "sphere" => TokenKind::Keyword(Keyword::SPHERE),
             "box" => TokenKind::Keyword(Keyword::BOX),
+            "simple_mesh" => TokenKind::Keyword(Keyword::SIMPLEMESH),
             "diffuse" => TokenKind::Keyword(Keyword::DIFFUSE),
             "specular" => TokenKind::Keyword(Keyword::SPECULAR),
             "uniform" => TokenKind::Keyword(Keyword::UNIFORM),
@@ -466,6 +467,7 @@ pub enum Keyword {
     PLANE,
     SPHERE,
     BOX,
+    SIMPLEMESH,
     DIFFUSE,
     SPECULAR,
     UNIFORM,
@@ -493,7 +495,7 @@ static WHITESPACE: &str = " \t\r\n";
 mod test {
     use super::*;
     use crate::geometry::Point;
-    use crate::lexer::Keyword::{BOX, FLOAT, GRADIENT, MATERIAL, POINT};
+    use crate::lexer::Keyword::{BOX, FLOAT, GRADIENT, MATERIAL, POINT, SIMPLEMESH};
     use crate::lexer::TokenKind;
     use crate::lexer::TokenKind::Keyword;
     use std::io::Cursor;
@@ -1000,5 +1002,19 @@ camera(perspective, rotation_z(30) * translation([-4, 0, 1]), 1.0, 1.0)";
         let mut stream = InputStream::new(cursor, 0, 4);
         let token = stream.read_token().unwrap();
         assert_eq!(token.kind, Keyword(POINT), "token.kind = {:?}", token.kind);
+    }
+
+    #[test]
+    fn test_mesh_reader() {
+        let text = r#"simple_mesh("#;
+        let cursor = std::io::Cursor::new(text);
+        let mut stream = InputStream::new(cursor, 0, 4);
+        let token = stream.read_token().unwrap();
+        assert_eq!(
+            token.kind,
+            TokenKind::Keyword(SIMPLEMESH),
+            "token.kind = {:?}",
+            token.kind
+        );
     }
 }

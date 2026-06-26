@@ -6,8 +6,7 @@
 //!   over a disk of configurable radius and sample count.
 
 use crate::color::{BLACK, Color};
-use crate::functions::Within;
-use crate::geometry::{Dot, Normal, Point, Vec2D, Vector, branchless_onb};
+use crate::geometry::{Dot, Normal, Point, Vector, branchless_onb};
 use crate::hit_record::HitRecord;
 use crate::pcg::PCG;
 use crate::ray::Ray;
@@ -159,8 +158,8 @@ impl LightSource for SphericalLightSource {
 mod tests {
     use super::*;
     use crate::brdf::DiffusiveBrdf;
-    use crate::functions::IDENTITY_4X4;
-    use crate::geometry::{Normal, X_AXIS, Y_AXIS, Z_AXIS};
+    use crate::functions::{IDENTITY_4X4, Within};
+    use crate::geometry::{Normal, Vec2D, X_AXIS, Y_AXIS, Z_AXIS};
     use crate::materials::Material;
     use crate::pigments::UniformPigment;
     use crate::shapes::{Plane, Shape, Sphere};

@@ -2,7 +2,6 @@ use crate::brdf::{BRDF, DiffusiveBrdf, SpecularBrdf};
 use crate::camera::{Camera, OrthogonalCamera, PerspectiveCamera};
 use crate::color::Color;
 use crate::geometry::{Point, Vector};
-use crate::lexer::Keyword::SIMPLEMESH;
 use crate::lexer::{InputStream, Keyword, TokenKind};
 use crate::materials::Material;
 use crate::mesh::SimpleMesh;
@@ -15,7 +14,6 @@ use crate::transformations::{
 use crate::world::World;
 use anyhow::{Result, anyhow, bail};
 use std::collections::{HashMap, HashSet};
-use std::fs::File;
 use std::io::BufRead;
 use std::path::PathBuf;
 
@@ -461,7 +459,7 @@ pub fn parse_simple_mesh<B: BufRead>(
         .get(&material_name)
         .ok_or_else(|| anyhow!("Unknown material '{}' for SimpleMesh", material_name))?
         .clone();
-    Ok(SimpleMesh::from_obj(&path, material, transformation)?)
+    SimpleMesh::from_obj(&path, material, transformation)
 }
 
 /// Parses a camera: `camera(perspective, transformation, aspect_ratio, distance)`
@@ -566,6 +564,7 @@ mod test {
     use crate::geometry::Vec2D;
     use crate::lexer::InputStream;
     use std::collections::HashMap;
+    use std::fs::File;
     use std::io::Write;
     use tempfile::tempdir;
 

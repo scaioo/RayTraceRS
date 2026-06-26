@@ -109,14 +109,14 @@ impl<C: Camera> ImageTracer<C> {
 
                 if self.n == 0 {
                     let ray = self.fire_ray(col, row, 0.5, 0.5);
-                    color = color + renderer(ray, world)?;
+                    color += renderer(ray, world)?;
                 } else {
                     for i in 0..self.n {
                         for j in 0..self.n {
                             let u = (i as f32 + pcg.random_float()) / self.n as f32;
                             let v = (j as f32 + pcg.random_float()) / self.n as f32;
                             let ray = self.fire_ray(col, row, u, v);
-                            color = color + renderer(ray, world)? / squares;
+                            color += renderer(ray, world)? / squares;
                         }
                     }
                 }

@@ -17,7 +17,6 @@
 //!
 
 use crate::color::{BLACK, Color, WHITE};
-use crate::geometry::{Dot, Vector};
 use crate::pcg::PCG;
 use crate::ray::Ray;
 use crate::world::World;

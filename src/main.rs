@@ -2,20 +2,18 @@ use anyhow::{Result, anyhow};
 use clap::Parser;
 use rstrace::brdf::{DiffusiveBrdf, SpecularBrdf};
 use rstrace::camera::{Camera, OrthogonalCamera, PerspectiveCamera};
-use rstrace::color::{BLACK, Color, WHITE};
-use rstrace::functions::IDENTITY_4X4;
-use rstrace::geometry::{Point, Vector};
+use rstrace::color::{BLACK, Color};
+use rstrace::geometry::Vector;
 use rstrace::hdr_image::HDR;
 use rstrace::image_tracer::ImageTracer;
-use rstrace::light_source::{PointLightSource, SphericalLightSource};
 use rstrace::materials::Material;
 use rstrace::pcg::PCG;
-use rstrace::pfm_func::{Endianness, pfm_to_ldr, read_pfm};
-use rstrace::pigments::{CheckeredPigment, GradientPigment, ImagePigment, UniformPigment};
+use rstrace::pfm_func::{Endianness, pfm_to_ldr};
+use rstrace::pigments::{CheckeredPigment, UniformPigment};
 use rstrace::ray::Ray;
 use rstrace::renderer::{FlatRenderer, OnOffRenderer, PathTracer, PointLightRenderer, Renderer};
 use rstrace::shapes::{Plane, Shape, Sphere};
-use rstrace::transformations::{Scaling, Transformation, Translation, YRotation, ZRotation};
+use rstrace::transformations::{Scaling, Transformation, Translation, ZRotation};
 use rstrace::world::World;
 use std::collections::HashMap;
 use std::fs::File;
@@ -340,7 +338,7 @@ fn main() -> Result<()> {
 
             println!("Generating a {}x{} image", cli.width, cli.height);
 
-            let mut imagetracer = ImageTracer::new(img, camera);
+            let mut imagetracer = ImageTracer::new(img, camera, samples_per_pixel.isqrt());
 
             // 5. Setup Renderer
             let flat_renderer = FlatRenderer::new(BLACK);

@@ -298,7 +298,8 @@ impl<B: BufRead> InputStream<B> {
             "perspective" => TokenKind::Keyword(Keyword::PERSPECTIVE),
             "float" => TokenKind::Keyword(Keyword::FLOAT),
             "point" => TokenKind::Keyword(Keyword::POINT),
-            "point_light" => TokenKind::Keyword(Keyword::PointLight),
+            "point_light" => TokenKind::Keyword(Keyword::PTLIGHTSOURCE),
+            "spherical_light" => TokenKind::Keyword(Keyword::SPHLIGHTSOURCE),
             s => TokenKind::Identifier(s.to_string()),
         };
         Ok(Token { kind, loc })
@@ -485,7 +486,8 @@ pub enum Keyword {
     PERSPECTIVE,
     FLOAT,
     POINT,
-    PointLight,
+    PTLIGHTSOURCE,
+    SPHLIGHTSOURCE
 }
 
 static SYMBOLS: &str = "()<>[],*";
@@ -494,8 +496,7 @@ static WHITESPACE: &str = " \t\r\n";
 #[cfg(test)]
 mod test {
     use super::*;
-    use crate::geometry::Point;
-    use crate::lexer::Keyword::{BOX, FLOAT, GRADIENT, MATERIAL, POINT, SIMPLEMESH};
+    use crate::lexer::Keyword::{BOX, FLOAT, GRADIENT, MATERIAL, POINT, PTLIGHTSOURCE, SIMPLEMESH, SPHLIGHTSOURCE};
     use crate::lexer::TokenKind;
     use crate::lexer::TokenKind::Keyword;
     use std::io::Cursor;
@@ -1013,6 +1014,34 @@ camera(perspective, rotation_z(30) * translation([-4, 0, 1]), 1.0, 1.0)";
         assert_eq!(
             token.kind,
             TokenKind::Keyword(SIMPLEMESH),
+            "token.kind = {:?}",
+            token.kind
+        );
+    }
+
+    #[test]
+    fn test_point_light_source_reader() {
+        let text = r#"point_light("#;
+        let cursor = std::io::Cursor::new(text);
+        let mut stream = InputStream::new(cursor, 0, 4);
+        let token = stream.read_token().unwrap();
+        assert_eq!(
+            token.kind,
+            TokenKind::Keyword(PTLIGHTSOURCE),
+            "token.kind = {:?}",
+            token.kind
+        );
+    }
+
+    #[test]
+    fn test_spherical_light_source_reader() {
+        let text = r#"spherical_light("#;
+        let cursor = std::io::Cursor::new(text);
+        let mut stream = InputStream::new(cursor, 0, 4);
+        let token = stream.read_token().unwrap();
+        assert_eq!(
+            token.kind,
+            TokenKind::Keyword(SPHLIGHTSOURCE),
             "token.kind = {:?}",
             token.kind
         );

@@ -16,6 +16,7 @@ use anyhow::{Result, anyhow, bail};
 use std::collections::{HashMap, HashSet};
 use std::io::BufRead;
 use std::path::PathBuf;
+use crate::light_source::{PointLightSource, SphericalLightSource};
 
 /// A scene read from a scene file.
 ///
@@ -462,6 +463,36 @@ pub fn parse_simple_mesh<B: BufRead>(
     SimpleMesh::from_obj(&path, material, transformation)
 }
 
+pub fn parse_point_light<B: BufRead>(
+    stream: &mut InputStream<B>,
+    scene: &Scene,
+) -> Result<PointLightSource> {
+    expect_symbol(stream, '(')?;
+    expect_keywords(stream, &[Keyword::POINT])?;
+    let point = parse_point(stream, scene)?;
+    expect_symbol(stream, ',')?;
+    let color = parse_color(stream, scene)?;
+    expect_symbol(stream, ')')?;
+    Ok(PointLightSource::new(point, color))
+}
+
+pub fn parse_spherical_light<B: BufRead>(
+    stream: &mut InputStream<B>,
+    scene: &Scene,
+) -> Result<SphericalLightSource> {
+    expect_symbol(stream, '(')?;
+    expect_keywords(stream, &[Keyword::POINT])?;
+    let point = parse_point(stream, scene)?;
+    expect_symbol(stream, ',')?;
+    let radius = expect_number(stream, scene)?;
+    expect_symbol(stream, ',')?;
+    let color = parse_color(stream, scene)?;
+    expect_symbol(stream, ',')?;
+    let n_tests = expect_number(stream, scene)? as usize;
+    expect_symbol(stream, ')')?;
+    Ok(SphericalLightSource::new(point, radius, color, n_tests))
+}
+
 /// Parses a camera: `camera(perspective, transformation, aspect_ratio, distance)`
 pub fn parse_camera<B: BufRead>(
     stream: &mut InputStream<B>,
@@ -538,6 +569,14 @@ pub fn parse_scene<B: BufRead>(
                 let simple_mesh = parse_simple_mesh(stream, &scene)?;
                 scene.world.objects.push(Box::new(simple_mesh));
             }
+            TokenKind::Keyword(Keyword::PTLIGHTSOURCE) => {
+                let point_light_source : PointLightSource = parse_point_light(stream, &scene)?;
+                scene.world.light_sources.push(Box::new(point_light_source));
+            }
+            TokenKind::Keyword(Keyword::SPHLIGHTSOURCE) => {
+                let spherical_light_source : SphericalLightSource = parse_spherical_light(stream, &scene)?;
+                scene.world.light_sources.push(Box::new(spherical_light_source));
+            }
             TokenKind::Keyword(Keyword::CAMERA) => {
                 let camera = parse_camera(stream, &scene)?;
                 scene.camera = Some(camera);
@@ -560,13 +599,16 @@ pub fn parse_scene<B: BufRead>(
 #[cfg(test)]
 mod test {
     use super::*;
-    use crate::color::Color;
-    use crate::geometry::Vec2D;
+    use crate::color::{Color, WHITE};
+    use crate::geometry::{Normal, Vec2D, X_AXIS, Z_AXIS};
     use crate::lexer::InputStream;
     use std::collections::HashMap;
     use std::fs::File;
     use std::io::Write;
     use tempfile::tempdir;
+    use crate::hit_record::HitRecord;
+    use crate::pcg::PCG;
+    use crate::ray::Ray;
 
     #[test]
     fn test_input_stream_python_translation() {
@@ -859,6 +901,75 @@ f 6 3 7
             "Expected 1 object but found {}",
             scene.world.objects.len()
         );
+
+        Ok(())
+    }
+
+    #[test]
+    fn test_point_light_source() -> Result<()> {
+        let text = r#"point_light(point([0,0,10]),<0.0, 0.1, 0.5>)"#;
+        let cursor = std::io::Cursor::new(text);
+        let mut stream = InputStream::new(cursor, 0, 4);
+
+        let initial_vars = HashMap::new();
+        let scene = parse_scene(&mut stream, initial_vars)?;
+
+        assert_eq!(scene.world.light_sources.len(), 1, "Expected 1 light source but found {}", scene.world.light_sources.len());
+        assert_eq!(scene.world.objects.len(), 0, "Expected no objects but found {}", scene.world.objects.len());
+
+        let hit = HitRecord {
+            world_point: Point::new(0.0, 0.0, 0.0),
+            normal: Normal::from(Z_AXIS),
+            uv: Vec2D::new(0.0, 0.0),
+            t: 0.0,
+            ray: Ray::new(Point::new(0.0, 0.0, -10.0), Z_AXIS),
+            material: &Default::default(),
+        };
+        let mut pcg = PCG::default();
+        let color = scene.world.light_sources
+            .iter()
+            .next().
+            unwrap()
+            .source_contribution(&hit,&scene.world, &mut pcg)?;
+        let expected_color = Color::new(0.0, 0.1, 0.5);
+        assert!(color.is_close(&expected_color), "expected: {:?}\n found: {:?}", expected_color, color);
+        Ok(())
+    }
+
+    #[test]
+    fn test_spherical_light_source() -> Result<()> {
+        let text = r#"spherical_light(
+point([-10., 0.0, 0.0]),
+1, <0.1, 0.2, 0.3>, 10)"#;
+        let cursor = std::io::Cursor::new(text);
+        let mut stream = InputStream::new(cursor, 0, 4);
+
+        let initial_vars = HashMap::new();
+        let scene = parse_scene(&mut stream, initial_vars)?;
+
+        assert_eq!(scene.world.light_sources.len(), 1, "Expected 1 light source but found {}", scene.world.light_sources.len());
+        assert_eq!(scene.world.objects.len(), 0, "Expected no objects but found {}", scene.world.objects.len());
+
+        let hit = HitRecord {
+            world_point: Point::new(0.0, 0.0, 0.0),
+            normal: Normal::from(- X_AXIS),
+            uv: Vec2D::new(0.0, 0.0),
+            t: 0.0,
+            ray: Ray::new(Point::new(0.0, 0.0, 0.0), - X_AXIS),
+            material: &Default::default(),
+        };
+        let mut pcg = PCG::default();
+
+        // no objects in scene -> all samples unoccluded, result is deterministic
+        let color = scene.world.light_sources
+            .iter()
+            .next().
+            unwrap()
+            .source_contribution(&hit,&scene.world, &mut pcg)?;
+        let expected_color = Color::new(0.1, 0.2, 0.3);
+        assert!((color.r - expected_color.r).abs() < 0.001, "expected: {:?}\n found: {:?}", expected_color.r, color.r);
+        assert!((color.g - expected_color.g).abs() < 0.001, "expected: {:?}\n found: {:?}", expected_color.g, color.g);
+        assert!((color.b - expected_color.b).abs() < 0.001, "expected: {:?}\n found: {:?}", expected_color.b, color.b);
 
         Ok(())
     }

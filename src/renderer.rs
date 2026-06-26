@@ -315,16 +315,15 @@ mod tests {
     use crate::brdf::DiffusiveBrdf;
     use crate::camera::OrthogonalCamera;
     use crate::color::{BLACK, Color, WHITE};
-    use crate::functions::{IDENTITY_4X4, Within, are_close};
+    use crate::functions::{IDENTITY_4X4, are_close};
     use crate::geometry::{Point, Vector, X_AXIS, Y_AXIS};
     use crate::hdr_image::HDR;
     use crate::image_tracer::ImageTracer;
-    use crate::lexer::Keyword::SPHERE;
     use crate::light_source::{PointLightSource, SphericalLightSource};
     use crate::materials::Material;
     use crate::pcg::PCG;
     use crate::pigments::UniformPigment;
-    use crate::shapes::{Shape, Sphere};
+    use crate::shapes::Sphere;
     use crate::transformations::{Scaling, Transformation, Translation};
     use anyhow::Result;
     use approx::assert_relative_eq;

@@ -3,6 +3,7 @@ use crate::camera::{Camera, OrthogonalCamera, PerspectiveCamera};
 use crate::color::Color;
 use crate::geometry::{Point, Vector};
 use crate::lexer::{InputStream, Keyword, TokenKind};
+use crate::light_source::{PointLightSource, SphericalLightSource};
 use crate::materials::Material;
 use crate::mesh::SimpleMesh;
 use crate::pfm_func::read_pfm_file;
@@ -16,7 +17,6 @@ use anyhow::{Result, anyhow, bail};
 use std::collections::{HashMap, HashSet};
 use std::io::BufRead;
 use std::path::PathBuf;
-use crate::light_source::{PointLightSource, SphericalLightSource};
 
 /// A scene read from a scene file.
 ///
@@ -570,12 +570,16 @@ pub fn parse_scene<B: BufRead>(
                 scene.world.objects.push(Box::new(simple_mesh));
             }
             TokenKind::Keyword(Keyword::PTLIGHTSOURCE) => {
-                let point_light_source : PointLightSource = parse_point_light(stream, &scene)?;
+                let point_light_source: PointLightSource = parse_point_light(stream, &scene)?;
                 scene.world.light_sources.push(Box::new(point_light_source));
             }
             TokenKind::Keyword(Keyword::SPHLIGHTSOURCE) => {
-                let spherical_light_source : SphericalLightSource = parse_spherical_light(stream, &scene)?;
-                scene.world.light_sources.push(Box::new(spherical_light_source));
+                let spherical_light_source: SphericalLightSource =
+                    parse_spherical_light(stream, &scene)?;
+                scene
+                    .world
+                    .light_sources
+                    .push(Box::new(spherical_light_source));
             }
             TokenKind::Keyword(Keyword::CAMERA) => {
                 let camera = parse_camera(stream, &scene)?;
@@ -599,16 +603,16 @@ pub fn parse_scene<B: BufRead>(
 #[cfg(test)]
 mod test {
     use super::*;
-    use crate::color::{Color, WHITE};
+    use crate::color::Color;
     use crate::geometry::{Normal, Vec2D, X_AXIS, Z_AXIS};
+    use crate::hit_record::HitRecord;
     use crate::lexer::InputStream;
+    use crate::pcg::PCG;
+    use crate::ray::Ray;
     use std::collections::HashMap;
     use std::fs::File;
     use std::io::Write;
     use tempfile::tempdir;
-    use crate::hit_record::HitRecord;
-    use crate::pcg::PCG;
-    use crate::ray::Ray;
 
     #[test]
     fn test_input_stream_python_translation() {
@@ -914,8 +918,18 @@ f 6 3 7
         let initial_vars = HashMap::new();
         let scene = parse_scene(&mut stream, initial_vars)?;
 
-        assert_eq!(scene.world.light_sources.len(), 1, "Expected 1 light source but found {}", scene.world.light_sources.len());
-        assert_eq!(scene.world.objects.len(), 0, "Expected no objects but found {}", scene.world.objects.len());
+        assert_eq!(
+            scene.world.light_sources.len(),
+            1,
+            "Expected 1 light source but found {}",
+            scene.world.light_sources.len()
+        );
+        assert_eq!(
+            scene.world.objects.len(),
+            0,
+            "Expected no objects but found {}",
+            scene.world.objects.len()
+        );
 
         let hit = HitRecord {
             world_point: Point::new(0.0, 0.0, 0.0),
@@ -926,13 +940,20 @@ f 6 3 7
             material: &Default::default(),
         };
         let mut pcg = PCG::default();
-        let color = scene.world.light_sources
+        let color = scene
+            .world
+            .light_sources
             .iter()
-            .next().
-            unwrap()
-            .source_contribution(&hit,&scene.world, &mut pcg)?;
+            .next()
+            .unwrap()
+            .source_contribution(&hit, &scene.world, &mut pcg)?;
         let expected_color = Color::new(0.0, 0.1, 0.5);
-        assert!(color.is_close(&expected_color), "expected: {:?}\n found: {:?}", expected_color, color);
+        assert!(
+            color.is_close(&expected_color),
+            "expected: {:?}\n found: {:?}",
+            expected_color,
+            color
+        );
         Ok(())
     }
 
@@ -947,29 +968,56 @@ point([-10., 0.0, 0.0]),
         let initial_vars = HashMap::new();
         let scene = parse_scene(&mut stream, initial_vars)?;
 
-        assert_eq!(scene.world.light_sources.len(), 1, "Expected 1 light source but found {}", scene.world.light_sources.len());
-        assert_eq!(scene.world.objects.len(), 0, "Expected no objects but found {}", scene.world.objects.len());
+        assert_eq!(
+            scene.world.light_sources.len(),
+            1,
+            "Expected 1 light source but found {}",
+            scene.world.light_sources.len()
+        );
+        assert_eq!(
+            scene.world.objects.len(),
+            0,
+            "Expected no objects but found {}",
+            scene.world.objects.len()
+        );
 
         let hit = HitRecord {
             world_point: Point::new(0.0, 0.0, 0.0),
-            normal: Normal::from(- X_AXIS),
+            normal: Normal::from(-X_AXIS),
             uv: Vec2D::new(0.0, 0.0),
             t: 0.0,
-            ray: Ray::new(Point::new(0.0, 0.0, 0.0), - X_AXIS),
+            ray: Ray::new(Point::new(0.0, 0.0, 0.0), -X_AXIS),
             material: &Default::default(),
         };
         let mut pcg = PCG::default();
 
         // no objects in scene -> all samples unoccluded, result is deterministic
-        let color = scene.world.light_sources
+        let color = scene
+            .world
+            .light_sources
             .iter()
-            .next().
-            unwrap()
-            .source_contribution(&hit,&scene.world, &mut pcg)?;
+            .next()
+            .unwrap()
+            .source_contribution(&hit, &scene.world, &mut pcg)?;
         let expected_color = Color::new(0.1, 0.2, 0.3);
-        assert!((color.r - expected_color.r).abs() < 0.001, "expected: {:?}\n found: {:?}", expected_color.r, color.r);
-        assert!((color.g - expected_color.g).abs() < 0.001, "expected: {:?}\n found: {:?}", expected_color.g, color.g);
-        assert!((color.b - expected_color.b).abs() < 0.001, "expected: {:?}\n found: {:?}", expected_color.b, color.b);
+        assert!(
+            (color.r - expected_color.r).abs() < 0.001,
+            "expected: {:?}\n found: {:?}",
+            expected_color.r,
+            color.r
+        );
+        assert!(
+            (color.g - expected_color.g).abs() < 0.001,
+            "expected: {:?}\n found: {:?}",
+            expected_color.g,
+            color.g
+        );
+        assert!(
+            (color.b - expected_color.b).abs() < 0.001,
+            "expected: {:?}\n found: {:?}",
+            expected_color.b,
+            color.b
+        );
 
         Ok(())
     }

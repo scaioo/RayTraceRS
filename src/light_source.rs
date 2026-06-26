@@ -163,7 +163,7 @@ mod tests {
     use crate::materials::Material;
     use crate::pigments::UniformPigment;
     use crate::shapes::{Plane, Shape, Sphere};
-    use crate::transformations::{IsHomogeneousMatrix, Scaling, Transformation, Translation};
+    use crate::transformations::{Scaling, Transformation, Translation};
     #[test]
     fn test_point_light_source_constructor() {
         let color = Color::new(1.0, 2.0, 3.0);

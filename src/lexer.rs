@@ -487,7 +487,7 @@ pub enum Keyword {
     FLOAT,
     POINT,
     PTLIGHTSOURCE,
-    SPHLIGHTSOURCE
+    SPHLIGHTSOURCE,
 }
 
 static SYMBOLS: &str = "()<>[],*";
@@ -496,7 +496,9 @@ static WHITESPACE: &str = " \t\r\n";
 #[cfg(test)]
 mod test {
     use super::*;
-    use crate::lexer::Keyword::{BOX, FLOAT, GRADIENT, MATERIAL, POINT, PTLIGHTSOURCE, SIMPLEMESH, SPHLIGHTSOURCE};
+    use crate::lexer::Keyword::{
+        BOX, FLOAT, GRADIENT, MATERIAL, POINT, PTLIGHTSOURCE, SIMPLEMESH, SPHLIGHTSOURCE,
+    };
     use crate::lexer::TokenKind;
     use crate::lexer::TokenKind::Keyword;
     use std::io::Cursor;

@@ -5,7 +5,7 @@ use crate::geometry::Vector;
 use crate::lexer::{InputStream, Keyword, TokenKind};
 use crate::materials::Material;
 use crate::pfm_func::read_pfm_file;
-use crate::pigments::{CheckeredPigment, ImagePigment, Pigment, UniformPigment};
+use crate::pigments::{CheckeredPigment, GradientPigment, ImagePigment, Pigment, UniformPigment};
 use crate::shapes::{Plane, Sphere};
 use crate::transformations::{
     Scaling, Transformation, Translation, XRotation, YRotation, ZRotation,
@@ -43,7 +43,7 @@ impl Scene {
     pub fn new() -> Self {
         Self {
             materials: HashMap::new(),
-            world: World { objects: vec![] },
+            world: World { objects: vec![], light_sources: vec![] },
             camera: None,
             float_variables: HashMap::new(),
             overridden_variables: HashSet::new(),
@@ -205,7 +205,7 @@ pub fn parse_pigment<B: BufRead>(
 ) -> Result<Box<dyn Pigment>> {
     let keyword = expect_keywords(
         stream,
-        &[Keyword::UNIFORM, Keyword::CHECKERED, Keyword::IMAGE],
+        &[Keyword::UNIFORM, Keyword::CHECKERED, Keyword::IMAGE, Keyword::GRADIENT],
     )?;
     expect_symbol(stream, '(')?;
 
@@ -228,6 +228,14 @@ pub fn parse_pigment<B: BufRead>(
             // In a real scenario, you might want to cache images.
             let image = read_pfm_file(&file_name)?;
             Box::new(ImagePigment::new(image))
+        }
+        Keyword::GRADIENT => {
+            let color1 = parse_color(stream, scene)?;
+            expect_symbol(stream, ',')?;
+            let color2 = parse_color(stream, scene)?;
+            expect_symbol(stream, ',')?;
+            let angle = expect_number(stream, scene)?;
+            Box::new(GradientPigment::new(color1, color2, angle.to_radians()))
         }
         _ => unreachable!(),
     };
@@ -667,6 +675,35 @@ mod test {
         // 4. Check camera
         // ==========================================
         assert!(scene.camera.is_some());
+
+        Ok(())
+    }
+
+    #[test]
+    fn test_parse_scene2() -> Result<()> {
+        let text = r#"
+        # updates parsing
+        material ball(
+        gradient(
+        <0.1, 0.2, 0.5>,
+        <0.6, 0.8, 0.9>,
+        0
+        ), diffuse(), uniform(<0, 0, 0>)
+        )"#;
+
+        let cursor = std::io::Cursor::new(text);
+        let mut stream = InputStream::new(cursor, 0, 4);
+
+        let initial_vars = HashMap::new();
+        let scene = parse_scene(&mut stream, initial_vars)?;
+
+        assert_eq!(scene.materials.len(), 1, "Expected a single material but found {}", scene.materials.len());
+
+        // ---- check gradient -----------------------
+        let uv = Vec2D { x: 0.0, y: 0.0 };
+        let expected_color = Color::new(0.1, 0.2, 0.5);
+        let color = scene.materials["ball"].pigment.get_color(&uv)?;
+        assert!(expected_color.is_close(&color), "expected: {:?}\n found: {:?}", expected_color, color);
 
         Ok(())
     }

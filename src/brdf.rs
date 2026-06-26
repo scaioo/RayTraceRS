@@ -1,3 +1,5 @@
+// This file is licensed under the EUPL-1.2. See LICENSE.md.
+
 //! # BRDF — Bidirectional Reflectance Distribution Functions
 //!
 //! This module defines the [`BRDF`] trait and its implementations:
@@ -52,9 +54,7 @@ pub trait BRDF: CloneBrdf {
     /// * `incoming_dir`      — direction of the ray arriving at the surface.
     /// * `interacting_point` — world-space point of intersection.
     /// * `normal`            — surface normal at the interaction point
-    /// * `depth`             — current ray recursion depth, forwarded to the
-    ///
-    ///  new [`Ray`] unchanged.
+    /// * `depth`             — current ray recursion depth, forwarded to the new [`Ray`] unchanged.
     fn scatter_ray(
         &self,
         pcg: &mut PCG,
@@ -69,6 +69,19 @@ impl Clone for Box<dyn BRDF> {
     fn clone(&self) -> Box<dyn BRDF> {
         self.clone_brdf()
     }
+}
+
+/// A lightweight tag enum enumerating the available BRDF variants.
+///
+/// Useful for serialisation, scene-description parsing, or any context where
+/// a concrete BRDF type must be named without holding a `Box<dyn BRDF>`.
+/// Convert to a real BRDF by constructing the corresponding struct
+/// ([`DiffusiveBrdf`] or [`SpecularBrdf`]) directly.
+pub enum BRDFs {
+    /// Perfectly diffuse (Lambertian) reflectance. See [`DiffusiveBrdf`].
+    Diffuse,
+    /// Perfect mirror reflectance. See [`SpecularBrdf`].
+    Specular,
 }
 
 // ======================================================

@@ -1,3 +1,5 @@
+// This file is licensed under the EUPL-1.2. See LICENSE.md.
+
 //! Contains the [`HitRecord`] structure, which stores data about ray-surface intersections.
 //!
 //! In a raytracer, when a ray intersects an object, we need to know more than just a boolean

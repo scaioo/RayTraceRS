@@ -1,3 +1,5 @@
+// This file is licensed under the EUPL-1.2. See LICENSE.md.
+
 //! Lexer for the raytracer scene files.
 //!
 //! Defines the structures to read and tokenize a scene file,

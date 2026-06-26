@@ -1,3 +1,5 @@
+// This file is licensed under the EUPL-1.2. See LICENSE.md.
+
 //! The `ImageTracer` module ties together the `Camera` and the `HDR` image.
 //!
 //! It acts as the main rendering engine. Its primary responsibilities are:
@@ -10,6 +12,7 @@
 use crate::camera::Camera;
 use crate::color::Color;
 use crate::hdr_image::HDR;
+use crate::pcg::PCG;
 use crate::ray::Ray;
 use crate::world::World;
 use anyhow::Result;
@@ -31,19 +34,20 @@ use indicatif::{ProgressBar, ProgressStyle};
 ///
 /// let image = HDR::new(1920, 1080);
 /// let camera = PerspectiveCamera::new(Transformation::new(IDENTITY_4X4));
-/// let tracer = ImageTracer::new(image, camera);
+/// let tracer = ImageTracer::new(image, camera, 3);
 /// ```
 
 #[derive(Clone, Debug, PartialEq)]
 pub struct ImageTracer<C: Camera> {
     pub image: HDR,
     pub camera: C,
+    pub n: usize, // 0 for no antialiasing!
 }
 
 impl<C: Camera> ImageTracer<C> {
     /// Creates a new `ImageTracer` binding a canvas to an observer.
-    pub fn new(image: HDR, camera: C) -> Self {
-        ImageTracer { image, camera }
+    pub fn new(image: HDR, camera: C, n: usize) -> Self {
+        ImageTracer { image, camera, n }
     }
     /// Fires a single ray passing through a specific pixel.
     ///
@@ -97,12 +101,25 @@ impl<C: Camera> ImageTracer<C> {
                 .progress_chars("#>-")
         );
 
+        let mut pcg = PCG::default();
         for row in 0..self.image.height {
             for col in 0..self.image.width {
-                // Using 0.5 as the default pixel offsets like in Python
-                let ray = self.fire_ray(col, row, 0.5, 0.5);
+                let squares = (self.n * self.n) as f32;
+                let mut color: Color = Color::default();
 
-                let color = renderer(ray, world)?;
+                if self.n == 0 {
+                    let ray = self.fire_ray(col, row, 0.5, 0.5);
+                    color = color + renderer(ray, world)?;
+                } else {
+                    for i in 0..self.n {
+                        for j in 0..self.n {
+                            let u = (i as f32 + pcg.random_float()) / self.n as f32;
+                            let v = (j as f32 + pcg.random_float()) / self.n as f32;
+                            let ray = self.fire_ray(col, row, u, v);
+                            color = color + renderer(ray, world)? / squares;
+                        }
+                    }
+                }
 
                 self.image.set_pixel(col, row, color)?;
 
@@ -133,7 +150,7 @@ mod tests {
         let image = HDR::new(4, 2);
         let mut camera = PerspectiveCamera::new(Transformation::new(IDENTITY_4X4));
         camera.set_aspect_ratio(2.0)?;
-        let tracer = ImageTracer::new(image, camera);
+        let tracer = ImageTracer::new(image, camera, 1);
 
         let ray_1 = tracer.fire_ray(0, 0, 2.5, 1.5);
         let ray_2 = tracer.fire_ray(2, 1, 0.5, 0.5);
@@ -146,7 +163,7 @@ mod tests {
         let image = HDR::new(4, 2);
         let mut camera = PerspectiveCamera::new(Transformation::new(IDENTITY_4X4));
         camera.set_aspect_ratio(2.0).unwrap();
-        let tracer = ImageTracer::new(image, camera);
+        let tracer = ImageTracer::new(image, camera, 1);
         let top_left_ray = tracer.fire_ray(0, 0, 0.0, 0.0);
         println!("top left: {:?}", top_left_ray.at(1.0));
 
@@ -191,12 +208,15 @@ mod tests {
                 .map(|s| Box::new(s) as Box<dyn Shape>)
                 .collect();
 
-            World { objects }
+            World {
+                objects,
+                light_sources: vec![],
+            }
         }
         let image = HDR::new(4, 2);
         let mut camera = PerspectiveCamera::new(Transformation::new(IDENTITY_4X4));
         camera.set_aspect_ratio(2.0)?;
-        let mut tracer = ImageTracer::new(image, camera);
+        let mut tracer = ImageTracer::new(image, camera, 1);
         tracer.fire_all_rays(&demo_world(), color_image)?;
 
         // 2. Iterate through the tracer's image to verify the pixels

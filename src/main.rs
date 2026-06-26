@@ -2,18 +2,20 @@ use anyhow::{Result, anyhow};
 use clap::Parser;
 use rstrace::brdf::{DiffusiveBrdf, SpecularBrdf};
 use rstrace::camera::{Camera, OrthogonalCamera, PerspectiveCamera};
-use rstrace::color::{BLACK, Color};
-use rstrace::geometry::Vector;
+use rstrace::color::{BLACK, Color, WHITE};
+use rstrace::functions::IDENTITY_4X4;
+use rstrace::geometry::{Point, Vector};
 use rstrace::hdr_image::HDR;
 use rstrace::image_tracer::ImageTracer;
+use rstrace::light_source::{PointLightSource, SphericalLightSource};
 use rstrace::materials::Material;
 use rstrace::pcg::PCG;
-use rstrace::pfm_func::{Endianness, pfm_to_ldr};
-use rstrace::pigments::{CheckeredPigment, UniformPigment};
+use rstrace::pfm_func::{Endianness, pfm_to_ldr, read_pfm};
+use rstrace::pigments::{CheckeredPigment, GradientPigment, ImagePigment, UniformPigment};
 use rstrace::ray::Ray;
-use rstrace::renderer::{FlatRenderer, OnOffRenderer, PathTracer, Renderer};
+use rstrace::renderer::{FlatRenderer, OnOffRenderer, PathTracer, PointLightRenderer, Renderer};
 use rstrace::shapes::{Plane, Shape, Sphere};
-use rstrace::transformations::{Scaling, Transformation, Translation, ZRotation};
+use rstrace::transformations::{Scaling, Transformation, Translation, YRotation, ZRotation};
 use rstrace::world::World;
 use std::collections::HashMap;
 use std::fs::File;
@@ -43,13 +45,16 @@ enum Commands {
     Demo {
         file_name: String,
 
+        #[arg(long, default_value_t = 5)]
+        antialiasing: usize,
+
         #[arg(long, default_value_t = 0.0)]
         angle_deg: f32,
 
         #[arg(long, default_value = "pathtracing")]
         algorithm: String,
 
-        #[arg(long, default_value_t = 10)]
+        #[arg(long, default_value_t = 5)]
         num_of_rays: usize,
 
         #[arg(long, default_value_t = 3)]
@@ -149,7 +154,10 @@ fn demo_world() -> World {
     let s2_transform = Translation::new(Vector::new(1.0, 2.5, 0.0));
     objects.push(Box::new(Sphere::new(s2_transform, mirror_material)));
 
-    World { objects }
+    World {
+        objects,
+        light_sources: vec![],
+    }
 }
 
 /// Helper function to parse variables from the CLI into a HashMap
@@ -190,6 +198,7 @@ fn main() -> Result<()> {
     match cli.command {
         Commands::Demo {
             file_name,
+            antialiasing,
             angle_deg,
             algorithm,
             num_of_rays,
@@ -213,6 +222,9 @@ fn main() -> Result<()> {
             let flat_renderer = FlatRenderer::new(BLACK);
             let onoff_renderer = OnOffRenderer::default();
             let path_tracer = PathTracer::new(BLACK, num_of_rays, max_depth, 2);
+            let whitted = PointLightRenderer {
+                background_color: BLACK,
+            };
 
             // Let’s initialize the random number generator
             let mut pcg = PCG::default();
@@ -224,6 +236,8 @@ fn main() -> Result<()> {
                     flat_renderer.render(&ray, world, &mut pcg)
                 } else if algorithm == "pathtracing" {
                     path_tracer.render(&ray, world, &mut pcg)
+                } else if algorithm == "point-light" {
+                    whitted.render(&ray, world, &mut pcg)
                 } else {
                     panic!("Unknown algorithm: {}", algorithm);
                 }
@@ -233,7 +247,7 @@ fn main() -> Result<()> {
             if cli.orthogonal {
                 let mut o_cam = OrthogonalCamera::new(camera_tr);
                 o_cam.set_aspect_ratio(aspectratio)?;
-                let mut imagetracer = ImageTracer::new(img, o_cam);
+                let mut imagetracer = ImageTracer::new(img, o_cam, antialiasing);
 
                 println!("Rendering in progress...");
                 imagetracer.fire_all_rays(&world, render_closure)?;
@@ -241,7 +255,7 @@ fn main() -> Result<()> {
             } else {
                 let mut p_cam = PerspectiveCamera::new(camera_tr);
                 p_cam.set_aspect_ratio(aspectratio)?;
-                let mut imagetracer = ImageTracer::new(img, p_cam);
+                let mut imagetracer = ImageTracer::new(img, p_cam, antialiasing);
 
                 println!("Rendering in progress...");
                 imagetracer.fire_all_rays(&world, render_closure)?;

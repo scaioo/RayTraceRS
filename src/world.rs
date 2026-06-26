@@ -1,10 +1,14 @@
+// This file is licensed under the EUPL-1.2. See LICENSE.md.
+
 //! A scene is represented as a collection of geometric objects.
 //! This module implements a list of shapes: the `World` type.
 //!
 //! - It maintains a list of `Shape` objects.
 //! - It implements a `ray_intersection` method that iterates over the shapes,
 //!   searches for intersections, and returns the one closest to the ray origin.
+use crate::geometry::Point;
 use crate::hit_record::HitRecord;
+use crate::light_source::LightSource;
 use crate::ray::Ray;
 use crate::shapes::Shape;
 use std::ops::Add;
@@ -13,6 +17,7 @@ use std::ops::Add;
 #[derive(Clone)]
 pub struct World {
     pub objects: Vec<Box<dyn Shape>>,
+    pub light_sources: Vec<Box<dyn LightSource>>,
 }
 
 impl World {
@@ -49,11 +54,12 @@ impl Add for World {
 
     /// Merges two [`World`] instances into one.
     ///
-    /// This operation consumes both worlds and returns a new world containing
-    /// the combined collection of objects. The objects from `rhs` are appended
-    /// to the end of the existing object list.
+    /// Consumes both worlds and returns a new world whose `objects` and
+    /// `light_sources` lists are the concatenation of `self`'s followed by
+    /// `rhs`'s respectively.
     fn add(mut self, rhs: World) -> World {
         self.objects.extend(rhs.objects);
+        self.light_sources.extend(rhs.light_sources);
         self
     }
 }
@@ -84,6 +90,7 @@ mod tests {
 
         World {
             objects: vec![Box::new(sphere1), Box::new(sphere2), Box::new(bean)],
+            light_sources: vec![],
         }
     }
     #[test]
@@ -141,6 +148,7 @@ mod tests {
                 Box::new(Plane::new(transformation, Material::default(), false)),
                 Box::new(Plane::new(transformation, Material::default(), false)),
             ],
+            light_sources: vec![],
         };
 
         let world = world_1 + world_2;

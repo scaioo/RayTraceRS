@@ -492,11 +492,11 @@ static WHITESPACE: &str = " \t\r\n";
 #[cfg(test)]
 mod test {
     use super::*;
+    use crate::geometry::Point;
     use crate::lexer::Keyword::{BOX, FLOAT, GRADIENT, MATERIAL, POINT};
     use crate::lexer::TokenKind;
-    use std::io::Cursor;
-    use crate::geometry::Point;
     use crate::lexer::TokenKind::Keyword;
+    use std::io::Cursor;
 
     static TEST_FILE: &str = "float clock(150)
 
@@ -974,7 +974,12 @@ camera(perspective, rotation_z(30) * translation([-4, 0, 1]), 1.0, 1.0)";
         let cursor = std::io::Cursor::new(text);
         let mut stream = InputStream::new(cursor, 0, 4);
         let token = stream.read_token().unwrap();
-        assert_eq!(token.kind, Keyword(GRADIENT), "token.kind = {:?}", token.kind);
+        assert_eq!(
+            token.kind,
+            Keyword(GRADIENT),
+            "token.kind = {:?}",
+            token.kind
+        );
     }
 
     #[test]

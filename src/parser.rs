@@ -6,7 +6,7 @@ use crate::lexer::{InputStream, Keyword, TokenKind};
 use crate::materials::Material;
 use crate::pfm_func::read_pfm_file;
 use crate::pigments::{CheckeredPigment, GradientPigment, ImagePigment, Pigment, UniformPigment};
-use crate::shapes::{Plane, Sphere, AABB};
+use crate::shapes::{AABB, Plane, Sphere};
 use crate::transformations::{
     Scaling, Transformation, Translation, XRotation, YRotation, ZRotation,
 };
@@ -43,7 +43,10 @@ impl Scene {
     pub fn new() -> Self {
         Self {
             materials: HashMap::new(),
-            world: World { objects: vec![], light_sources: vec![] },
+            world: World {
+                objects: vec![],
+                light_sources: vec![],
+            },
             camera: None,
             float_variables: HashMap::new(),
             overridden_variables: HashSet::new(),
@@ -212,7 +215,12 @@ pub fn parse_pigment<B: BufRead>(
 ) -> Result<Box<dyn Pigment>> {
     let keyword = expect_keywords(
         stream,
-        &[Keyword::UNIFORM, Keyword::CHECKERED, Keyword::IMAGE, Keyword::GRADIENT],
+        &[
+            Keyword::UNIFORM,
+            Keyword::CHECKERED,
+            Keyword::IMAGE,
+            Keyword::GRADIENT,
+        ],
     )?;
     expect_symbol(stream, '(')?;
 
@@ -414,17 +422,14 @@ pub fn parse_plane<B: BufRead>(
     })
 }
 
-pub fn parse_box<B: BufRead>(
-    stream: &mut InputStream<B>,
-    scene: &Scene,
-) -> Result<AABB> {
+pub fn parse_box<B: BufRead>(stream: &mut InputStream<B>, scene: &Scene) -> Result<AABB> {
     expect_symbol(stream, '(')?;
     let material_name = expect_identifier(stream)?;
     expect_symbol(stream, ',')?;
-    expect_keywords(stream,&[Keyword::POINT])?;
+    expect_keywords(stream, &[Keyword::POINT])?;
     let point1 = parse_point(stream, scene)?;
     expect_symbol(stream, ',')?;
-    expect_keywords(stream,&[Keyword::POINT])?;
+    expect_keywords(stream, &[Keyword::POINT])?;
     let point2 = parse_point(stream, scene)?;
     expect_symbol(stream, ')')?;
     let material = scene
@@ -735,13 +740,23 @@ point([2.0, 1.0, 1.0])
         let initial_vars = HashMap::new();
         let scene = parse_scene(&mut stream, initial_vars)?;
 
-        assert_eq!(scene.materials.len(), 1, "Expected 1 material but found {}", scene.materials.len());
+        assert_eq!(
+            scene.materials.len(),
+            1,
+            "Expected 1 material but found {}",
+            scene.materials.len()
+        );
 
         // ---- check gradient -----------------------
         let uv = Vec2D { x: 0.0, y: 0.0 };
         let expected_color = Color::new(0.1, 0.2, 0.5);
         let color = scene.materials["ball"].pigment.get_color(&uv)?;
-        assert!(expected_color.is_close(&color), "expected: {:?}\n found: {:?}", expected_color, color);
+        assert!(
+            expected_color.is_close(&color),
+            "expected: {:?}\n found: {:?}",
+            expected_color,
+            color
+        );
 
         // ---- check box -----------------------
         assert_eq!(scene.world.objects.len(), 1);

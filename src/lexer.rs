@@ -279,6 +279,7 @@ impl<B: BufRead> InputStream<B> {
             "material" => TokenKind::Keyword(Keyword::MATERIAL),
             "plane" => TokenKind::Keyword(Keyword::PLANE),
             "sphere" => TokenKind::Keyword(Keyword::SPHERE),
+            "box" => TokenKind::Keyword(Keyword::BOX),
             "diffuse" => TokenKind::Keyword(Keyword::DIFFUSE),
             "specular" => TokenKind::Keyword(Keyword::SPECULAR),
             "uniform" => TokenKind::Keyword(Keyword::UNIFORM),
@@ -295,6 +296,7 @@ impl<B: BufRead> InputStream<B> {
             "orthogonal" => TokenKind::Keyword(Keyword::ORTHOGONAL),
             "perspective" => TokenKind::Keyword(Keyword::PERSPECTIVE),
             "float" => TokenKind::Keyword(Keyword::FLOAT),
+            "point" => TokenKind::Keyword(Keyword::POINT),
             "point_light" => TokenKind::Keyword(Keyword::PointLight),
             s => TokenKind::Identifier(s.to_string()),
         };
@@ -463,6 +465,7 @@ pub enum Keyword {
     MATERIAL,
     PLANE,
     SPHERE,
+    BOX,
     DIFFUSE,
     SPECULAR,
     UNIFORM,
@@ -479,6 +482,7 @@ pub enum Keyword {
     ORTHOGONAL,
     PERSPECTIVE,
     FLOAT,
+    POINT,
     PointLight,
 }
 
@@ -488,9 +492,10 @@ static WHITESPACE: &str = " \t\r\n";
 #[cfg(test)]
 mod test {
     use super::*;
-    use crate::lexer::Keyword::{FLOAT, GRADIENT, MATERIAL};
+    use crate::lexer::Keyword::{BOX, FLOAT, GRADIENT, MATERIAL, POINT};
     use crate::lexer::TokenKind;
     use std::io::Cursor;
+    use crate::geometry::Point;
     use crate::lexer::TokenKind::Keyword;
 
     static TEST_FILE: &str = "float clock(150)
@@ -970,5 +975,25 @@ camera(perspective, rotation_z(30) * translation([-4, 0, 1]), 1.0, 1.0)";
         let mut stream = InputStream::new(cursor, 0, 4);
         let token = stream.read_token().unwrap();
         assert_eq!(token.kind, Keyword(GRADIENT), "token.kind = {:?}", token.kind);
+    }
+
+    #[test]
+    fn test_box_reader() {
+        let text = r#"
+        box( #things...
+        "#;
+        let cursor = std::io::Cursor::new(text);
+        let mut stream = InputStream::new(cursor, 0, 4);
+        let token = stream.read_token().unwrap();
+        assert_eq!(token.kind, Keyword(BOX), "token.kind = {:?}", token.kind);
+    }
+
+    #[test]
+    fn test_point_reader() {
+        let text = r#"point([0.0, 0.0, 1.0])"#;
+        let cursor = std::io::Cursor::new(text);
+        let mut stream = InputStream::new(cursor, 0, 4);
+        let token = stream.read_token().unwrap();
+        assert_eq!(token.kind, Keyword(POINT), "token.kind = {:?}", token.kind);
     }
 }

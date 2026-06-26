@@ -1,12 +1,12 @@
 use crate::brdf::{BRDF, DiffusiveBrdf, SpecularBrdf};
 use crate::camera::{Camera, OrthogonalCamera, PerspectiveCamera};
 use crate::color::Color;
-use crate::geometry::Vector;
+use crate::geometry::{Point, Vector};
 use crate::lexer::{InputStream, Keyword, TokenKind};
 use crate::materials::Material;
 use crate::pfm_func::read_pfm_file;
 use crate::pigments::{CheckeredPigment, GradientPigment, ImagePigment, Pigment, UniformPigment};
-use crate::shapes::{Plane, Sphere};
+use crate::shapes::{Plane, Sphere, AABB};
 use crate::transformations::{
     Scaling, Transformation, Translation, XRotation, YRotation, ZRotation,
 };
@@ -196,6 +196,13 @@ pub fn parse_color<B: BufRead>(stream: &mut InputStream<B>, scene: &Scene) -> Re
     expect_symbol(stream, '>')?;
 
     Ok(Color::new(r, g, b))
+}
+
+pub fn parse_point<B: BufRead>(stream: &mut InputStream<B>, scene: &Scene) -> Result<Point> {
+    expect_symbol(stream, '(')?;
+    let v = parse_vector(stream, scene)?;
+    expect_symbol(stream, ')')?;
+    Ok(Point::new(v.x, v.y, v.z))
 }
 
 /// Parses a pigment. Supports uniform, checkered, and image pigments.
@@ -403,8 +410,30 @@ pub fn parse_plane<B: BufRead>(
     Ok(Plane {
         transformation,
         material,
-        procedural_texture: false,
+        procedural_texture: false, // todo: fix this
     })
+}
+
+pub fn parse_box<B: BufRead>(
+    stream: &mut InputStream<B>,
+    scene: &Scene,
+) -> Result<AABB> {
+    expect_symbol(stream, '(')?;
+    let material_name = expect_identifier(stream)?;
+    expect_symbol(stream, ',')?;
+    expect_keywords(stream,&[Keyword::POINT])?;
+    let point1 = parse_point(stream, scene)?;
+    expect_symbol(stream, ',')?;
+    expect_keywords(stream,&[Keyword::POINT])?;
+    let point2 = parse_point(stream, scene)?;
+    expect_symbol(stream, ')')?;
+    let material = scene
+        .materials
+        .get(&material_name)
+        .ok_or_else(|| anyhow!("Unknown material '{}' for box", material_name))?
+        .clone();
+    let aabb = AABB::new(point1, point2, material)?;
+    Ok(aabb)
 }
 
 /// Parses a camera: `camera(perspective, transformation, aspect_ratio, distance)`
@@ -474,6 +503,10 @@ pub fn parse_scene<B: BufRead>(
             TokenKind::Keyword(Keyword::PLANE) => {
                 let plane = parse_plane(stream, &scene)?;
                 scene.world.objects.push(Box::new(plane));
+            }
+            TokenKind::Keyword(Keyword::BOX) => {
+                let box_shape = parse_box(stream, &scene)?;
+                scene.world.objects.push(Box::new(box_shape));
             }
             TokenKind::Keyword(Keyword::CAMERA) => {
                 let camera = parse_camera(stream, &scene)?;
@@ -680,7 +713,7 @@ mod test {
     }
 
     #[test]
-    fn test_parse_scene2() -> Result<()> {
+    fn test_parse_gradient_box() -> Result<()> {
         let text = r#"
         # updates parsing
         material ball(
@@ -689,6 +722,11 @@ mod test {
         <0.6, 0.8, 0.9>,
         0
         ), diffuse(), uniform(<0, 0, 0>)
+        )
+
+        box(
+        ball, point([0.0, -1.0, 0.0]),
+point([2.0, 1.0, 1.0])
         )"#;
 
         let cursor = std::io::Cursor::new(text);
@@ -697,13 +735,16 @@ mod test {
         let initial_vars = HashMap::new();
         let scene = parse_scene(&mut stream, initial_vars)?;
 
-        assert_eq!(scene.materials.len(), 1, "Expected a single material but found {}", scene.materials.len());
+        assert_eq!(scene.materials.len(), 1, "Expected 1 material but found {}", scene.materials.len());
 
         // ---- check gradient -----------------------
         let uv = Vec2D { x: 0.0, y: 0.0 };
         let expected_color = Color::new(0.1, 0.2, 0.5);
         let color = scene.materials["ball"].pigment.get_color(&uv)?;
         assert!(expected_color.is_close(&color), "expected: {:?}\n found: {:?}", expected_color, color);
+
+        // ---- check box -----------------------
+        assert_eq!(scene.world.objects.len(), 1);
 
         Ok(())
     }

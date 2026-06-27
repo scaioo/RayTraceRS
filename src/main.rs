@@ -16,11 +16,6 @@ use std::time::Instant;
 
 #[derive(Parser)]
 struct Cli {
-    #[arg(long, default_value_t = 1000)]
-    width: usize,
-
-    #[arg(long, default_value_t = 750)]
-    height: usize,
 
     #[arg(long, default_value = "png")]
     format: String,
@@ -40,6 +35,12 @@ enum Commands {
 
     Render {
         input_scene_name: String,
+
+        #[arg(long, default_value_t = 1000)]
+        width: usize,
+
+        #[arg(long, default_value_t = 750)]
+        height: usize,
 
         #[arg(long, default_value = "pathtracing")]
         algorithm: String,
@@ -140,6 +141,8 @@ fn main() -> Result<()> {
         }
 
         Commands::Render {
+            width,
+            height,
             input_scene_name,
             algorithm,
             pfm_output,
@@ -175,14 +178,14 @@ fn main() -> Result<()> {
             let scene = rstrace::parser::parse_scene(&mut stream, variables)?;
 
             // 4. Setup Image and Camera
-            let mut img = HDR::new(cli.width, cli.height);
+            let mut img = HDR::new(width, height);
             let mut camera = scene
                 .camera
                 .expect("Error: No camera defined in the scene file!");
-            let aspect_ratio = cli.width as f32 / cli.height as f32;
+            let aspect_ratio = width as f32 / height as f32;
             camera.set_aspect_ratio(aspect_ratio)?;
 
-            println!("Generating a {}x{} image", cli.width, cli.height);
+            println!("Generating a {}x{} image", width, height);
 
             let mut imagetracer = ImageTracer::new(img, camera, samples_per_pixel.isqrt());
 

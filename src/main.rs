@@ -16,7 +16,6 @@ use std::time::Instant;
 
 #[derive(Parser)]
 struct Cli {
-
     #[arg(long, default_value = "png")]
     format: String,
 
@@ -154,7 +153,6 @@ fn main() -> Result<()> {
             antialiasing,
             declare_float,
         } => {
-
             // 1. Parse command line variables
             let variables = build_variable_table(&declare_float);
 

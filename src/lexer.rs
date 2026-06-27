@@ -300,6 +300,8 @@ impl<B: BufRead> InputStream<B> {
             "point" => TokenKind::Keyword(Keyword::POINT),
             "point_light" => TokenKind::Keyword(Keyword::PTLIGHTSOURCE),
             "spherical_light" => TokenKind::Keyword(Keyword::SPHLIGHTSOURCE),
+            "true" | "True" => TokenKind::Keyword(Keyword::TRUE),
+            "false" | "False" => TokenKind::Keyword(Keyword::FALSE),
             s => TokenKind::Identifier(s.to_string()),
         };
         Ok(Token { kind, loc })
@@ -488,6 +490,8 @@ pub enum Keyword {
     POINT,
     PTLIGHTSOURCE,
     SPHLIGHTSOURCE,
+    TRUE,
+    FALSE,
 }
 
 static SYMBOLS: &str = "()<>[],*";
@@ -497,7 +501,8 @@ static WHITESPACE: &str = " \t\r\n";
 mod test {
     use super::*;
     use crate::lexer::Keyword::{
-        BOX, FLOAT, GRADIENT, MATERIAL, POINT, PTLIGHTSOURCE, SIMPLEMESH, SPHLIGHTSOURCE,
+        BOX, FALSE, FLOAT, GRADIENT, MATERIAL, POINT, PTLIGHTSOURCE, SIMPLEMESH, SPHLIGHTSOURCE,
+        TRUE,
     };
     use crate::lexer::TokenKind;
     use crate::lexer::TokenKind::Keyword;
@@ -1044,6 +1049,44 @@ camera(perspective, rotation_z(30) * translation([-4, 0, 1]), 1.0, 1.0)";
         assert_eq!(
             token.kind,
             TokenKind::Keyword(SPHLIGHTSOURCE),
+            "token.kind = {:?}",
+            token.kind
+        );
+    }
+
+    #[test]
+    fn test_boolean_reader() {
+        let text = r#"true,True,false,False,"#;
+        let cursor = std::io::Cursor::new(text);
+        let mut stream = InputStream::new(cursor, 0, 4);
+        let token = stream.read_token().unwrap();
+        assert_eq!(
+            token.kind,
+            TokenKind::Keyword(TRUE),
+            "token.kind = {:?}",
+            token.kind
+        );
+        stream.read_token().unwrap();
+        let token = stream.read_token().unwrap();
+        assert_eq!(
+            token.kind,
+            TokenKind::Keyword(TRUE),
+            "token.kind = {:?}",
+            token.kind
+        );
+        stream.read_token().unwrap();
+        let token = stream.read_token().unwrap();
+        assert_eq!(
+            token.kind,
+            TokenKind::Keyword(FALSE),
+            "token.kind = {:?}",
+            token.kind
+        );
+        stream.read_token().unwrap();
+        let token = stream.read_token().unwrap();
+        assert_eq!(
+            token.kind,
+            TokenKind::Keyword(FALSE),
             "token.kind = {:?}",
             token.kind
         );

@@ -417,7 +417,21 @@ pub fn parse_plane<B: BufRead>(
     let material_name = expect_identifier(stream)?;
     expect_symbol(stream, ',')?;
     let transformation = parse_transformation(stream, scene)?;
-    expect_symbol(stream, ')')?;
+    let token = stream.read_token()?;
+    let procedural_texture = match token.kind {
+        TokenKind::Symbol(')') => false,
+        TokenKind::Symbol(',') => {
+            let key = expect_keywords(stream, &[Keyword::TRUE, Keyword::FALSE])?;
+            expect_symbol(stream, ')')?;
+            key == Keyword::TRUE
+        }
+        _ => bail!(
+            "Grammar Error at {}:{}: expected ')' or ', <bool>', found '{:?}'",
+            token.loc.line_number,
+            token.loc.col_number,
+            token.kind
+        ),
+    };
 
     let material = scene
         .materials
@@ -428,7 +442,7 @@ pub fn parse_plane<B: BufRead>(
     Ok(Plane {
         transformation,
         material,
-        procedural_texture: false, // todo: fix this
+        procedural_texture,
     })
 }
 
@@ -1021,6 +1035,69 @@ point([-10., 0.0, 0.0]),
             expected_color.b,
             color.b
         );
+
+        Ok(())
+    }
+
+    #[test]
+    fn test_plane_procedural_flag() -> Result<()> {
+        let cases: &[(&str, bool)] = &[
+            (", true",  true),
+            (", True",  true),
+            (", false", false),
+            (", False", false),
+            ("",        false),
+        ];
+
+        for (suffix, expected) in cases {
+            let text = format!(
+                r#"material floor_material(
+checkered(<0.0, 0.0, 0.0>, <1, 1, 1>, 3),
+diffuse(),
+uniform(<0, 0, 0>)
+)
+plane(floor_material, identity{})"#,
+                suffix
+            );
+
+            let cursor = std::io::Cursor::new(text);
+            let mut stream = InputStream::new(cursor, 0, 4);
+            let scene = parse_scene(&mut stream, HashMap::new())?;
+
+            assert_eq!(scene.world.objects.len(), 1);
+
+            // Hit at local point (-0.5, 0.5, 0.0)
+            let ray_left = Ray::new(Point::new(-0.5, 0.5, 10.0), -Z_AXIS);
+            let hit_left = scene.world.objects[0]
+                .ray_intersection(&ray_left).unwrap();
+
+            // Hit at local point (0.5, 0.5, 0.0)
+            let ray_right = Ray::new(Point::new(0.5, 0.5, 10.0), -Z_AXIS);
+            let hit_right = scene.world.objects[0]
+                .ray_intersection(&ray_right).unwrap();
+
+            if *expected {
+                // procedural: uv = (u, v) raw
+                assert!(
+                    hit_left.uv.is_close(&Vec2D::new(-0.5, 0.5)),
+                    "[{}] expected UV (-0.5, 0.5), got {:?}", suffix, hit_left.uv
+                );
+                assert!(
+                    hit_right.uv.is_close(&Vec2D::new(0.5, 0.5)),
+                    "[{}] expected UV (0.5, 0.5), got {:?}", suffix, hit_right.uv
+                );
+            } else {
+                // tiled: uv = (frac(u), frac(v)) ∈ [0,1)
+                assert!(
+                    hit_left.uv.is_close(&Vec2D::new(0.5, 0.5)),
+                    "[{}] expected UV (0.5, 0.5), got {:?}", suffix, hit_left.uv
+                );
+                assert!(
+                    hit_right.uv.is_close(&Vec2D::new(0.5, 0.5)),
+                    "[{}] expected UV (0.5, 0.5), got {:?}", suffix, hit_right.uv
+                );
+            }
+        }
 
         Ok(())
     }

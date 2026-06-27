@@ -196,7 +196,7 @@ mod tests {
                 brdf: Box::new(DiffusiveBrdf {}),
                 emitted_radiance: Box::new(UniformPigment::new(Color::new(10.0, 10.0, 10.0))),
             };
-            let sphere_scaling = Scaling::new([1.0, 1.0, 1.0]);
+            let sphere_scaling : Scaling = 1.0.into();
 
             let central_spheres = vec![Sphere::new(
                 Translation::new(Vector::new(0.0, 0.0, -0.0)) * sphere_scaling,

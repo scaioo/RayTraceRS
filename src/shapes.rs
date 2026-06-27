@@ -942,7 +942,7 @@ mod tests {
     #[test]
     fn test_sphere_ray_intersection_bug15() {
         let sphere: Sphere<Scaling> =
-            Sphere::new(Scaling::new([0.1, 0.1, 0.1]), Material::default());
+            Sphere::new(Scaling::from(0.1,), Material::default());
         for i in 0..100 {
             let ray = Ray::new(Point::new(-10.0 * i as f32, 0.0, 0.0), X_AXIS);
             let hit_record = sphere.ray_intersection(&ray);

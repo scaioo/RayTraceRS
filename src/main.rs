@@ -113,7 +113,7 @@ fn demo_world() -> World {
         emitted_radiance: Box::new(UniformPigment::new(Color::new(0.5, 0.9, 1.0))),
     };
     let sky_transform =
-        Scaling::new([200.0, 200.0, 200.0]) * Translation::new(Vector::new(0.0, 0.0, 0.4));
+        Scaling::from(200.0) * Translation::new(Vector::new(0.0, 0.0, 0.4));
     objects.push(Box::new(Sphere::new(sky_transform, sky_material)));
 
     // 2. THE FLOOR (An infinite chequered floor)
@@ -332,10 +332,10 @@ fn main() -> Result<()> {
 
             // 4. Setup Image and Camera
             let mut img = HDR::new(cli.width, cli.height);
-            let camera = scene
+            let mut camera = scene
                 .camera
                 .expect("Error: No camera defined in the scene file!");
-
+            
             println!("Generating a {}x{} image", cli.width, cli.height);
 
             let mut imagetracer = ImageTracer::new(img, camera, samples_per_pixel.isqrt());

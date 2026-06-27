@@ -84,9 +84,6 @@ pub fn expect_symbol<B: BufRead>(stream: &mut InputStream<B>, symbol: char) -> R
 
 /// Expects to find one of the keywords provided in the array.
 /// Returns the keyword that was actually found.
-///
-/// Note: make sure to add `#[derive(Copy, Clone)]` to your `Keyword` enum
-/// in the `lexer.rs` file so that it can be easily returned.
 pub fn expect_keywords<B: BufRead>(
     stream: &mut InputStream<B>,
     keywords: &[Keyword],
@@ -303,7 +300,6 @@ pub fn parse_material<B: BufRead>(
 }
 
 /// Parses a sequence of transformations chained by `*`
-/// Parses a sequence of transformations chained by `*`
 pub fn parse_transformation<B: BufRead>(
     stream: &mut InputStream<B>,
     scene: &Scene,
@@ -351,9 +347,20 @@ pub fn parse_transformation<B: BufRead>(
             }
             Keyword::SCALING => {
                 expect_symbol(stream, '(')?;
-                let vec = parse_vector(stream, scene)?;
+                let token = stream.read_token()?;
+                match token.kind {
+                    TokenKind::Symbol('[') => {
+                        stream.unread_token(token)?;
+                        let vec = parse_vector(stream, scene)?;
+                        result = result * Scaling::new([vec.x, vec.y, vec.z]);
+                    }
+                    _ => {
+                        stream.unread_token(token)?;
+                        let scale = expect_number(stream, scene)?;
+                        result = result * Scaling::from(scale);
+                    }
+                }
                 expect_symbol(stream, ')')?;
-                result = result * Scaling::new([vec.x, vec.y, vec.z]);
             }
             _ => unreachable!(),
         }
@@ -706,7 +713,7 @@ mod test {
 
         sphere(sphere_material, translation([0, 0, 1]))
 
-        camera(perspective, rotation_z(30) * translation([-4, 0, 1]), 1.0, 2.0)
+        camera(perspective, rotation_z(30) * translation([-4, 0, 1]) * scaling(1), 1.0, 2.0)
         "#;
 
         let cursor = std::io::Cursor::new(text);
@@ -881,7 +888,7 @@ f 6 3 7
         uniform(<0, 0, 0>)
     )
 
-    simple_mesh(mesh_material, "{}", scaling([0.1, 0.1, 0.1]))
+    simple_mesh(mesh_material, "{}", scaling([0.1, 0.2, 0.3]))
     "#,
             path.display()
         );

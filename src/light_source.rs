@@ -192,7 +192,7 @@ mod tests {
         let sphere1 = Sphere::new(transformation1, material1.clone());
 
         let pigment2 = UniformPigment::new(color2);
-        let transformation2 = Translation::new(Z_AXIS * 6.5) * Scaling::new([0.5, 0.5, 0.5]);
+        let transformation2 = Translation::new(Z_AXIS * 6.5) * Scaling::from(0.5);
         let material2 = Material::new(pigment2, brdf, emission);
         let sphere2 = Sphere::new(transformation2, material2.clone());
 

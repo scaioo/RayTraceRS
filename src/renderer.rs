@@ -331,7 +331,7 @@ mod tests {
     #[test]
     fn test_on_off_renderer() -> Result<()> {
         // Define variables
-        let scaling = Scaling::new([0.2, 0.2, 0.2]);
+        let scaling : Scaling = 0.2.into();
         let translation = Translation::new(Vector::new(2., 0., 0.));
         let pigment = UniformPigment::new(WHITE);
         let emitted_radiance = UniformPigment::new(BLACK);
@@ -433,7 +433,7 @@ mod tests {
     fn test_flat_renderer() -> Result<()> {
         let sphere_color = Color::new(1.0, 2.0, 3.0);
         // Setup sphere and color specified
-        let scaling = Scaling::new([0.2, 0.2, 0.2]);
+        let scaling: Scaling = 0.2.into();
         let translation = Translation::new(Vector::new(2., 0., 0.));
         let pigment = UniformPigment::new(sphere_color);
         let brdf = DiffusiveBrdf {};

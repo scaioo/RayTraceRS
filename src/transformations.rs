@@ -336,8 +336,7 @@ impl Scaling {
     pub fn new(diagonal: [f32; 3]) -> Scaling {
         if diagonal.iter().any(|a| are_close(*a, 0.0)) {
             panic!(
-                "Wrong inputs in Scaling Matrix definition\
-            {:?}",
+                "Scaling::new: zero component is not allowed in scaling diagonal: {:?}",
                 diagonal
             );
         }
@@ -351,6 +350,37 @@ impl Scaling {
         it_mat[15] = 1.0;
 
         Scaling { mat: array, it_mat }
+    }
+}
+/// Creates a uniform [`Scaling`] transformation from a single scalar.
+///
+/// This conversion is equivalent to calling
+/// `Scaling::new([scalar, scalar, scalar])`, producing the same scale
+/// factor along the X, Y, and Z axes.
+///
+/// # Arguments
+///
+/// * `scalar` - The uniform scale factor applied to every axis.
+///
+/// # Panics
+///
+/// Panics if `scalar` is `0.0`, since a scaling transformation with a zero
+/// factor is not mathematically invertible.
+///
+/// # Examples
+///
+/// ```rust,no_run
+/// # use rstrace::transformations::Scaling;
+/// let scale: Scaling = 2.0.into();
+///
+/// // Equivalent to:
+/// let expected = Scaling::new([2.0, 2.0, 2.0]);
+///
+/// assert_eq!(scale, expected);
+/// ```
+impl From<f32> for Scaling {
+    fn from(scalar: f32) -> Scaling {
+        Scaling::new([scalar, scalar, scalar])
     }
 }
 
@@ -724,7 +754,7 @@ mod test {
 
     // - - - - - - - - - - - - -   Scaling   - - - - - - - - - - - - - - -
     #[test]
-    #[should_panic(expected = "Wrong inputs in Scaling Matrix definition")]
+    #[should_panic(expected = "Scaling::new: zero component is not allowed in scaling diagonal")]
     fn test_scaling_constructor() {
         let scaling_matrix = [
             1.0, 0.0, 0.0, 0.0, 0.0, 2.0, 0.0, 0.0, 0.0, 0.0, 3.0, 0.0, 0.0, 0.0, 0.0, 1.0,
@@ -757,6 +787,26 @@ mod test {
         assert!(equal_matrices(&result, &IDENTITY_4X4));
 
         let _ = Scaling::new([0.0, 2.0, 3.0]);
+    }
+
+    #[test]
+    fn test_scaling_from() {
+        let scaling1: Scaling = Scaling::new([1.5, 1.5, 1.5]);
+        let scaling2: Scaling = Scaling::from(1.5);
+
+        for (i, (num1, num2)) in scaling1.mat.iter().zip(scaling2.mat.iter()).enumerate() {
+            assert_eq!(num1, num2, "Mismatch in element {i}: expected {num1}, got {num2}");
+        }
+    }
+
+    #[test]
+    fn test_scaling_into() {
+        let scaling1: Scaling = Scaling::new([1.5, 1.5, 1.5]);
+        let scaling2: Scaling = 1.5.into();
+
+        for (i, (num1, num2)) in scaling1.mat.iter().zip(scaling2.mat.iter()).enumerate() {
+            assert_eq!(num1, num2, "Mismatch in element {i}: expected {num1}, got {num2}");
+        }
     }
 
     #[test]

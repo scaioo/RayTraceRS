@@ -112,8 +112,7 @@ fn demo_world() -> World {
         brdf: Box::new(DiffusiveBrdf {}),
         emitted_radiance: Box::new(UniformPigment::new(Color::new(0.5, 0.9, 1.0))),
     };
-    let sky_transform =
-        Scaling::from(200.0) * Translation::new(Vector::new(0.0, 0.0, 0.4));
+    let sky_transform = Scaling::from(200.0) * Translation::new(Vector::new(0.0, 0.0, 0.4));
     objects.push(Box::new(Sphere::new(sky_transform, sky_material)));
 
     // 2. THE FLOOR (An infinite chequered floor)
@@ -335,7 +334,9 @@ fn main() -> Result<()> {
             let mut camera = scene
                 .camera
                 .expect("Error: No camera defined in the scene file!");
-            
+            let aspect_ratio = cli.width as f32 / cli.height as f32;
+            camera.set_aspect_ratio(aspect_ratio)?;
+
             println!("Generating a {}x{} image", cli.width, cli.height);
 
             let mut imagetracer = ImageTracer::new(img, camera, samples_per_pixel.isqrt());

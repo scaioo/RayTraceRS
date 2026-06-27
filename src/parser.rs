@@ -510,21 +510,17 @@ pub fn parse_camera<B: BufRead>(
     expect_symbol(stream, ',')?;
     let transformation = parse_transformation(stream, scene)?;
     expect_symbol(stream, ',')?;
-    let aspect_ratio = expect_number(stream, scene)?;
-    expect_symbol(stream, ',')?;
     let distance = expect_number(stream, scene)?;
     expect_symbol(stream, ')')?;
 
     let camera: Box<dyn Camera> = match cam_type {
         Keyword::PERSPECTIVE => {
             let mut cam = PerspectiveCamera::new(transformation);
-            cam.set_aspect_ratio(aspect_ratio)?;
             cam.set_distance(distance);
             Box::new(cam)
         }
         Keyword::ORTHOGONAL => {
-            let mut cam = OrthogonalCamera::new(transformation);
-            cam.set_aspect_ratio(aspect_ratio)?;
+            let cam = OrthogonalCamera::new(transformation);
             Box::new(cam)
         }
         _ => unreachable!(),

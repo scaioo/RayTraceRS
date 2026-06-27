@@ -331,7 +331,7 @@ mod tests {
     #[test]
     fn test_on_off_renderer() -> Result<()> {
         // Define variables
-        let scaling : Scaling = 0.2.into();
+        let scaling: Scaling = 0.2.into();
         let translation = Translation::new(Vector::new(2., 0., 0.));
         let pigment = UniformPigment::new(WHITE);
         let emitted_radiance = UniformPigment::new(BLACK);

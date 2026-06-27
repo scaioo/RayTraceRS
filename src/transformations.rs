@@ -795,7 +795,10 @@ mod test {
         let scaling2: Scaling = Scaling::from(1.5);
 
         for (i, (num1, num2)) in scaling1.mat.iter().zip(scaling2.mat.iter()).enumerate() {
-            assert_eq!(num1, num2, "Mismatch in element {i}: expected {num1}, got {num2}");
+            assert_eq!(
+                num1, num2,
+                "Mismatch in element {i}: expected {num1}, got {num2}"
+            );
         }
     }
 
@@ -805,7 +808,10 @@ mod test {
         let scaling2: Scaling = 1.5.into();
 
         for (i, (num1, num2)) in scaling1.mat.iter().zip(scaling2.mat.iter()).enumerate() {
-            assert_eq!(num1, num2, "Mismatch in element {i}: expected {num1}, got {num2}");
+            assert_eq!(
+                num1, num2,
+                "Mismatch in element {i}: expected {num1}, got {num2}"
+            );
         }
     }
 

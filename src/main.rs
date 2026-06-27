@@ -63,8 +63,8 @@ enum Commands {
         #[arg(long, default_value_t = 54)]
         init_seq: u64,
 
-        #[arg(long, default_value_t = 1)]
-        samples_per_pixel: usize,
+        #[arg(long, default_value_t = 5)]
+        antialiasing: usize,
 
         /// Declare a variable. Syntax: VAR:VALUE. Example: --declare-float=clock:150
         #[arg(short = 'd', long = "declare-float")]
@@ -151,22 +151,14 @@ fn main() -> Result<()> {
             max_depth,
             init_state,
             init_seq,
-            samples_per_pixel,
+            antialiasing,
             declare_float,
         } => {
-            // 1. Check Anti-aliasing samples
-            let samples_per_side = (samples_per_pixel as f64).sqrt() as usize;
-            if samples_per_side * samples_per_side != samples_per_pixel {
-                panic!(
-                    "Error, the number of samples per pixel ({}) must be a perfect square",
-                    samples_per_pixel
-                );
-            }
 
-            // 2. Parse command line variables
+            // 1. Parse command line variables
             let variables = build_variable_table(&declare_float);
 
-            // 3. Open and Parse the Scene File
+            // 2. Open and Parse the Scene File
             let file = File::open(&input_scene_name)
                 .map_err(|e| anyhow!("Could not open scene file {}: {}", input_scene_name, e))?;
             let reader = BufReader::new(file);
@@ -177,7 +169,7 @@ fn main() -> Result<()> {
             println!("Parsing scene '{}'...", input_scene_name);
             let scene = rstrace::parser::parse_scene(&mut stream, variables)?;
 
-            // 4. Setup Image and Camera
+            // 3. Setup Image and Camera
             let mut img = HDR::new(width, height);
             let mut camera = scene
                 .camera
@@ -187,9 +179,9 @@ fn main() -> Result<()> {
 
             println!("Generating a {}x{} image", width, height);
 
-            let mut imagetracer = ImageTracer::new(img, camera, samples_per_pixel.isqrt());
+            let mut imagetracer = ImageTracer::new(img, camera, antialiasing);
 
-            // 5. Setup Renderer
+            // 4. Setup Renderer
             let flat_renderer = FlatRenderer::new(BLACK);
             let onoff_renderer = OnOffRenderer::default();
 
@@ -213,12 +205,12 @@ fn main() -> Result<()> {
                 }
             };
 
-            // 6. Execute Render
+            // 5. Execute Render
             println!("Rendering in progress...");
             imagetracer.fire_all_rays(&scene.world, render_closure)?;
             img = imagetracer.image;
 
-            // 7. Save outputs
+            // 9. Save outputs
             std::fs::create_dir_all("outputs")?;
 
             let pfm_filename = format!("outputs/{}", ensure_extension(&pfm_output, "pfm"));

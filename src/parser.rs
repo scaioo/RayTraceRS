@@ -709,7 +709,7 @@ mod test {
 
         sphere(sphere_material, translation([0, 0, 1]))
 
-        camera(perspective, rotation_z(30) * translation([-4, 0, 1]) * scaling(1), 1.0, 2.0)
+        camera(perspective, rotation_z(30) * translation([-4, 0, 1]) * scaling(1), 2.0)
         "#;
 
         let cursor = std::io::Cursor::new(text);

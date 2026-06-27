@@ -1,19 +1,13 @@
 use anyhow::{Result, anyhow};
 use clap::Parser;
-use rstrace::brdf::{DiffusiveBrdf, SpecularBrdf};
-use rstrace::camera::{Camera, OrthogonalCamera, PerspectiveCamera};
+use rstrace::camera::Camera;
 use rstrace::color::{BLACK, Color};
-use rstrace::geometry::Vector;
 use rstrace::hdr_image::HDR;
 use rstrace::image_tracer::ImageTracer;
-use rstrace::materials::Material;
 use rstrace::pcg::PCG;
 use rstrace::pfm_func::{Endianness, pfm_to_ldr};
-use rstrace::pigments::{CheckeredPigment, UniformPigment};
 use rstrace::ray::Ray;
 use rstrace::renderer::{FlatRenderer, OnOffRenderer, PathTracer, PointLightRenderer, Renderer};
-use rstrace::shapes::{Plane, Shape, Sphere};
-use rstrace::transformations::{Scaling, Transformation, Translation, ZRotation};
 use rstrace::world::World;
 use std::collections::HashMap;
 use std::fs::File;
@@ -28,9 +22,6 @@ struct Cli {
     #[arg(long, default_value_t = 750)]
     height: usize,
 
-    #[arg(long)]
-    orthogonal: bool,
-
     #[arg(long, default_value = "png")]
     format: String,
 
@@ -40,25 +31,6 @@ struct Cli {
 
 #[derive(Parser, Clone)]
 enum Commands {
-    Demo {
-        file_name: String,
-
-        #[arg(long, default_value_t = 5)]
-        antialiasing: usize,
-
-        #[arg(long, default_value_t = 0.0)]
-        angle_deg: f32,
-
-        #[arg(long, default_value = "pathtracing")]
-        algorithm: String,
-
-        #[arg(long, default_value_t = 5)]
-        num_of_rays: usize,
-
-        #[arg(long, default_value_t = 3)]
-        max_depth: usize,
-    },
-
     Pfm2Png {
         input_file: String,
         output_file: String,
@@ -102,60 +74,6 @@ enum Commands {
 // ====================================================================
 // CONSTRUCTION OF THE SCENE
 // ====================================================================
-fn demo_world() -> World {
-    let mut objects: Vec<Box<dyn Shape>> = Vec::new();
-
-    // 1. THE SKY (A giant sphere)
-    let sky_material = Material {
-        // FlatRenderer uses pigment, we give the color of the sky
-        pigment: Box::new(UniformPigment::new(Color::new(0.5, 0.9, 1.0))),
-        brdf: Box::new(DiffusiveBrdf {}),
-        emitted_radiance: Box::new(UniformPigment::new(Color::new(0.5, 0.9, 1.0))),
-    };
-    let sky_transform = Scaling::from(200.0) * Translation::new(Vector::new(0.0, 0.0, 0.4));
-    objects.push(Box::new(Sphere::new(sky_transform, sky_material)));
-
-    // 2. THE FLOOR (An infinite chequered floor)
-    let ground_material = Material {
-        // Let’s create large squares by setting a low step size (e.g. 10, or depending on the scale)
-        pigment: Box::new(CheckeredPigment::new(
-            Color::new(0.3, 0.5, 0.1),
-            Color::new(0.1, 0.2, 0.5),
-            5,
-        )),
-        brdf: Box::new(DiffusiveBrdf {}),
-        emitted_radiance: Box::new(UniformPigment::new(BLACK)),
-    };
-    let ground_transform = Transformation::new(rstrace::functions::IDENTITY_4X4);
-    objects.push(Box::new(Plane::new(
-        ground_transform,
-        ground_material,
-        true,
-    )));
-
-    // 3. DIFFUSE SPHERE
-    let sphere_material = Material {
-        pigment: Box::new(UniformPigment::new(Color::new(0.3, 0.4, 0.8))),
-        brdf: Box::new(DiffusiveBrdf {}),
-        emitted_radiance: Box::new(UniformPigment::new(BLACK)),
-    };
-    let s1_transform = Translation::new(Vector::new(0.0, 0.0, 1.0));
-    objects.push(Box::new(Sphere::new(s1_transform, sphere_material)));
-
-    // 4. MIRROR SPHERE
-    let mirror_material = Material {
-        pigment: Box::new(UniformPigment::new(Color::new(0.6, 0.2, 0.3))),
-        brdf: Box::new(SpecularBrdf {}),
-        emitted_radiance: Box::new(UniformPigment::new(BLACK)),
-    };
-    let s2_transform = Translation::new(Vector::new(1.0, 2.5, 0.0));
-    objects.push(Box::new(Sphere::new(s2_transform, mirror_material)));
-
-    World {
-        objects,
-        light_sources: vec![],
-    }
-}
 
 /// Helper function to parse variables from the CLI into a HashMap
 fn build_variable_table(declare_float: &[String]) -> HashMap<String, f32> {
@@ -177,6 +95,20 @@ fn build_variable_table(declare_float: &[String]) -> HashMap<String, f32> {
     }
     variables
 }
+
+// ====================================================================
+// FILENAMES HELPER FUNCTION
+// ====================================================================
+/// Ensures a filename has the given extension, adding it only if missing.
+/// E.g. "output" -> "output.pfm", "output.pfm" -> "output.pfm"
+fn ensure_extension(name: &str, ext: &str) -> String {
+    let suffix = format!(".{}", ext);
+    if name.ends_with(&suffix) {
+        name.to_string()
+    } else {
+        format!("{}.{}", name, ext)
+    }
+}
 // ====================================================================
 // MAIN PROGRAM
 // ====================================================================
@@ -193,93 +125,6 @@ fn main() -> Result<()> {
     }
 
     match cli.command {
-        Commands::Demo {
-            file_name,
-            antialiasing,
-            angle_deg,
-            algorithm,
-            num_of_rays,
-            max_depth,
-        } => {
-            println!(
-                "Generating a {}x{} image, with the camera tilted by {}°",
-                cli.width, cli.height, angle_deg
-            );
-
-            let world = demo_world();
-            let mut img = HDR::new(cli.width, cli.height);
-            let aspectratio = img.width as f32 / img.height as f32;
-
-            // Let's apply the camera transformation (Rotation around the Z-axis * Translation)
-            let angle_rad = angle_deg.to_radians();
-            let camera_tr =
-                ZRotation::new(angle_rad) * Translation::new(Vector::new(-1.0, 0.0, 1.0));
-
-            // Renderer and randomizer setup
-            let flat_renderer = FlatRenderer::new(BLACK);
-            let onoff_renderer = OnOffRenderer::default();
-            let path_tracer = PathTracer::new(BLACK, num_of_rays, max_depth, 2);
-            let whitted = PointLightRenderer {
-                background_color: BLACK,
-            };
-
-            // Let’s initialize the random number generator
-            let mut pcg = PCG::default();
-
-            let render_closure = |ray: Ray, world: &World| -> Result<Color> {
-                if algorithm == "onoff" {
-                    onoff_renderer.render(&ray, world, &mut pcg)
-                } else if algorithm == "flat" {
-                    flat_renderer.render(&ray, world, &mut pcg)
-                } else if algorithm == "pathtracing" {
-                    path_tracer.render(&ray, world, &mut pcg)
-                } else if algorithm == "point-light" {
-                    whitted.render(&ray, world, &mut pcg)
-                } else {
-                    panic!("Unknown algorithm: {}", algorithm);
-                }
-            };
-
-            // Let's perform the tracking based on the camera type
-            if cli.orthogonal {
-                let mut o_cam = OrthogonalCamera::new(camera_tr);
-                o_cam.set_aspect_ratio(aspectratio)?;
-                let mut imagetracer = ImageTracer::new(img, o_cam, antialiasing);
-
-                println!("Rendering in progress...");
-                imagetracer.fire_all_rays(&world, render_closure)?;
-                img = imagetracer.image; // Retrieve the calculated image
-            } else {
-                let mut p_cam = PerspectiveCamera::new(camera_tr);
-                p_cam.set_aspect_ratio(aspectratio)?;
-                let mut imagetracer = ImageTracer::new(img, p_cam, antialiasing);
-
-                println!("Rendering in progress...");
-                imagetracer.fire_all_rays(&world, render_closure)?;
-                img = imagetracer.image;
-            }
-            // ==========================================
-            // HDR SAVING and LDR CONVERSION
-            // ==========================================
-            std::fs::create_dir_all("outputs")?;
-
-            let pfm_filename = format!("outputs/{}.pfm", file_name);
-            let ldr_filename = format!("outputs/{}.{}", file_name, cli.format);
-
-            let file = File::create(&pfm_filename)?;
-            let disk_writer = BufWriter::new(&file);
-
-            img.write_pfm(disk_writer, &Endianness::BigEndian)?;
-            println!("HDR demo image written to {}", pfm_filename);
-
-            pfm_to_ldr(pfm_filename, 0.18, 2.2, ldr_filename.clone())?;
-            println!("LDR demo image written to {}", ldr_filename);
-
-            let duration = now.elapsed();
-            println!("Rendering completed in {:.1} s", duration.as_secs_f32());
-            Ok(())
-        }
-
         Commands::Pfm2Png {
             input_file,
             output_file,
@@ -347,6 +192,9 @@ fn main() -> Result<()> {
 
             let mut pcg = PCG::new(init_state, init_seq);
             let path_tracer = PathTracer::new(BLACK, num_of_rays, max_depth, 2);
+            let whitted = PointLightRenderer {
+                background_color: BLACK,
+            };
 
             let render_closure = |ray: Ray, world: &World| -> Result<Color> {
                 if algorithm == "onoff" {
@@ -355,8 +203,10 @@ fn main() -> Result<()> {
                     flat_renderer.render(&ray, world, &mut pcg)
                 } else if algorithm == "pathtracing" {
                     path_tracer.render(&ray, world, &mut pcg)
+                } else if algorithm == "point-light" {
+                    whitted.render(&ray, world, &mut pcg)
                 } else {
-                    panic!("Unknown renderer: {}", algorithm);
+                    panic!("Unknown algorithm: {}", algorithm);
                 }
             };
 
@@ -368,13 +218,16 @@ fn main() -> Result<()> {
             // 7. Save outputs
             std::fs::create_dir_all("outputs")?;
 
-            let file = File::create(&pfm_output)?;
+            let pfm_filename = format!("outputs/{}", ensure_extension(&pfm_output, "pfm"));
+            let ldr_filename = format!("outputs/{}", ensure_extension(&png_output, &cli.format));
+
+            let file = File::create(&pfm_filename)?;
             let disk_writer = BufWriter::new(&file);
             img.write_pfm(disk_writer, &Endianness::BigEndian)?;
-            println!("HDR demo image written to {}", pfm_output);
+            println!("HDR mage written to {}", pfm_filename);
 
-            pfm_to_ldr(pfm_output, 0.18, 2.2, png_output.clone())?;
-            println!("PNG demo image written to {}", png_output);
+            pfm_to_ldr(pfm_filename, 0.18, 2.2, ldr_filename.clone())?;
+            println!("PNG image written to {}", ldr_filename);
 
             let elapsed_time = now.elapsed();
             println!("Rendering completed in {:.1} s", elapsed_time.as_secs_f32());

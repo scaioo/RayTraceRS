@@ -302,6 +302,8 @@ impl<B: BufRead> InputStream<B> {
             "spherical_light" => TokenKind::Keyword(Keyword::SPHLIGHTSOURCE),
             "true" | "True" => TokenKind::Keyword(Keyword::TRUE),
             "false" | "False" => TokenKind::Keyword(Keyword::FALSE),
+            "black" | "Black" | "BLACK" => TokenKind::Keyword(Keyword::BLACK),
+            "white" | "White" | "WHITE" => TokenKind::Keyword(Keyword::WHITE),
             s => TokenKind::Identifier(s.to_string()),
         };
         Ok(Token { kind, loc })
@@ -492,6 +494,8 @@ pub enum Keyword {
     SPHLIGHTSOURCE,
     TRUE,
     FALSE,
+    BLACK,
+    WHITE,
 }
 
 static SYMBOLS: &str = "()<>[],*";
@@ -1090,5 +1094,30 @@ camera(perspective, rotation_z(30) * translation([-4, 0, 1]), 1.0, 1.0)";
             "token.kind = {:?}",
             token.kind
         );
+    }
+
+    #[test]
+    fn test_color_keyword_reader() {
+        use crate::lexer::Keyword::{BLACK, WHITE};
+
+        let cases = [
+            ("black", TokenKind::Keyword(BLACK)),
+            ("Black", TokenKind::Keyword(BLACK)),
+            ("BLACK", TokenKind::Keyword(BLACK)),
+            ("white", TokenKind::Keyword(WHITE)),
+            ("White", TokenKind::Keyword(WHITE)),
+            ("WHITE", TokenKind::Keyword(WHITE)),
+        ];
+
+        for (input, expected) in cases {
+            let cursor = Cursor::new(input);
+            let mut stream = InputStream::new(cursor, 0, 4);
+            let token = stream.read_token().unwrap();
+            assert_eq!(
+                token.kind, expected,
+                "input '{}': token.kind = {:?}",
+                input, token.kind
+            );
+        }
     }
 }

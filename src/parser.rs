@@ -1,6 +1,6 @@
 use crate::brdf::{BRDF, DiffusiveBrdf, SpecularBrdf};
 use crate::camera::{Camera, OrthogonalCamera, PerspectiveCamera};
-use crate::color::Color;
+use crate::color::{BLACK, Color, WHITE};
 use crate::geometry::{Point, Vector};
 use crate::lexer::{InputStream, Keyword, TokenKind};
 use crate::light_source::{PointLightSource, SphericalLightSource};
@@ -190,15 +190,27 @@ pub fn parse_vector<B: BufRead>(stream: &mut InputStream<B>, scene: &Scene) -> R
 
 /// Parses a color in the format `<r, g, b>`
 pub fn parse_color<B: BufRead>(stream: &mut InputStream<B>, scene: &Scene) -> Result<Color> {
-    expect_symbol(stream, '<')?;
-    let r = expect_number(stream, scene)?;
-    expect_symbol(stream, ',')?;
-    let g = expect_number(stream, scene)?;
-    expect_symbol(stream, ',')?;
-    let b = expect_number(stream, scene)?;
-    expect_symbol(stream, '>')?;
+    let token = stream.read_token()?;
+    match token.kind {
+        TokenKind::Keyword(Keyword::WHITE) => Ok(WHITE),
+        TokenKind::Keyword(Keyword::BLACK) => Ok(BLACK),
+        TokenKind::Symbol('<') => {
+            let r = expect_number(stream, scene)?;
+            expect_symbol(stream, ',')?;
+            let g = expect_number(stream, scene)?;
+            expect_symbol(stream, ',')?;
+            let b = expect_number(stream, scene)?;
+            expect_symbol(stream, '>')?;
 
-    Ok(Color::new(r, g, b))
+            Ok(Color::new(r, g, b))
+        }
+        _ => bail!(
+            "Grammar Error at {}:{}: expected '<', 'black', or 'white', found '{:?}'",
+            token.loc.line_number,
+            token.loc.col_number,
+            token.kind
+        ),
+    }
 }
 
 pub fn parse_point<B: BufRead>(stream: &mut InputStream<B>, scene: &Scene) -> Result<Point> {
@@ -1042,17 +1054,17 @@ point([-10., 0.0, 0.0]),
     #[test]
     fn test_plane_procedural_flag() -> Result<()> {
         let cases: &[(&str, bool)] = &[
-            (", true",  true),
-            (", True",  true),
+            (", true", true),
+            (", True", true),
             (", false", false),
             (", False", false),
-            ("",        false),
+            ("", false),
         ];
 
         for (suffix, expected) in cases {
             let text = format!(
                 r#"material floor_material(
-checkered(<0.0, 0.0, 0.0>, <1, 1, 1>, 3),
+checkered(black, White, 3),
 diffuse(),
 uniform(<0, 0, 0>)
 )
@@ -1068,37 +1080,71 @@ plane(floor_material, identity{})"#,
 
             // Hit at local point (-0.5, 0.5, 0.0)
             let ray_left = Ray::new(Point::new(-0.5, 0.5, 10.0), -Z_AXIS);
-            let hit_left = scene.world.objects[0]
-                .ray_intersection(&ray_left).unwrap();
+            let hit_left = scene.world.objects[0].ray_intersection(&ray_left).unwrap();
 
             // Hit at local point (0.5, 0.5, 0.0)
             let ray_right = Ray::new(Point::new(0.5, 0.5, 10.0), -Z_AXIS);
-            let hit_right = scene.world.objects[0]
-                .ray_intersection(&ray_right).unwrap();
+            let hit_right = scene.world.objects[0].ray_intersection(&ray_right).unwrap();
 
             if *expected {
                 // procedural: uv = (u, v) raw
                 assert!(
                     hit_left.uv.is_close(&Vec2D::new(-0.5, 0.5)),
-                    "[{}] expected UV (-0.5, 0.5), got {:?}", suffix, hit_left.uv
+                    "[{}] expected UV (-0.5, 0.5), got {:?}",
+                    suffix,
+                    hit_left.uv
                 );
                 assert!(
                     hit_right.uv.is_close(&Vec2D::new(0.5, 0.5)),
-                    "[{}] expected UV (0.5, 0.5), got {:?}", suffix, hit_right.uv
+                    "[{}] expected UV (0.5, 0.5), got {:?}",
+                    suffix,
+                    hit_right.uv
                 );
             } else {
                 // tiled: uv = (frac(u), frac(v)) ∈ [0,1)
                 assert!(
                     hit_left.uv.is_close(&Vec2D::new(0.5, 0.5)),
-                    "[{}] expected UV (0.5, 0.5), got {:?}", suffix, hit_left.uv
+                    "[{}] expected UV (0.5, 0.5), got {:?}",
+                    suffix,
+                    hit_left.uv
                 );
                 assert!(
                     hit_right.uv.is_close(&Vec2D::new(0.5, 0.5)),
-                    "[{}] expected UV (0.5, 0.5), got {:?}", suffix, hit_right.uv
+                    "[{}] expected UV (0.5, 0.5), got {:?}",
+                    suffix,
+                    hit_right.uv
                 );
             }
         }
 
+        Ok(())
+    }
+
+    #[test]
+    fn test_parse_color_keywords() -> Result<()> {
+        let cases = [
+            ("uniform(black)", BLACK),
+            ("uniform(BLACK)", BLACK),
+            ("uniform(white)", WHITE),
+            ("uniform(WHITE)", WHITE),
+            ("uniform(<0.5, 0.5, 0.5>)", Color::new(0.5, 0.5, 0.5)),
+        ];
+
+        for (input, expected) in cases {
+            let cursor = std::io::Cursor::new(input);
+            let mut stream = InputStream::new(cursor, 0, 4);
+            let scene = Scene::new();
+            stream.read_token()?;
+            stream.read_token()?;
+            let color = parse_color(&mut stream, &scene)?;
+            assert!(
+                color.is_close(&expected),
+                "input '{}': expected {:?}, got {:?}",
+                input,
+                expected,
+                color
+            );
+        }
         Ok(())
     }
 }

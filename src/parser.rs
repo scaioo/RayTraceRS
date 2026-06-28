@@ -538,7 +538,10 @@ pub fn parse_camera<B: BufRead>(
     expect_symbol(stream, ',')?;
     let distance = expect_number(stream, scene)?;
     if distance < 0.0 {
-        bail!("Invalid distance: {}.\nDistance cannot be negative", distance);
+        bail!(
+            "Invalid distance: {}.\nDistance cannot be negative",
+            distance
+        );
     }
     expect_symbol(stream, ')')?;
 

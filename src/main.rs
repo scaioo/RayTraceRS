@@ -2,23 +2,21 @@ use anyhow::Result;
 use clap::Parser;
 use rstrace::brdf::{DiffusiveBrdf, SpecularBrdf};
 use rstrace::camera::{Camera, OrthogonalCamera, PerspectiveCamera};
-use rstrace::color::{BLACK, Color, WHITE};
-use rstrace::functions::IDENTITY_4X4;
-use rstrace::geometry::{Point, Vector};
+use rstrace::color::{BLACK, Color};
+use rstrace::geometry::Vector;
 use rstrace::hdr_image::HDR;
 use rstrace::image_tracer::ImageTracer;
-use rstrace::light_source::{PointLightSource, SphericalLightSource};
 use rstrace::materials::Material;
 use rstrace::pcg::PCG;
-use rstrace::pfm_func::{Endianness, pfm_to_ldr, read_pfm, ldr_to_pfm};
-use rstrace::pigments::{CheckeredPigment, GradientPigment, ImagePigment, UniformPigment};
+use rstrace::pfm_func::{Endianness, pfm_to_ldr};
+use rstrace::pigments::{CheckeredPigment, UniformPigment};
 use rstrace::ray::Ray;
 use rstrace::renderer::{FlatRenderer, OnOffRenderer, PathTracer, PointLightRenderer, Renderer};
 use rstrace::shapes::{Plane, Shape, Sphere};
-use rstrace::transformations::{Scaling, Transformation, Translation, YRotation, ZRotation};
+use rstrace::transformations::{Scaling, Transformation, Translation, ZRotation};
 use rstrace::world::World;
 use std::fs::File;
-use std::io::{BufReader, BufWriter};
+use std::io::BufWriter;
 use std::time::Instant;
 
 #[derive(Parser)]
@@ -65,17 +63,6 @@ enum Commands {
         output_file: String,
         factor_a: f32,
         gamma: f32,
-    },
-
-    Ldr2pfm {
-        input_file: String,
-        output_file: String,
-        factor_a: f32,
-        gamma: f32,
-        luminosity: f32,
-
-        #[arg(long, default_value = "big")]
-        endianness: String,
     },
 }
 
@@ -238,39 +225,6 @@ fn main() -> Result<()> {
 
             let duration = now.elapsed();
             println!("Rendering completed in {:.1} s", duration.as_secs_f32());
-            Ok(())
-        }
-
-        Commands::Ldr2pfm {
-            input_file,
-            output_file,
-            factor_a,
-            gamma,
-            luminosity,
-            endianness,
-        } => {
-            let endianness = if endianness == "little" {
-                Endianness::LittleEndian
-            } else if endianness == "big" {
-                Endianness::BigEndian
-            } else {
-                panic!(
-                    "Unknown endianness input: {}\nPlease use \"little\" or \"big\"",
-                    endianness
-                );
-            };
-            ldr_to_pfm(
-                input_file,
-                factor_a,
-                luminosity,
-                gamma,
-                output_file.clone(),
-                endianness,
-            )?;
-            println!("File {} has been written to disk.", output_file);
-
-            let duration = now.elapsed();
-            println!("Program finished in {:?}", duration);
             Ok(())
         }
 

@@ -450,59 +450,6 @@ pub fn pfm_to_ldr(
     hdr_to_ldr(&mut params)?;
     Ok(())
 }
-
-/// Converts an LDR image (PNG or JPEG) into a `.pfm` (Portable Float Map) HDR file.
-///
-/// This is the top-level function backing the `ldr2pfm` CLI subcommand. It loads
-/// the LDR image, applies the inverse LDR pipeline via [`HDR::load_from_ldr`],
-/// and writes the resulting HDR image to disk in PFM format.
-///
-/// # Arguments
-/// * `input_file` — Path to the input LDR image (PNG or JPEG).
-/// * `factor_a` — The exposure normalization factor assumed for the forward tone mapping.
-/// * `avr_lum` — The log-average luminance assumed for the original HDR scene.
-/// * `gamma` — The gamma exponent assumed during LDR encoding.
-/// * `output_file` — Path where the output `.pfm` file will be written.
-/// * `endianness` — Byte order for the PFM binary payload ([`Endianness::BigEndian`]
-///   or [`Endianness::LittleEndian`]).
-///
-/// # Errors
-/// Returns an error if:
-/// - [`HDR::load_from_ldr`] fails (invalid parameters or unreadable input file)
-/// - The output file cannot be created or written to
-///
-/// # Example
-/// ```rust,no_run
-/// use rstrace::pfm_func::{ldr_to_pfm, Endianness};
-///
-/// # fn main() -> anyhow::Result<()> {
-/// ldr_to_pfm(
-///     "texture.png".into(),
-///     0.18,   // factor_a
-///     0.18,   // avr_lum
-///     2.2,    // gamma
-///     "texture.pfm".into(),
-///     Endianness::BigEndian,
-/// )?;
-/// # Ok(())
-/// # }
-/// ```
-pub fn ldr_to_pfm(
-    input_file: String,
-    factor_a: f32,
-    avr_lum: f32,
-    gamma: f32,
-    output_file: String,
-    endianness: Endianness,
-) -> anyhow::Result<()> {
-    let hdr = HDR::load_from_ldr(&input_file, factor_a, avr_lum, gamma)?;
-
-    let file = File::create(&output_file)?;
-    let disk_writer = BufWriter::new(file);
-    hdr.write_pfm(disk_writer, &endianness)?;
-    Ok(())
-}
-
 #[cfg(test)]
 mod test {
     use crate::color::Color;

@@ -188,7 +188,12 @@ pub fn parse_vector<B: BufRead>(stream: &mut InputStream<B>, scene: &Scene) -> R
     Ok(Vector::new(x, y, z))
 }
 
-/// Parses a color in the format `<r, g, b>`
+/// Parses a color.
+///
+/// Supported formats are:
+/// - `<r, g, b>`
+/// - `black`
+/// - `white`
 pub fn parse_color<B: BufRead>(stream: &mut InputStream<B>, scene: &Scene) -> Result<Color> {
     let token = stream.read_token()?;
     match token.kind {
@@ -213,6 +218,7 @@ pub fn parse_color<B: BufRead>(stream: &mut InputStream<B>, scene: &Scene) -> Re
     }
 }
 
+/// Parses a point in the format `point([x, y, z])`.
 pub fn parse_point<B: BufRead>(stream: &mut InputStream<B>, scene: &Scene) -> Result<Point> {
     expect_symbol(stream, '(')?;
     let v = parse_vector(stream, scene)?;
@@ -220,7 +226,13 @@ pub fn parse_point<B: BufRead>(stream: &mut InputStream<B>, scene: &Scene) -> Re
     Ok(Point::new(v.x, v.y, v.z))
 }
 
-/// Parses a pigment. Supports uniform, checkered, and image pigments.
+/// Parses a pigment.
+///
+/// Supported pigment types are:
+/// - uniform
+/// - checkered
+/// - image
+/// - gradient
 pub fn parse_pigment<B: BufRead>(
     stream: &mut InputStream<B>,
     scene: &Scene,
@@ -286,7 +298,10 @@ pub fn parse_brdf<B: BufRead>(stream: &mut InputStream<B>) -> Result<Box<dyn BRD
     Ok(result)
 }
 
-/// Parses a material definition: `material_name(brdf, emitted_radiance)`
+/// Parses a material definition.
+///
+/// Expected syntax:
+/// `material_name(base_pigment, brdf, emitted_radiance)`
 pub fn parse_material<B: BufRead>(
     stream: &mut InputStream<B>,
     scene: &Scene,
@@ -311,7 +326,11 @@ pub fn parse_material<B: BufRead>(
     Ok((name, material))
 }
 
-/// Parses a sequence of transformations chained by `*`
+/// Parses one or more transformations chained by `*`.
+///
+/// Supported transformations include identity, translation,
+/// rotations about the principal axes, and uniform or non-uniform
+/// scaling.
 pub fn parse_transformation<B: BufRead>(
     stream: &mut InputStream<B>,
     scene: &Scene,
@@ -420,7 +439,10 @@ pub fn parse_sphere<B: BufRead>(
     })
 }
 
-/// Parses a plane: `plane(material_name, transformation)`
+/// Parses a plane.
+///
+/// Expected syntax:
+/// `plane(material_name, transformation[, procedural_texture])`
 pub fn parse_plane<B: BufRead>(
     stream: &mut InputStream<B>,
     scene: &Scene,
@@ -458,6 +480,10 @@ pub fn parse_plane<B: BufRead>(
     })
 }
 
+/// Parses an axis-aligned bounding box.
+///
+/// Expected syntax:
+/// `box(material_name, point(min), point(max))`
 pub fn parse_box<B: BufRead>(stream: &mut InputStream<B>, scene: &Scene) -> Result<AABB> {
     expect_symbol(stream, '(')?;
     let material_name = expect_identifier(stream)?;
@@ -477,6 +503,10 @@ pub fn parse_box<B: BufRead>(stream: &mut InputStream<B>, scene: &Scene) -> Resu
     Ok(aabb)
 }
 
+/// Parses a simple mesh loaded from an OBJ file.
+///
+/// Expected syntax:
+/// `simple_mesh(material_name, "path/to/file.obj", transformation)`
 pub fn parse_simple_mesh<B: BufRead>(
     stream: &mut InputStream<B>,
     scene: &Scene,
@@ -496,6 +526,10 @@ pub fn parse_simple_mesh<B: BufRead>(
     SimpleMesh::from_obj(&path, material, transformation)
 }
 
+/// Parses a point light source.
+///
+/// Expected syntax:
+/// `point_light(point(position), color)`
 pub fn parse_point_light<B: BufRead>(
     stream: &mut InputStream<B>,
     scene: &Scene,
@@ -509,6 +543,10 @@ pub fn parse_point_light<B: BufRead>(
     Ok(PointLightSource::new(point, color))
 }
 
+/// Parses a spherical area light source.
+///
+/// Expected syntax:
+/// `spherical_light(point(position), radius, color, samples)`
 pub fn parse_spherical_light<B: BufRead>(
     stream: &mut InputStream<B>,
     scene: &Scene,
@@ -526,7 +564,10 @@ pub fn parse_spherical_light<B: BufRead>(
     Ok(SphericalLightSource::new(point, radius, color, n_tests))
 }
 
-/// Parses a camera: `camera(perspective, transformation, aspect_ratio, distance)`
+/// Parses a camera.
+///
+/// Expected syntax:
+/// `camera(camera_type, transformation, distance)`
 pub fn parse_camera<B: BufRead>(
     stream: &mut InputStream<B>,
     scene: &Scene,
@@ -561,7 +602,11 @@ pub fn parse_camera<B: BufRead>(
     Ok(camera)
 }
 
-/// Main loop: parses the entire scene file until StopToken is reached.
+/// Parses an entire scene file until the end-of-file token is reached.
+///
+/// The parser recognizes variable declarations, material definitions,
+/// geometric primitives, meshes, light sources, and the camera, building
+/// a complete [`Scene`] as it consumes the input stream.
 pub fn parse_scene<B: BufRead>(
     stream: &mut InputStream<B>,
     initial_variables: HashMap<String, f32>,

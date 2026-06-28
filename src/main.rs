@@ -2,21 +2,23 @@ use anyhow::Result;
 use clap::Parser;
 use rstrace::brdf::{DiffusiveBrdf, SpecularBrdf};
 use rstrace::camera::{Camera, OrthogonalCamera, PerspectiveCamera};
-use rstrace::color::{BLACK, Color};
-use rstrace::geometry::Vector;
+use rstrace::color::{BLACK, Color, WHITE};
+use rstrace::functions::IDENTITY_4X4;
+use rstrace::geometry::{Point, Vector};
 use rstrace::hdr_image::HDR;
 use rstrace::image_tracer::ImageTracer;
+use rstrace::light_source::{PointLightSource, SphericalLightSource};
 use rstrace::materials::Material;
 use rstrace::pcg::PCG;
-use rstrace::pfm_func::{Endianness, ldr_to_pfm, pfm_to_ldr};
-use rstrace::pigments::{CheckeredPigment, UniformPigment};
+use rstrace::pfm_func::{Endianness, pfm_to_ldr, read_pfm, ldr_to_pfm};
+use rstrace::pigments::{CheckeredPigment, GradientPigment, ImagePigment, UniformPigment};
 use rstrace::ray::Ray;
-use rstrace::renderer::{FlatRenderer, OnOffRenderer, PathTracer, Renderer};
+use rstrace::renderer::{FlatRenderer, OnOffRenderer, PathTracer, PointLightRenderer, Renderer};
 use rstrace::shapes::{Plane, Shape, Sphere};
-use rstrace::transformations::{Scaling, Transformation, Translation, ZRotation};
+use rstrace::transformations::{Scaling, Transformation, Translation, YRotation, ZRotation};
 use rstrace::world::World;
 use std::fs::File;
-use std::io::BufWriter;
+use std::io::{BufReader, BufWriter};
 use std::time::Instant;
 
 #[derive(Parser)]
@@ -130,7 +132,10 @@ fn demo_world() -> World {
     let s2_transform = Translation::new(Vector::new(1.0, 2.5, 0.0));
     objects.push(Box::new(Sphere::new(s2_transform, mirror_material)));
 
-    World { objects }
+    World {
+        objects,
+        light_sources: vec![],
+    }
 }
 
 // ====================================================================
@@ -175,6 +180,9 @@ fn main() -> Result<()> {
             let flat_renderer = FlatRenderer::new(BLACK);
             let onoff_renderer = OnOffRenderer::default();
             let path_tracer = PathTracer::new(BLACK, num_of_rays, max_depth, 2);
+            let whitted = PointLightRenderer {
+                background_color: BLACK,
+            };
 
             // Let’s initialize the random number generator
             let mut pcg = PCG::default();
@@ -186,6 +194,8 @@ fn main() -> Result<()> {
                     flat_renderer.render(&ray, world, &mut pcg)
                 } else if algorithm == "pathtracing" {
                     path_tracer.render(&ray, world, &mut pcg)
+                } else if algorithm == "point-light" {
+                    whitted.render(&ray, world, &mut pcg)
                 } else {
                     panic!("Unknown algorithm: {}", algorithm);
                 }

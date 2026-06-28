@@ -5,6 +5,20 @@
 - Add `load_from_ldr` to `HdrImage` to support PNG/JPEG textures via
   inverse gamma correction and inverse tone mapping
   ([PR#29](https://github.com/scaioo/RayTraceRS/pull/29)).
+- Implement Whitted point-light renderer with `PointLightSource` and `SphericalLightSource`
+  ([PR#28](https://github.com/scaioo/RayTraceRS/pull/28)).
+- Add `SimpleMesh` with OBJ loading via `tobj` 
+  ([PR#26](https://github.com/scaioo/RayTraceRS/pull/26)).
+- Add `IndexTriangle` for compact index-based triangle connectivity
+  ([PR#26](https://github.com/scaioo/RayTraceRS/pull/26)).
+- Add `AABB` (axis-aligned bounding box) with slab-method intersection and `contains` check
+  ([PR#26](https://github.com/scaioo/RayTraceRS/pull/26)).
+- Add `BRDFs` enum for lightweight BRDF variant tagging
+  ([PR#26](https://github.com/scaioo/RayTraceRS/pull/26)).
+- Add `IDENTITY_TRANSFORMATION` constant
+  ([PR#26](https://github.com/scaioo/RayTraceRS/pull/26)).
+- Add `Copy` supertrait bound to `IsHomogeneousMatrix`
+  ([PR#26](https://github.com/scaioo/RayTraceRS/pull/26)).
 - Fix an issue with UV coordinate orientation
   ([#25](https://github.com/scaioo/RayTraceRS/issues/25), [PR#27](https://github.com/scaioo/RayTraceRS/pull/27)).
 - Implement Antialiasing ([PR#22](https://github.com/scaioo/RayTraceRS/pull/22)).

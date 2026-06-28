@@ -1,5 +1,8 @@
 ## Head
 
+- Add `load_from_ldr` to `HdrImage` to support PNG/JPEG textures via
+  inverse gamma correction and inverse tone mapping
+  ([PR#29](https://github.com/scaioo/RayTraceRS/pull/29)).
 - Implement Whitted point-light renderer with `PointLightSource` and `SphericalLightSource`
   ([PR#28](https://github.com/scaioo/RayTraceRS/pull/28)).
 - Add `SimpleMesh` with OBJ loading via `tobj` 

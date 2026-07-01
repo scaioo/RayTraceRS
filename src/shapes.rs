@@ -106,6 +106,7 @@ impl Clone for Box<dyn Shape> {
 // implementations, but no such extension is currently planned.
 pub trait Volumetric: CloneVolumetric + Shape {
     fn entry_exit_t(&self, ray: &Ray) -> Option<(f32, f32)>;
+    fn hit_from_t(&self, ray: &Ray, t: f32) -> Option<HitRecord>;
 }
 
 impl Clone for Box<dyn Volumetric> {
@@ -176,7 +177,7 @@ where
             return None;
         };
 
-        let hit_point = transformed_ray.at(t);
+        /* let hit_point = transformed_ray.at(t);
         let uv = self.point_to_uv(&hit_point).ok()?;
 
         Some(HitRecord {
@@ -186,18 +187,20 @@ where
             t,
             ray: *ray,
             material: &self.material,
-        })
+        })*/
+
+        self.hit_from_t(ray, t)
     }
 
     fn normal_at(&self, point: Point, ray: &Ray) -> Normal {
         let tr_ray = self.transform_ray(ray);
 
-        let mut result = Normal::new(point.x, point.y, point.z);
+        let result = Normal::new(point.x, point.y, point.z);
         let vector = point - Point::new(0.0, 0.0, 0.0);
         if (vector.dot(&tr_ray.dir)) < 0.0 {
             result
         } else {
-            - result
+            -result
         }
     }
 
@@ -246,6 +249,21 @@ where
         let t1 = (-half_b - sqrt_d) / a;
         let t2 = (-half_b + sqrt_d) / a;
         Some((t1, t2))
+    }
+
+    fn hit_from_t(&self, ray: &Ray, t: f32) -> Option<HitRecord> {
+        let transformed_ray = self.transform_ray(ray);
+        let hit_point = transformed_ray.origin + transformed_ray.dir * t;
+        let uv = self.point_to_uv(&hit_point).ok()?;
+
+        Some(HitRecord {
+            world_point: self.transformation * hit_point,
+            normal: self.transformation * self.normal_at(hit_point, &ray),
+            uv,
+            t,
+            ray: *ray,
+            material: &self.material,
+        })
     }
 }
 // =================================================================================
@@ -444,15 +462,7 @@ impl Shape for AABB {
             return None;
         }
 
-        let point = ray.at(t);
-        Some(HitRecord {
-            world_point: point,
-            normal: self.normal_at(point, ray),
-            uv: self.point_to_uv(&point).unwrap(),
-            t,
-            ray: *ray,
-            material: &self.material,
-        })
+       self.hit_from_t(ray, t)
     }
 
     fn normal_at(&self, point: Point, ray: &Ray) -> Normal {
@@ -525,6 +535,17 @@ impl Volumetric for AABB {
         } else {
             Some((t_enter, t_exit))
         }
+    }
+    fn hit_from_t(&self, ray: &Ray, t: f32) -> Option<HitRecord> {
+        let point = ray.at(t);
+        Some(HitRecord {
+            world_point: point,
+            normal: self.normal_at(point, ray),
+            uv: self.point_to_uv(&point).unwrap(),
+            t,
+            ray: *ray,
+            material: &self.material,
+        })
     }
 }
 

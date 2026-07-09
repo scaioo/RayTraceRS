@@ -31,11 +31,11 @@ use crate::color::Color;
 use crate::hdr_image::{HDR, hdr_to_ldr};
 use anyhow::anyhow;
 use std::fs::File;
-use std::io::{BufRead, BufReader, Read};
+use std::io::{BufRead, BufReader, BufWriter, Read};
 use std::string::ToString;
 
 /// Byte order used in the PFM file.
-#[derive(Debug, PartialEq)]
+#[derive(Debug, PartialEq, Clone)]
 pub enum Endianness {
     /// Least significant byte first
     LittleEndian,
@@ -450,7 +450,6 @@ pub fn pfm_to_ldr(
     hdr_to_ldr(&mut params)?;
     Ok(())
 }
-
 #[cfg(test)]
 mod test {
     use crate::color::Color;

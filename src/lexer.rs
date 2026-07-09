@@ -275,35 +275,35 @@ impl<B: BufRead> InputStream<B> {
         loc: SourceLocation,
     ) -> anyhow::Result<Token> {
         let kind = match self.read_identifier(ch)?.as_str() {
-            "new" => TokenKind::Keyword(Keyword::NEW),
-            "material" => TokenKind::Keyword(Keyword::MATERIAL),
-            "plane" => TokenKind::Keyword(Keyword::PLANE),
-            "sphere" => TokenKind::Keyword(Keyword::SPHERE),
-            "box" => TokenKind::Keyword(Keyword::BOX),
-            "simple_mesh" => TokenKind::Keyword(Keyword::SIMPLEMESH),
-            "diffuse" => TokenKind::Keyword(Keyword::DIFFUSE),
-            "specular" => TokenKind::Keyword(Keyword::SPECULAR),
-            "uniform" => TokenKind::Keyword(Keyword::UNIFORM),
-            "checkered" => TokenKind::Keyword(Keyword::CHECKERED),
-            "image" => TokenKind::Keyword(Keyword::IMAGE),
-            "gradient" => TokenKind::Keyword(Keyword::GRADIENT),
-            "identity" => TokenKind::Keyword(Keyword::IDENTITY),
-            "translation" => TokenKind::Keyword(Keyword::TRANSLATION),
+            "new" => TokenKind::Keyword(Keyword::New),
+            "material" => TokenKind::Keyword(Keyword::Material),
+            "plane" => TokenKind::Keyword(Keyword::Plane),
+            "sphere" => TokenKind::Keyword(Keyword::Sphere),
+            "box" => TokenKind::Keyword(Keyword::Box),
+            "simple_mesh" => TokenKind::Keyword(Keyword::SimpleMesh),
+            "diffuse" => TokenKind::Keyword(Keyword::Diffuse),
+            "specular" => TokenKind::Keyword(Keyword::Specular),
+            "uniform" => TokenKind::Keyword(Keyword::Uniform),
+            "checkered" => TokenKind::Keyword(Keyword::Checkered),
+            "image" => TokenKind::Keyword(Keyword::Image),
+            "gradient" => TokenKind::Keyword(Keyword::Gradient),
+            "identity" => TokenKind::Keyword(Keyword::Identity),
+            "translation" => TokenKind::Keyword(Keyword::Translation),
             "rotation_x" => TokenKind::Keyword(Keyword::RotationX),
             "rotation_y" => TokenKind::Keyword(Keyword::RotationY),
             "rotation_z" => TokenKind::Keyword(Keyword::RotationZ),
-            "scaling" => TokenKind::Keyword(Keyword::SCALING),
-            "camera" => TokenKind::Keyword(Keyword::CAMERA),
-            "orthogonal" => TokenKind::Keyword(Keyword::ORTHOGONAL),
-            "perspective" => TokenKind::Keyword(Keyword::PERSPECTIVE),
-            "float" => TokenKind::Keyword(Keyword::FLOAT),
-            "point" => TokenKind::Keyword(Keyword::POINT),
-            "point_light" => TokenKind::Keyword(Keyword::PTLIGHTSOURCE),
-            "spherical_light" => TokenKind::Keyword(Keyword::SPHLIGHTSOURCE),
-            "true" | "True" => TokenKind::Keyword(Keyword::TRUE),
-            "false" | "False" => TokenKind::Keyword(Keyword::FALSE),
-            "black" | "Black" | "BLACK" => TokenKind::Keyword(Keyword::BLACK),
-            "white" | "White" | "WHITE" => TokenKind::Keyword(Keyword::WHITE),
+            "scaling" => TokenKind::Keyword(Keyword::Scaling),
+            "camera" => TokenKind::Keyword(Keyword::Camera),
+            "orthogonal" => TokenKind::Keyword(Keyword::Orthogonal),
+            "perspective" => TokenKind::Keyword(Keyword::Perspective),
+            "float" => TokenKind::Keyword(Keyword::Float),
+            "point" => TokenKind::Keyword(Keyword::Point),
+            "point_light" => TokenKind::Keyword(Keyword::PtLightSource),
+            "spherical_light" => TokenKind::Keyword(Keyword::SphLightSource),
+            "true" | "True" => TokenKind::Keyword(Keyword::True),
+            "false" | "False" => TokenKind::Keyword(Keyword::False),
+            "black" | "Black" | "BLACK" => TokenKind::Keyword(Keyword::Black),
+            "white" | "White" | "WHITE" => TokenKind::Keyword(Keyword::White),
             s => TokenKind::Identifier(s.to_string()),
         };
         Ok(Token { kind, loc })
@@ -467,35 +467,35 @@ pub struct Token {
 /// object types, materials, transformations, and cameras.
 #[derive(Debug, PartialEq, Copy, Clone)]
 pub enum Keyword {
-    NEW,
-    MATERIAL,
-    PLANE,
-    SPHERE,
-    BOX,
-    SIMPLEMESH,
-    DIFFUSE,
-    SPECULAR,
-    UNIFORM,
-    CHECKERED,
-    IMAGE,
-    GRADIENT,
-    IDENTITY,
-    TRANSLATION,
+    New,
+    Material,
+    Plane,
+    Sphere,
+    Box,
+    SimpleMesh,
+    Diffuse,
+    Specular,
+    Uniform,
+    Checkered,
+    Image,
+    Gradient,
+    Identity,
+    Translation,
     RotationX,
     RotationY,
     RotationZ,
-    SCALING,
-    CAMERA,
-    ORTHOGONAL,
-    PERSPECTIVE,
-    FLOAT,
-    POINT,
-    PTLIGHTSOURCE,
-    SPHLIGHTSOURCE,
-    TRUE,
-    FALSE,
-    BLACK,
-    WHITE,
+    Scaling,
+    Camera,
+    Orthogonal,
+    Perspective,
+    Float,
+    Point,
+    PtLightSource,
+    SphLightSource,
+    True,
+    False,
+    Black,
+    White,
 }
 
 static SYMBOLS: &str = "()<>[],*";
@@ -505,8 +505,8 @@ static WHITESPACE: &str = " \t\r\n";
 mod test {
     use super::*;
     use crate::lexer::Keyword::{
-        BOX, FALSE, FLOAT, GRADIENT, MATERIAL, POINT, PTLIGHTSOURCE, SIMPLEMESH, SPHLIGHTSOURCE,
-        TRUE,
+        Box, False, Float, Gradient, Material, PtLightSource, Point, SphLightSource, SimpleMesh,
+        True,
     };
     use crate::lexer::TokenKind;
     use crate::lexer::TokenKind::Keyword;
@@ -843,7 +843,7 @@ camera(perspective, rotation_z(30) * translation([-4, 0, 1]), 1.0, 1.0)";
         let token = stream.read_token().unwrap();
         assert_eq!(
             token.kind,
-            TokenKind::Keyword(FLOAT),
+            TokenKind::Keyword(Float),
             "token.kind = {:?}",
             token.kind
         );
@@ -913,7 +913,7 @@ camera(perspective, rotation_z(30) * translation([-4, 0, 1]), 1.0, 1.0)";
         let token = stream.read_token().unwrap();
         assert_eq!(
             token.kind,
-            TokenKind::Keyword(MATERIAL),
+            TokenKind::Keyword(Material),
             "token.kind = {:?}",
             token.kind
         );
@@ -990,7 +990,7 @@ camera(perspective, rotation_z(30) * translation([-4, 0, 1]), 1.0, 1.0)";
         let token = stream.read_token().unwrap();
         assert_eq!(
             token.kind,
-            Keyword(GRADIENT),
+            Keyword(Gradient),
             "token.kind = {:?}",
             token.kind
         );
@@ -1004,7 +1004,7 @@ camera(perspective, rotation_z(30) * translation([-4, 0, 1]), 1.0, 1.0)";
         let cursor = std::io::Cursor::new(text);
         let mut stream = InputStream::new(cursor, 0, 4);
         let token = stream.read_token().unwrap();
-        assert_eq!(token.kind, Keyword(BOX), "token.kind = {:?}", token.kind);
+        assert_eq!(token.kind, Keyword(Box), "token.kind = {:?}", token.kind);
     }
 
     #[test]
@@ -1013,7 +1013,7 @@ camera(perspective, rotation_z(30) * translation([-4, 0, 1]), 1.0, 1.0)";
         let cursor = std::io::Cursor::new(text);
         let mut stream = InputStream::new(cursor, 0, 4);
         let token = stream.read_token().unwrap();
-        assert_eq!(token.kind, Keyword(POINT), "token.kind = {:?}", token.kind);
+        assert_eq!(token.kind, Keyword(Point), "token.kind = {:?}", token.kind);
     }
 
     #[test]
@@ -1024,7 +1024,7 @@ camera(perspective, rotation_z(30) * translation([-4, 0, 1]), 1.0, 1.0)";
         let token = stream.read_token().unwrap();
         assert_eq!(
             token.kind,
-            TokenKind::Keyword(SIMPLEMESH),
+            TokenKind::Keyword(SimpleMesh),
             "token.kind = {:?}",
             token.kind
         );
@@ -1038,7 +1038,7 @@ camera(perspective, rotation_z(30) * translation([-4, 0, 1]), 1.0, 1.0)";
         let token = stream.read_token().unwrap();
         assert_eq!(
             token.kind,
-            TokenKind::Keyword(PTLIGHTSOURCE),
+            TokenKind::Keyword(PtLightSource),
             "token.kind = {:?}",
             token.kind
         );
@@ -1052,7 +1052,7 @@ camera(perspective, rotation_z(30) * translation([-4, 0, 1]), 1.0, 1.0)";
         let token = stream.read_token().unwrap();
         assert_eq!(
             token.kind,
-            TokenKind::Keyword(SPHLIGHTSOURCE),
+            TokenKind::Keyword(SphLightSource),
             "token.kind = {:?}",
             token.kind
         );
@@ -1066,7 +1066,7 @@ camera(perspective, rotation_z(30) * translation([-4, 0, 1]), 1.0, 1.0)";
         let token = stream.read_token().unwrap();
         assert_eq!(
             token.kind,
-            TokenKind::Keyword(TRUE),
+            TokenKind::Keyword(True),
             "token.kind = {:?}",
             token.kind
         );
@@ -1074,7 +1074,7 @@ camera(perspective, rotation_z(30) * translation([-4, 0, 1]), 1.0, 1.0)";
         let token = stream.read_token().unwrap();
         assert_eq!(
             token.kind,
-            TokenKind::Keyword(TRUE),
+            TokenKind::Keyword(True),
             "token.kind = {:?}",
             token.kind
         );
@@ -1082,7 +1082,7 @@ camera(perspective, rotation_z(30) * translation([-4, 0, 1]), 1.0, 1.0)";
         let token = stream.read_token().unwrap();
         assert_eq!(
             token.kind,
-            TokenKind::Keyword(FALSE),
+            TokenKind::Keyword(False),
             "token.kind = {:?}",
             token.kind
         );
@@ -1090,7 +1090,7 @@ camera(perspective, rotation_z(30) * translation([-4, 0, 1]), 1.0, 1.0)";
         let token = stream.read_token().unwrap();
         assert_eq!(
             token.kind,
-            TokenKind::Keyword(FALSE),
+            TokenKind::Keyword(False),
             "token.kind = {:?}",
             token.kind
         );
@@ -1098,15 +1098,15 @@ camera(perspective, rotation_z(30) * translation([-4, 0, 1]), 1.0, 1.0)";
 
     #[test]
     fn test_color_keyword_reader() {
-        use crate::lexer::Keyword::{BLACK, WHITE};
+        use crate::lexer::Keyword::{Black, White};
 
         let cases = [
-            ("black", TokenKind::Keyword(BLACK)),
-            ("Black", TokenKind::Keyword(BLACK)),
-            ("BLACK", TokenKind::Keyword(BLACK)),
-            ("white", TokenKind::Keyword(WHITE)),
-            ("White", TokenKind::Keyword(WHITE)),
-            ("WHITE", TokenKind::Keyword(WHITE)),
+            ("black", TokenKind::Keyword(Black)),
+            ("Black", TokenKind::Keyword(Black)),
+            ("BLACK", TokenKind::Keyword(Black)),
+            ("white", TokenKind::Keyword(White)),
+            ("White", TokenKind::Keyword(White)),
+            ("WHITE", TokenKind::Keyword(White)),
         ];
 
         for (input, expected) in cases {

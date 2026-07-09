@@ -197,8 +197,8 @@ pub fn parse_vector<B: BufRead>(stream: &mut InputStream<B>, scene: &Scene) -> R
 pub fn parse_color<B: BufRead>(stream: &mut InputStream<B>, scene: &Scene) -> Result<Color> {
     let token = stream.read_token()?;
     match token.kind {
-        TokenKind::Keyword(Keyword::WHITE) => Ok(WHITE),
-        TokenKind::Keyword(Keyword::BLACK) => Ok(BLACK),
+        TokenKind::Keyword(Keyword::White) => Ok(WHITE),
+        TokenKind::Keyword(Keyword::Black) => Ok(BLACK),
         TokenKind::Symbol('<') => {
             let r = expect_number(stream, scene)?;
             expect_symbol(stream, ',')?;
@@ -240,20 +240,20 @@ pub fn parse_pigment<B: BufRead>(
     let keyword = expect_keywords(
         stream,
         &[
-            Keyword::UNIFORM,
-            Keyword::CHECKERED,
-            Keyword::IMAGE,
-            Keyword::GRADIENT,
+            Keyword::Uniform,
+            Keyword::Checkered,
+            Keyword::Image,
+            Keyword::Gradient,
         ],
     )?;
     expect_symbol(stream, '(')?;
 
     let result: Box<dyn Pigment> = match keyword {
-        Keyword::UNIFORM => {
+        Keyword::Uniform => {
             let color = parse_color(stream, scene)?;
             Box::new(UniformPigment::new(color))
         }
-        Keyword::CHECKERED => {
+        Keyword::Checkered => {
             let color1 = parse_color(stream, scene)?;
             expect_symbol(stream, ',')?;
             let color2 = parse_color(stream, scene)?;
@@ -261,14 +261,14 @@ pub fn parse_pigment<B: BufRead>(
             let steps = expect_number(stream, scene)? as u32;
             Box::new(CheckeredPigment::new(color1, color2, steps))
         }
-        Keyword::IMAGE => {
+        Keyword::Image => {
             let file_name = expect_string(stream)?;
             // Assuming you have a way to load the HDR from a file.
             // In a real scenario, you might want to cache images.
             let image = read_pfm_file(&file_name)?;
             Box::new(ImagePigment::new(image))
         }
-        Keyword::GRADIENT => {
+        Keyword::Gradient => {
             let color1 = parse_color(stream, scene)?;
             expect_symbol(stream, ',')?;
             let color2 = parse_color(stream, scene)?;
@@ -285,12 +285,12 @@ pub fn parse_pigment<B: BufRead>(
 
 /// Parses a BRDF. Supports diffuse and specular.
 pub fn parse_brdf<B: BufRead>(stream: &mut InputStream<B>) -> Result<Box<dyn BRDF>> {
-    let keyword = expect_keywords(stream, &[Keyword::DIFFUSE, Keyword::SPECULAR])?;
+    let keyword = expect_keywords(stream, &[Keyword::Diffuse, Keyword::Specular])?;
     expect_symbol(stream, '(')?;
 
     let result: Box<dyn BRDF> = match keyword {
-        Keyword::DIFFUSE => Box::new(DiffusiveBrdf {}),
-        Keyword::SPECULAR => Box::new(SpecularBrdf {}),
+        Keyword::Diffuse => Box::new(DiffusiveBrdf {}),
+        Keyword::Specular => Box::new(SpecularBrdf {}),
         _ => unreachable!(),
     };
 
@@ -341,18 +341,18 @@ pub fn parse_transformation<B: BufRead>(
         let keyword = expect_keywords(
             stream,
             &[
-                Keyword::IDENTITY,
-                Keyword::TRANSLATION,
+                Keyword::Identity,
+                Keyword::Translation,
                 Keyword::RotationX,
                 Keyword::RotationY,
                 Keyword::RotationZ,
-                Keyword::SCALING,
+                Keyword::Scaling,
             ],
         )?;
 
         match keyword {
-            Keyword::IDENTITY => {}
-            Keyword::TRANSLATION => {
+            Keyword::Identity => {}
+            Keyword::Translation => {
                 expect_symbol(stream, '(')?;
                 let vec = parse_vector(stream, scene)?;
                 expect_symbol(stream, ')')?;
@@ -376,7 +376,7 @@ pub fn parse_transformation<B: BufRead>(
                 expect_symbol(stream, ')')?;
                 result = result * ZRotation::new(angle);
             }
-            Keyword::SCALING => {
+            Keyword::Scaling => {
                 expect_symbol(stream, '(')?;
                 let token = stream.read_token()?;
                 match token.kind {
@@ -455,9 +455,9 @@ pub fn parse_plane<B: BufRead>(
     let procedural_texture = match token.kind {
         TokenKind::Symbol(')') => false,
         TokenKind::Symbol(',') => {
-            let key = expect_keywords(stream, &[Keyword::TRUE, Keyword::FALSE])?;
+            let key = expect_keywords(stream, &[Keyword::True, Keyword::False])?;
             expect_symbol(stream, ')')?;
-            key == Keyword::TRUE
+            key == Keyword::True
         }
         _ => bail!(
             "Grammar Error at {}:{}: expected ')' or ', <bool>', found '{:?}'",
@@ -488,10 +488,10 @@ pub fn parse_box<B: BufRead>(stream: &mut InputStream<B>, scene: &Scene) -> Resu
     expect_symbol(stream, '(')?;
     let material_name = expect_identifier(stream)?;
     expect_symbol(stream, ',')?;
-    expect_keywords(stream, &[Keyword::POINT])?;
+    expect_keywords(stream, &[Keyword::Point])?;
     let point1 = parse_point(stream, scene)?;
     expect_symbol(stream, ',')?;
-    expect_keywords(stream, &[Keyword::POINT])?;
+    expect_keywords(stream, &[Keyword::Point])?;
     let point2 = parse_point(stream, scene)?;
     expect_symbol(stream, ')')?;
     let material = scene
@@ -535,7 +535,7 @@ pub fn parse_point_light<B: BufRead>(
     scene: &Scene,
 ) -> Result<PointLightSource> {
     expect_symbol(stream, '(')?;
-    expect_keywords(stream, &[Keyword::POINT])?;
+    expect_keywords(stream, &[Keyword::Point])?;
     let point = parse_point(stream, scene)?;
     expect_symbol(stream, ',')?;
     let color = parse_color(stream, scene)?;
@@ -552,7 +552,7 @@ pub fn parse_spherical_light<B: BufRead>(
     scene: &Scene,
 ) -> Result<SphericalLightSource> {
     expect_symbol(stream, '(')?;
-    expect_keywords(stream, &[Keyword::POINT])?;
+    expect_keywords(stream, &[Keyword::Point])?;
     let point = parse_point(stream, scene)?;
     expect_symbol(stream, ',')?;
     let radius = expect_number(stream, scene)?;
@@ -573,7 +573,7 @@ pub fn parse_camera<B: BufRead>(
     scene: &Scene,
 ) -> Result<Box<dyn Camera>> {
     expect_symbol(stream, '(')?;
-    let cam_type = expect_keywords(stream, &[Keyword::PERSPECTIVE, Keyword::ORTHOGONAL])?;
+    let cam_type = expect_keywords(stream, &[Keyword::Perspective, Keyword::Orthogonal])?;
     expect_symbol(stream, ',')?;
     let transformation = parse_transformation(stream, scene)?;
     expect_symbol(stream, ',')?;
@@ -587,12 +587,12 @@ pub fn parse_camera<B: BufRead>(
     expect_symbol(stream, ')')?;
 
     let camera: Box<dyn Camera> = match cam_type {
-        Keyword::PERSPECTIVE => {
+        Keyword::Perspective => {
             let mut cam = PerspectiveCamera::new(transformation);
             cam.set_distance(distance);
             Box::new(cam)
         }
-        Keyword::ORTHOGONAL => {
+        Keyword::Orthogonal => {
             let cam = OrthogonalCamera::new(transformation);
             Box::new(cam)
         }
@@ -618,7 +618,7 @@ pub fn parse_scene<B: BufRead>(
         let token = stream.read_token()?;
 
         match token.kind {
-            TokenKind::Keyword(Keyword::FLOAT) => {
+            TokenKind::Keyword(Keyword::Float) => {
                 let name = expect_identifier(stream)?;
                 expect_symbol(stream, '(')?;
                 let value = expect_number(stream, &scene)?;
@@ -629,31 +629,31 @@ pub fn parse_scene<B: BufRead>(
                     scene.float_variables.insert(name, value);
                 }
             }
-            TokenKind::Keyword(Keyword::MATERIAL) => {
+            TokenKind::Keyword(Keyword::Material) => {
                 let (name, material) = parse_material(stream, &scene)?;
                 scene.materials.insert(name, material);
             }
-            TokenKind::Keyword(Keyword::SPHERE) => {
+            TokenKind::Keyword(Keyword::Sphere) => {
                 let sphere = parse_sphere(stream, &scene)?;
                 scene.world.objects.push(Box::new(sphere));
             }
-            TokenKind::Keyword(Keyword::PLANE) => {
+            TokenKind::Keyword(Keyword::Plane) => {
                 let plane = parse_plane(stream, &scene)?;
                 scene.world.objects.push(Box::new(plane));
             }
-            TokenKind::Keyword(Keyword::BOX) => {
+            TokenKind::Keyword(Keyword::Box) => {
                 let box_shape = parse_box(stream, &scene)?;
                 scene.world.objects.push(Box::new(box_shape));
             }
-            TokenKind::Keyword(Keyword::SIMPLEMESH) => {
+            TokenKind::Keyword(Keyword::SimpleMesh) => {
                 let simple_mesh = parse_simple_mesh(stream, &scene)?;
                 scene.world.objects.push(Box::new(simple_mesh));
             }
-            TokenKind::Keyword(Keyword::PTLIGHTSOURCE) => {
+            TokenKind::Keyword(Keyword::PtLightSource) => {
                 let point_light_source: PointLightSource = parse_point_light(stream, &scene)?;
                 scene.world.light_sources.push(Box::new(point_light_source));
             }
-            TokenKind::Keyword(Keyword::SPHLIGHTSOURCE) => {
+            TokenKind::Keyword(Keyword::SphLightSource) => {
                 let spherical_light_source: SphericalLightSource =
                     parse_spherical_light(stream, &scene)?;
                 scene
@@ -661,7 +661,7 @@ pub fn parse_scene<B: BufRead>(
                     .light_sources
                     .push(Box::new(spherical_light_source));
             }
-            TokenKind::Keyword(Keyword::CAMERA) => {
+            TokenKind::Keyword(Keyword::Camera) => {
                 let camera = parse_camera(stream, &scene)?;
                 scene.camera = Some(camera);
             }

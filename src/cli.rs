@@ -52,7 +52,9 @@ pub fn ensure_image_extension(name: &str, format: &str) -> String {
         .iter()
         .find_map(|known_ext| {
             let suffix = format!(".{}", known_ext);
-            if name.len() > suffix.len() && name[name.len() - suffix.len()..].eq_ignore_ascii_case(&suffix) {
+            if name.len() > suffix.len()
+                && name[name.len() - suffix.len()..].eq_ignore_ascii_case(&suffix)
+            {
                 Some(&name[..name.len() - suffix.len()])
             } else {
                 None
@@ -81,10 +83,7 @@ mod tests {
 
     #[test]
     fn test_ensure_image_extension_same_extension() {
-        assert_eq!(
-            ensure_image_extension("output.jpeg", "jpeg"),
-            "output.jpeg"
-        );
+        assert_eq!(ensure_image_extension("output.jpeg", "jpeg"), "output.jpeg");
     }
 
     #[test]

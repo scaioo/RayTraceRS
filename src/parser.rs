@@ -39,6 +39,7 @@
 //! pigment ::= "uniform" "(" color ")"
 //!           | "checkered" "(" color "," color "," number ")"
 //!           | "image" "(" STRING ")"
+//!           | "image" "(" STRING "," number "," number "," number ")"
 //!           | "gradient" "(" color "," color "," number ")"
 //! brdf    ::= "diffuse" "(" ")" | "specular" "(" ")"
 //!
@@ -83,6 +84,7 @@ use crate::brdf::{BRDF, DiffusiveBrdf, SpecularBrdf};
 use crate::camera::{Camera, OrthogonalCamera, PerspectiveCamera};
 use crate::color::{BLACK, Color, WHITE};
 use crate::geometry::{Point, Vector};
+use crate::hdr_image::HDR;
 use crate::lexer::{InputStream, Keyword, TokenKind};
 use crate::light_source::{PointLightSource, SphericalLightSource};
 use crate::materials::Material;
@@ -350,7 +352,10 @@ pub fn parse_point<B: BufRead>(stream: &mut InputStream<B>, scene: &Scene) -> Re
 /// Supported pigment types are:
 /// - uniform
 /// - checkered
-/// - image
+/// - image: `image(STRING)` loads a `.pfm` texture as-is; `image(STRING, factor_a,
+///   avr_lum, gamma)` loads a `.png`/`.jpg`/`.jpeg` texture and reconstructs an
+///   approximate HDR image from it via [`HDR::load_from_ldr`]. The file extension
+///   determines which form is required.
 /// - gradient
 pub fn parse_pigment<B: BufRead>(
     stream: &mut InputStream<B>,
@@ -382,9 +387,53 @@ pub fn parse_pigment<B: BufRead>(
         }
         Keyword::Image => {
             let file_name = expect_string(stream)?;
-            // Assuming you have a way to load the HDR from a file.
-            // In a real scenario, you might want to cache images.
-            let image = read_pfm_file(&file_name)?;
+            let extension = PathBuf::from(&file_name)
+                .extension()
+                .and_then(|e| e.to_str())
+                .map(|e| e.to_lowercase());
+
+            // Lookahead: a bare `image("path.pfm")` has no extra arguments, while
+            // an LDR source needs the tone-mapping parameters used to invert it
+            // back to HDR: `image("path.png", factor_a, avr_lum, gamma)`.
+            let next_token = stream.read_token()?;
+            let is_ldr = matches!(next_token.kind, TokenKind::Symbol(','));
+            stream.unread_token(next_token)?;
+
+            let image = match extension.as_deref() {
+                Some("png") | Some("jpg") | Some("jpeg") => {
+                    if !is_ldr {
+                        bail!(
+                            "Grammar Error: LDR image '{}' requires factor_a, avr_lum, and gamma, \
+                             e.g. image(\"{}\", 0.18, 1.0, 2.2)",
+                            file_name,
+                            file_name
+                        );
+                    }
+                    expect_symbol(stream, ',')?;
+                    let factor_a = expect_number(stream, scene)?;
+                    expect_symbol(stream, ',')?;
+                    let avr_lum = expect_number(stream, scene)?;
+                    expect_symbol(stream, ',')?;
+                    let gamma = expect_number(stream, scene)?;
+                    HDR::load_from_ldr(&file_name, factor_a, avr_lum, gamma)?
+                }
+                Some("pfm") => {
+                    if is_ldr {
+                        bail!(
+                            "Grammar Error: factor_a, avr_lum, and gamma are only valid for \
+                             LDR images (.png, .jpg, .jpeg), found '{}'",
+                            file_name
+                        );
+                    }
+                    read_pfm_file(&file_name)?
+                }
+                _ => {
+                    bail!(
+                        "Image reader accepts only .png, .jpg, .jpeg or .pfm. Filename: '{}'",
+                        file_name
+                    );
+                }
+            };
             Box::new(ImagePigment::new(image))
         }
         Keyword::Gradient => {
@@ -990,6 +1039,132 @@ mod test {
         assert!(scene.camera.is_some());
 
         Ok(())
+    }
+
+    #[test]
+    fn test_parse_pfm_image_pigment() -> Result<()> {
+        let text = r#"
+        material ball(
+            image("tests/assets/memorial.pfm"),
+            diffuse(),
+            uniform(<0, 0, 0>)
+        )
+        "#;
+
+        let cursor = std::io::Cursor::new(text);
+        let mut stream = InputStream::new(cursor, 0, 4);
+        let scene = parse_scene(&mut stream, HashMap::new())?;
+
+        assert!(scene.materials.contains_key("ball"));
+        Ok(())
+    }
+
+    #[test]
+    fn test_parse_ldr_image_pigment() -> Result<()> {
+        let text = r#"
+        material ball(
+            image("tests/assets/pixar_ball.png", 0.18, 1.0, 2.2),
+            diffuse(),
+            uniform(<0, 0, 0>)
+        )
+        "#;
+
+        let cursor = std::io::Cursor::new(text);
+        let mut stream = InputStream::new(cursor, 0, 4);
+        let scene = parse_scene(&mut stream, HashMap::new())?;
+
+        assert!(scene.materials.contains_key("ball"));
+        Ok(())
+    }
+
+    #[test]
+    fn test_parse_ldr_image_pigment_missing_parameters() {
+        let text = r#"
+        material ball(
+            image("tests/assets/pixar_ball.png"),
+            diffuse(),
+            uniform(<0, 0, 0>)
+        )
+        "#;
+
+        let cursor = std::io::Cursor::new(text);
+        let mut stream = InputStream::new(cursor, 0, 4);
+        assert!(parse_scene(&mut stream, HashMap::new()).is_err());
+    }
+
+    #[test]
+    fn test_parse_pfm_image_pigment_extra_params_fails() {
+        let text = r#"
+        material ball(
+            image("tests/assets/memorial.pfm", 0.18, 1.0, 2.2),
+            diffuse(),
+            uniform(<0, 0, 0>)
+        )
+        "#;
+
+        let cursor = std::io::Cursor::new(text);
+        let mut stream = InputStream::new(cursor, 0, 4);
+        assert!(parse_scene(&mut stream, HashMap::new()).is_err());
+    }
+
+    #[test]
+    fn test_parse_ldr_image_pigment_fail() {
+        let text = r#"
+        material ball(
+            image("tests/assets/pixar_ball.png", 0.18, 1.0, 2.2 extra),
+            diffuse(),
+            uniform(<0, 0, 0>)
+        )
+        "#;
+
+        let cursor = std::io::Cursor::new(text);
+        let mut stream = InputStream::new(cursor, 0, 4);
+        assert!(parse_scene(&mut stream, HashMap::new()).is_err());
+    }
+
+    #[test]
+    fn test_parse_ldr_image_pigment_missing_parenthesis() {
+        let text = r#"
+        material ball(
+            image("tests/assets/pixar_ball.png", 0.18, 1.0, 2.2
+            diffuse(),
+            uniform(<0, 0, 0>)
+        )
+        "#;
+
+        let cursor = std::io::Cursor::new(text);
+        let mut stream = InputStream::new(cursor, 0, 4);
+        assert!(parse_scene(&mut stream, HashMap::new()).is_err());
+    }
+
+    #[test]
+    fn test_parse_pfm_image_pigment_fail2() {
+        let text = r#"
+        material ball(
+            image("tests/assets/memorial.pfm" garbage),
+            diffuse(),
+            uniform(<0, 0, 0>)
+        )
+        "#;
+
+        let cursor = std::io::Cursor::new(text);
+        let mut stream = InputStream::new(cursor, 0, 4);
+        assert!(parse_scene(&mut stream, HashMap::new()).is_err());
+    }
+
+    #[test]
+    fn test_parse_image_pigment_unknown_extension() {
+        let text = r#"
+        material ball(
+            image("tests/assets/texture.bmp"),
+            diffuse(),
+            uniform(<0, 0, 0>)
+        )
+        "#;
+
+        let cursor = std::io::Cursor::new(text);
+        let mut stream = InputStream::new(cursor, 0, 4);
+        assert!(parse_scene(&mut stream, HashMap::new()).is_err());
     }
 
     #[test]

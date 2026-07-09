@@ -731,6 +731,7 @@ pub fn parse_scene<B: BufRead>(
     initial_variables: HashMap<String, f32>,
 ) -> Result<Scene> {
     let mut scene = Scene::new();
+    scene.overridden_variables = initial_variables.keys().cloned().collect();
     scene.float_variables = initial_variables;
 
     loop {

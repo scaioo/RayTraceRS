@@ -1,5 +1,8 @@
+mod cli;
+
 use anyhow::{Result, anyhow};
 use clap::Parser;
+use cli::{build_variable_table, ensure_extension, ensure_image_extension};
 use rstrace::camera::Camera;
 use rstrace::color::{BLACK, Color};
 use rstrace::hdr_image::HDR;
@@ -9,7 +12,6 @@ use rstrace::pfm_func::{Endianness, pfm_to_ldr};
 use rstrace::ray::Ray;
 use rstrace::renderer::{FlatRenderer, OnOffRenderer, PathTracer, PointLightRenderer, Renderer};
 use rstrace::world::World;
-use std::collections::HashMap;
 use std::fs::File;
 use std::io::{BufReader, BufWriter};
 use std::time::Instant;
@@ -111,44 +113,6 @@ enum Commands {
     },
 }
 
-// ====================================================================
-// CONSTRUCTION OF THE SCENE
-// ====================================================================
-
-/// Helper function to parse variables from the CLI into a HashMap
-fn build_variable_table(declare_float: &[String]) -> HashMap<String, f32> {
-    let mut variables = HashMap::new();
-    for decl in declare_float {
-        let parts: Vec<&str> = decl.split(':').collect();
-        if parts.len() == 2 {
-            if let Ok(val) = parts[1].parse::<f32>() {
-                variables.insert(parts[0].to_string(), val);
-            } else {
-                eprintln!("Warning: Could not parse value for variable '{}'", parts[0]);
-            }
-        } else {
-            eprintln!(
-                "Warning: Invalid variable declaration format: '{}'. Use VAR:VALUE",
-                decl
-            );
-        }
-    }
-    variables
-}
-
-// ====================================================================
-// FILENAMES HELPER FUNCTION
-// ====================================================================
-/// Ensures a filename has the given extension, adding it only if missing.
-/// E.g. "output" -> "output.pfm", "output.pfm" -> "output.pfm"
-fn ensure_extension(name: &str, ext: &str) -> String {
-    let suffix = format!(".{}", ext);
-    if name.ends_with(&suffix) {
-        name.to_string()
-    } else {
-        format!("{}.{}", name, ext)
-    }
-}
 // ====================================================================
 // MAIN PROGRAM
 // ====================================================================
@@ -257,7 +221,10 @@ fn main() -> Result<()> {
             std::fs::create_dir_all("outputs")?;
 
             let pfm_filename = format!("outputs/{}", ensure_extension(&pfm_output, "pfm"));
-            let ldr_filename = format!("outputs/{}", ensure_extension(&image_output, &cli.format));
+            let ldr_filename = format!(
+                "outputs/{}",
+                ensure_image_extension(&image_output, &cli.format)
+            );
 
             let file = File::create(&pfm_filename)?;
             let disk_writer = BufWriter::new(&file);

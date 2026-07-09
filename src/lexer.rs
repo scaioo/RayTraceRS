@@ -505,7 +505,7 @@ static WHITESPACE: &str = " \t\r\n";
 mod test {
     use super::*;
     use crate::lexer::Keyword::{
-        Box, False, Float, Gradient, Material, PtLightSource, Point, SphLightSource, SimpleMesh,
+        Box, False, Float, Gradient, Material, Point, PtLightSource, SimpleMesh, SphLightSource,
         True,
     };
     use crate::lexer::TokenKind;
@@ -514,32 +514,73 @@ mod test {
 
     static TEST_FILE: &str = "float clock(150)
 
+# This is the demo image from v0.3.0 - polish this file before merging PR
+
+# Sky dome
+
 material sky_material(
-    diffuse(uniform(<0, 0, 0>)),
-    uniform(<0.7, 0.5, 1>)
+uniform(<0.5, 0.9, 1.0>),
+diffuse(),
+uniform(<0.5, 0.9, 1.0>)
 )
 
-# Here is a comment
-
-material ground_material(
-    diffuse(checkered(<0.3, 0.5, 0.1>,
-                      <0.1, 0.2, 0.5>, 4)),
-    uniform(<0, 0, 0>)
+sphere(
+sky_material,
+scaling([200, 200, 200]) * translation([0, 0, 0.4])
 )
 
-material sphere_material(
-    specular(uniform(<0.5, 0.5, 0.5>)),
-    uniform(<0, 0, 0>)
+# Checkered floor
+
+material floor_material(
+checkered(
+<0.3, 0.5, 0.1>,
+<0.1, 0.2, 0.5>,
+5
+),
+diffuse(),
+uniform(<0, 0, 0>)
 )
 
-point_light([10, 10, 10], <1, 1, 1>, 1)
+plane(
+floor_material,
+identity, True
+)
 
-plane (sky_material, translation([0, 0, 100]) * rotation_y(clock))
-plane (ground_material, identity)
+# Diffuse sphere
 
-sphere(sphere_material, translation([0, 0, 1]))
+material diffusive_sphere_material(
+uniform(<0.3, 0.4, 0.8>),
+diffuse(),
+uniform(<0.0, 0.0, 0.0>)
+)
 
-camera(perspective, rotation_z(30) * translation([-4, 0, 1]), 1.0, 1.0)";
+sphere(
+diffusive_sphere_material,
+translation([0.0, 0.0, 1.0])
+)
+
+# Mirror sphere
+
+material mirror_material(
+uniform(<0.6, 0.2, 0.3>),
+specular(),
+uniform(<0, 0, 0>)
+)
+
+sphere(
+mirror_material,
+translation([1.0, 2.5, 0.0])
+)
+
+# Camera
+
+camera(
+perspective,
+translation([-1, 0, 1]),
+1.0
+)
+
+# End of world description!";
 
     fn setup1() -> InputStream<Cursor<&'static str>> {
         let stream = Cursor::new(TEST_FILE);
@@ -919,12 +960,12 @@ camera(perspective, rotation_z(30) * translation([-4, 0, 1]), 1.0, 1.0)";
         );
         assert_eq!(
             token.loc,
-            SourceLocation::new(0, 3, 1),
+            SourceLocation::new(0, 7, 1),
             "token.loc = {:?}",
             token.loc
         );
 
-        for _ in 0..6 {
+        for _ in 0..4 {
             let _ = stream.read_token();
         }
 
@@ -937,7 +978,7 @@ camera(perspective, rotation_z(30) * translation([-4, 0, 1]), 1.0, 1.0)";
         );
         assert_eq!(
             token.loc,
-            SourceLocation::new(0, 4, 21),
+            SourceLocation::new(0, 8, 9),
             "token.loc = {:?}",
             token.loc
         );

@@ -1,3 +1,84 @@
+// This file is licensed under the EUPL-1.2. See LICENSE.md.
+
+//! Parser for the raytracer scene description language.
+//!
+//! Consumes the [`Token`](crate::lexer::Token)s produced by
+//! [`InputStream`](crate::lexer::InputStream) and builds a [`Scene`]: a fully
+//! resolved description of the 3D world (shapes, materials, light sources) and
+//! the camera, ready to be handed to a [`Renderer`](crate::renderer::Renderer).
+//!
+//! # Grammar overview
+//!
+//! A scene file is a sequence of zero or more top-level statements, read until
+//! [`TokenKind::StopToken`](crate::lexer::TokenKind::StopToken):
+//!
+//! ```text
+//! scene           ::= statement*
+//! statement       ::= float_decl | material_decl | shape | light | camera
+//!
+//! float_decl      ::= "float" IDENTIFIER "(" number ")"
+//! material_decl   ::= "material" IDENTIFIER "(" pigment "," brdf "," pigment ")"
+//!
+//! shape           ::= sphere | plane | box | simple_mesh
+//! sphere          ::= "sphere" "(" IDENTIFIER "," transformation ")"
+//! plane           ::= "plane" "(" IDENTIFIER "," transformation ["," bool] ")"
+//! box             ::= "box" "(" IDENTIFIER "," "point" "(" vector ")" "," "point" "(" vector ")" ")"
+//! simple_mesh     ::= "simple_mesh" "(" IDENTIFIER "," STRING "," transformation ")"
+//!
+//! light           ::= point_light | spherical_light
+//! point_light     ::= "point_light" "(" "point" "(" vector ")" "," color ")"
+//! spherical_light ::= "spherical_light" "(" "point" "(" vector ")" "," number "," color "," number ")"
+//!
+//! camera          ::= "camera" "(" ("perspective" | "orthogonal") "," transformation "," number ")"
+//!
+//! transformation  ::= transform_atom ("*" transform_atom)*
+//! transform_atom  ::= "identity" | "translation" "(" vector ")"
+//!                   | "rotation_x" "(" number ")" | "rotation_y" "(" number ")" | "rotation_z" "(" number ")"
+//!                   | "scaling" "(" (vector | number) ")"
+//!
+//! pigment ::= "uniform" "(" color ")"
+//!           | "checkered" "(" color "," color "," number ")"
+//!           | "image" "(" STRING ")"
+//!           | "gradient" "(" color "," color "," number ")"
+//! brdf    ::= "diffuse" "(" ")" | "specular" "(" ")"
+//!
+//! color   ::= "<" number "," number "," number ">" | "black" | "white"
+//! vector  ::= "[" number "," number "," number "]"
+//! number  ::= LITERAL_NUMBER | IDENTIFIER   (identifiers are resolved via `Scene::float_variables`)
+//! ```
+//!
+//! # Variables
+//!
+//! Anywhere a `number` is expected, an identifier can be used instead of a
+//! literal: it's looked up in [`Scene::float_variables`] (see [`expect_number`]).
+//! Variables can be declared inside the file with `float NAME(VALUE)`, or
+//! pre-populated from the command line via the `initial_variables` argument of
+//! [`parse_scene`] (e.g. `--declare-float clock:150`). Names present in
+//! [`Scene::overridden_variables`] are protected: a later `float` statement in
+//! the file will *not* overwrite a value supplied on the command line.
+//!
+//! # Error handling
+//!
+//! All parsing functions return [`anyhow::Result`]; grammar errors are reported
+//! with the offending token's [`SourceLocation`](crate::lexer::SourceLocation)
+//! (line and column) to make debugging scene files easier.
+//!
+//! # Example
+//!
+//! ```text
+//! float clock(150)
+//!
+//! material sky_material(
+//!     uniform(<0, 0, 0>),
+//!     diffuse(),
+//!     uniform(<0.7, 0.5, 1>)
+//! )
+//!
+//! plane(sky_material, translation([0, 0, 100]) * rotation_y(clock))
+//!
+//! camera(perspective, identity, 1.0)
+//! ```
+
 use crate::brdf::{BRDF, DiffusiveBrdf, SpecularBrdf};
 use crate::camera::{Camera, OrthogonalCamera, PerspectiveCamera};
 use crate::color::{BLACK, Color, WHITE};
@@ -18,26 +99,64 @@ use std::collections::{HashMap, HashSet};
 use std::io::BufRead;
 use std::path::PathBuf;
 
-/// A scene read from a scene file.
+/// A scene parsed from a scene-description file (or a fragment thereof).
 ///
-/// It acts as a container for all the elements parsed from the script,
-/// acting as a symbol table for variables and materials, and storing
-/// the final 3D world and camera.
+/// [`Scene`] plays two roles:
+/// - **Symbol table**: while [`parse_scene`] consumes the token stream from
+///   top to bottom, it accumulates named materials and variables here, so
+///   that later declarations (e.g. a `sphere` referencing a `material`
+///   defined earlier) can resolve them by name.
+/// - **Output**: once the [`StopToken`](crate::lexer::TokenKind::StopToken)
+///   is reached, the same struct holds the complete [`World`] and [`Camera`],
+///   ready to be handed to the renderer.
+///
+/// Statements are processed strictly in file order: a `sphere`/`plane` must
+/// appear *after* the `material` it references, otherwise parsing fails with
+/// an "Unknown material" error.
+///
+/// # Field lifecycle
+///
+/// | Field | Populated by | Consumed by |
+/// |---|---|---|
+/// | `materials` | `material` declarations | `sphere`, `plane`, `box`, `simple_mesh` |
+/// | `float_variables` | `float` declarations, or `initial_variables` passed to [`parse_scene`] | [`expect_number`], anywhere an identifier stands in for a number |
+/// | `overridden_variables` | names present in the `initial_variables` passed to [`parse_scene`] | the `float` branch, to avoid overwriting a CLI-supplied value |
+/// | `world` | `sphere`, `plane`, `box`, `simple_mesh`, `point_light`, `spherical_light` | the renderer |
+/// | `camera` | the (at most one) `camera` declaration | the caller of `parse_scene`, to build the `ImageTracer` |
+///
+/// # Example
+///
+/// ```no_run
+/// # use std::collections::HashMap;
+/// # use std::io::Cursor;
+/// # use rstrace::lexer::InputStream;
+/// # use rstrace::parser::parse_scene;
+/// let mut stream = InputStream::new(Cursor::new("camera(perspective, identity, 1.0)"), 0, 4);
+/// let scene = parse_scene(&mut stream, HashMap::new())?;
+/// assert!(scene.camera.is_some());
+/// # Ok::<(), anyhow::Error>(())
+/// ```
 pub struct Scene {
-    /// A dictionary (symbol table) storing parsed materials by their name.
+    /// Symbol table of materials, indexed by name (`material NAME(...)`).
     pub materials: HashMap<String, Material>,
 
-    /// The geometric shapes parsed into the scene.
+    /// Shapes and light sources accumulated so far, in declaration order.
     pub world: World,
 
-    /// The observer. It's an Option because it might not have been parsed yet.
-    /// We use `Box<dyn Camera>` because `Camera` is a trait.
+    /// The observer, once a `camera(...)` statement has been encountered.
+    /// Remains `None` until then; the caller decides how to handle a missing
+    /// camera at the end of parsing.
     pub camera: Option<Box<dyn Camera>>,
 
-    /// A dictionary storing user-defined floating point variables.
+    /// Symbol table of user-defined float variables.
+    /// Written by `float NAME(VALUE)` declarations, read by
+    /// [`expect_number`] whenever an identifier appears in place of a number.
     pub float_variables: HashMap<String, f32>,
 
-    /// A set keeping track of variables that have been overridden from the command line.
+    /// Names of the variables supplied via `initial_variables` in
+    /// [`parse_scene`] (typically through the `--declare-float` CLI flag),
+    /// which must therefore not be overwritten by a later `float`
+    /// declaration in the file.
     pub overridden_variables: HashSet<String>,
 }
 

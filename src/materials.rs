@@ -42,6 +42,10 @@ impl Pigment for ClampPigment {
         color.rescale()?;
         Ok(color)
     }
+
+    fn validate_reflectance(&self) -> anyhow::Result<()> {
+        self.pigment.validate_reflectance()
+    }
 }
 
 // ======================================================================

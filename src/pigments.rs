@@ -42,7 +42,8 @@
 use crate::color::{Color, WHITE};
 use crate::geometry::Vec2D;
 use crate::hdr_image::HDR;
-use anyhow::Result;
+use anyhow::{Result, anyhow};
+
 // ===============================================
 // Pigment Cloning supertrait
 // ==============================================
@@ -75,6 +76,9 @@ where
 pub trait Pigment: ClonePigment {
     /// Returns the `Color` of a certain point on the surface.
     fn get_color(&self, uv: &Vec2D) -> Result<Color>;
+
+    /// Verifies every color is in [0,1]
+    fn validate_reflectance(&self) -> Result<()>;
 }
 
 impl Clone for Box<dyn Pigment> {
@@ -106,6 +110,17 @@ impl Default for UniformPigment {
 impl Pigment for UniformPigment {
     fn get_color(&self, _uv: &Vec2D) -> Result<Color> {
         Ok(self.color)
+    }
+
+    fn validate_reflectance(&self) -> Result<()> {
+        if self.color.validate_reflectance() {
+            Ok(())
+        } else {
+            Err(anyhow!(
+                "UniformPigment has invalid reflection: {:?}",
+                self.color
+            ))
+        }
     }
 }
 
@@ -149,6 +164,18 @@ impl Pigment for CheckeredPigment {
             Ok(self.color2)
         }
     }
+
+    fn validate_reflectance(&self) -> Result<()> {
+        if self.color1.validate_reflectance() && self.color2.validate_reflectance() {
+            Ok(())
+        } else {
+            Err(anyhow!(
+                "CheckeredPigment has invalid reflection:\n color1 {:?}, color2 {:?}",
+                self.color1,
+                self.color2
+            ))
+        }
+    }
 }
 // ===============================================
 // ImagePigment
@@ -177,6 +204,15 @@ impl Pigment for ImagePigment {
     /// Propagates error if the image contains no pixels.
     fn get_color(&self, uv: &Vec2D) -> Result<Color> {
         self.image.bilinear_interpolation(uv)
+    }
+
+    fn validate_reflectance(&self) -> Result<()> {
+        for pixel in &self.image.pixels {
+            if !pixel.validate_reflectance() {
+                return Err(anyhow!("ImagePigment has invalid reflection: {:?}", pixel));
+            }
+        }
+        Ok(())
     }
 }
 
@@ -217,8 +253,22 @@ impl Pigment for GradientPigment {
     /// The gradient is not clamped, so colors may extrapolate
     /// beyond `color1` and `color2`.
     fn get_color(&self, uv: &Vec2D) -> Result<Color> {
+        // TODO: modify code so extremes are always color1 and color2
+
         let new_x = uv.x * self.angle.cos() + uv.y * self.angle.sin();
         Ok(self.color1 * (1.0 - new_x) + self.color2 * new_x)
+    }
+
+    fn validate_reflectance(&self) -> Result<()> {
+        if !self.color1.validate_reflectance() || !self.color2.validate_reflectance() {
+            Err(anyhow!(
+                "GradientPigment has invalid reflection: \ncolor1 {:?}\n color2 {:?}",
+                self.color1,
+                self.color2
+            ))
+        } else {
+            Ok(())
+        }
     }
 }
 
@@ -247,6 +297,20 @@ mod tests {
         let color = Color::new(1.0, 2.0, 3.0);
         let pigment = UniformPigment::new(color);
         assert_eq!(pigment.get_color(&Vec2D { x: 0.0, y: 0.0 }).unwrap(), color);
+    }
+
+    #[test]
+    fn test_uniform_pigment_validate_reflectance() {
+        let color = Color::new(1.0, 0.0, 1.9 / 7.2);
+        let pigment = UniformPigment::new(color);
+        assert!(pigment.validate_reflectance().is_ok());
+    }
+
+    #[test]
+    fn test_uniform_pigment_validate_reflectance_err() {
+        let color = Color::new(-1.0, 2.0, 3.0);
+        let pigment = UniformPigment::new(color);
+        assert!(pigment.validate_reflectance().is_err());
     }
 
     // - - - - - - - - - - - - - - - - - - - - - -
@@ -397,6 +461,30 @@ mod tests {
         );
     }
 
+    #[test]
+    fn test_checkered_pigment_validate_reflectance() {
+        let red = Color::new(1.0, 0.5, 0.0);
+        let green = Color::new(0.01, 1.0, 0.33);
+        let pigment = CheckeredPigment::new(red, green, 3);
+        assert!(pigment.validate_reflectance().is_ok());
+    }
+
+    #[test]
+    fn test_checkered_pigment_validate_reflectance_fail_high() {
+        let red = Color::new(1.0, 0.5, 0.0);
+        let green = Color::new(0.01, 1.01, 0.33);
+        let pigment = CheckeredPigment::new(red, green, 3);
+        assert!(pigment.validate_reflectance().is_err());
+    }
+
+    #[test]
+    fn test_checkered_pigment_validate_reflectance_fail_low() {
+        let red = Color::new(1.0, 0.5, 0.0);
+        let green = Color::new(-0.01, 1.00, 0.33);
+        let pigment = CheckeredPigment::new(red, green, 3);
+        assert!(pigment.validate_reflectance().is_err());
+    }
+
     fn setup_test_rainbow() -> HDR {
         let mut img = HDR::new(4, 2);
 
@@ -462,6 +550,31 @@ mod tests {
     }
 
     #[test]
+    fn test_image_pigments_validate_reflection() {
+        let image = setup_test_rainbow();
+        let image_pigment = ImagePigment::new(image);
+        assert!(image_pigment.validate_reflectance().is_ok());
+    }
+
+    #[test]
+    fn test_image_pigments_validate_reflection_fail_low() {
+        let color = Color::new(-1.0, 0.0, 0.0);
+        let mut image = HDR::new(1, 1);
+        image.set_pixel(0, 0, color).unwrap();
+        let image_pigment = ImagePigment::new(image);
+        assert!(image_pigment.validate_reflectance().is_err());
+    }
+
+    #[test]
+    fn test_image_pigments_validate_reflection_fail_high() {
+        let color = Color::new(1.0001, 0.0, 0.0);
+        let mut image = HDR::new(1, 1);
+        image.set_pixel(0, 0, color).unwrap();
+        let image_pigment = ImagePigment::new(image);
+        assert!(image_pigment.validate_reflectance().is_err());
+    }
+
+    #[test]
     fn test_gradient_pigments_constructor() {
         let color1 = Color::new(1.0, 2.0, 3.0);
         let color2 = Color::new(4.0, 5.0, 6.0);
@@ -524,5 +637,29 @@ mod tests {
         let expected_color = (1.0 - 1.2294228) * gradient.color1 + 1.2294228 * gradient.color2;
 
         assert!(expected_color.is_close(&gradient.get_color(&bottom_left_corner).unwrap()));
+    }
+
+    #[test]
+    fn test_gradient_pigments_validate_reflection() {
+        let color1 = Color::new(1.0, 0.1, 0.3);
+        let color2 = Color::new(0.11, 0.31, 0.63);
+        let pigment = GradientPigment::new(color1, color2, std::f32::consts::FRAC_PI_3);
+        assert!(pigment.validate_reflectance().is_ok());
+    }
+
+    #[test]
+    fn test_gradient_pigments_validate_reflection_fail_high() {
+        let color1 = Color::new(1.01, 0.1, 0.3);
+        let color2 = Color::new(0.11, 0.31, 0.63);
+        let pigment = GradientPigment::new(color1, color2, std::f32::consts::PI);
+        assert!(pigment.validate_reflectance().is_err());
+    }
+
+    #[test]
+    fn test_gradient_pigments_validate_reflection_fail_low() {
+        let color1 = Color::new(1.0, 0.0, 0.0);
+        let color2 = Color::new(-0.1, 0.0, 0.0);
+        let pigment = GradientPigment::new(color1, color2, 0.0);
+        assert!(pigment.validate_reflectance().is_err());
     }
 }

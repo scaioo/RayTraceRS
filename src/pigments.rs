@@ -217,7 +217,7 @@ impl Pigment for ImagePigment {
 }
 
 // ===============================================
-// Experimental procedural pigments
+// Procedural pigments
 // ===============================================
 
 /// A procedural linear gradient pigment.
@@ -225,8 +225,12 @@ impl Pigment for ImagePigment {
 /// The gradient interpolates linearly between `color1`
 /// and `color2` along an axis rotated by `angle`.
 ///
-/// The interpolation is unbounded, so colors may
-/// extrapolate outside the `[color1, color2]` range.
+/// The projection is normalized against the four corners of the unit
+/// square, so for `uv` within `[0,1] x [0,1]` the interpolation is
+/// bounded: whichever corner has the smallest projection is always
+/// exactly `color1` and whichever has the largest is always exactly
+/// `color2`, regardless of `angle`. Outside the unit square, colors
+/// extrapolate beyond the `[color1, color2]` range.
 #[derive(Clone, Debug, PartialEq)]
 pub struct GradientPigment {
     pub color1: Color,
@@ -250,13 +254,20 @@ impl GradientPigment {
 impl Pigment for GradientPigment {
     /// Returns a linear gradient along a rotated axis.
     ///
-    /// The gradient is not clamped, so colors may extrapolate
-    /// beyond `color1` and `color2`.
+    /// The projection of `uv` onto the gradient axis is rescaled so that
+    /// the unit square's extreme corners map exactly to `color1` and
+    /// `color2`. `uv` outside `[0,1] x [0,1]` is not clamped, so colors
+    /// may extrapolate beyond `color1` and `color2`.
     fn get_color(&self, uv: &Vec2D) -> Result<Color> {
-        // TODO: modify code so extremes are always color1 and color2
-
-        let new_x = uv.x * self.angle.cos() + uv.y * self.angle.sin();
-        Ok(self.color1 * (1.0 - new_x) + self.color2 * new_x)
+        let (c, s) = (self.angle.cos(), self.angle.sin());
+        let t_min = [0.0f32, c, s, c + s]
+            .into_iter()
+            .fold(f32::INFINITY, f32::min);
+        let t_max = [0.0f32, c, s, c + s]
+            .into_iter()
+            .fold(f32::NEG_INFINITY, f32::max);
+        let t = (uv.x * c + uv.y * s - t_min) / (t_max - t_min);
+        Ok(self.color1 * (1.0 - t) + self.color2 * t)
     }
 
     fn validate_reflectance(&self) -> Result<()> {
@@ -595,6 +606,9 @@ mod tests {
 
     #[test]
     fn test_gradient_pigments_get_color() {
+        // angle = 60 deg: both cos and sin are positive, so the extreme
+        // corners of the unit square are (0,0) -> color1 and (1,1) -> color2,
+        // same as the un-rotated case.
         let gradient = setup_gradient();
 
         assert_eq!(
@@ -603,40 +617,121 @@ mod tests {
             "Error in (0,0) check!"
         );
         assert_eq!(
-            gradient
-                .get_color(&Vec2D {
-                    x: 0.5,
-                    y: 3.0_f32.sqrt() / 2.0
-                })
-                .unwrap(),
+            gradient.get_color(&Vec2D { x: 1.0, y: 1.0 }).unwrap(),
             gradient.color2,
-            "Error in new_x == 1 check!"
+            "Error in (1,1) check!"
         );
-        // for t = 0.5 we can compute the corresponding coordinates by:
-        // u = l * cos(60) = 0.25,
-        // v = l * sin(60) = sqrt(3) / 4.
-        // The expected color is given by 0.5 * color1 + 0.5 * color2
+        // (0.5, 0.5) lies halfway between the two extreme corners along the
+        // gradient axis, so it must be the exact average of color1 and color2.
         let mid_color = Color::new(2.5, 3.5, 4.5);
         assert_eq!(
-            gradient
-                .get_color(&Vec2D {
-                    x: 0.25,
-                    y: 3.0_f32.sqrt() / 4.0
-                })
-                .unwrap(),
+            gradient.get_color(&Vec2D { x: 0.5, y: 0.5 }).unwrap(),
             mid_color,
             "Error in mid-color check!"
         );
     }
 
     #[test]
-    fn test_gradient_pigments_get_color_extrapolation() {
+    fn test_gradient_pigments_get_color_horizontal() {
+        // angle = 0: gradient runs purely along x, independent of y.
+        let gradient =
+            GradientPigment::new(Color::new(1.0, 2.0, 3.0), Color::new(4.0, 5.0, 6.0), 0.0);
+
+        assert!(
+            gradient
+                .color1
+                .is_close(&gradient.get_color(&Vec2D::new(0.0, 0.0)).unwrap())
+        );
+        assert!(
+            gradient
+                .color1
+                .is_close(&gradient.get_color(&Vec2D::new(0.0, 0.7)).unwrap())
+        );
+        assert!(
+            gradient
+                .color2
+                .is_close(&gradient.get_color(&Vec2D::new(1.0, 0.0)).unwrap())
+        );
+        assert!(
+            gradient
+                .color2
+                .is_close(&gradient.get_color(&Vec2D::new(1.0, 1.0)).unwrap())
+        );
+
+        let mid_color = Color::new(2.5, 3.5, 4.5);
+        assert!(mid_color.is_close(&gradient.get_color(&Vec2D::new(0.5, 0.3)).unwrap()));
+    }
+
+    #[test]
+    fn test_gradient_pigments_get_color_vertical() {
+        // angle = 90 deg: gradient runs purely along y, independent of x.
+        let gradient = GradientPigment::new(
+            Color::new(1.0, 2.0, 3.0),
+            Color::new(4.0, 5.0, 6.0),
+            std::f32::consts::FRAC_PI_2,
+        );
+
+        assert!(
+            gradient
+                .color1
+                .is_close(&gradient.get_color(&Vec2D::new(0.0, 0.0)).unwrap())
+        );
+        assert!(
+            gradient
+                .color1
+                .is_close(&gradient.get_color(&Vec2D::new(0.6, 0.0)).unwrap())
+        );
+        assert!(
+            gradient
+                .color2
+                .is_close(&gradient.get_color(&Vec2D::new(0.0, 1.0)).unwrap())
+        );
+        assert!(
+            gradient
+                .color2
+                .is_close(&gradient.get_color(&Vec2D::new(1.0, 1.0)).unwrap())
+        );
+
+        let mid_color = Color::new(2.5, 3.5, 4.5);
+        assert!(mid_color.is_close(&gradient.get_color(&Vec2D::new(0.4, 0.5)).unwrap()));
+    }
+
+    #[test]
+    fn test_gradient_pigments_get_color_negative_angle_off_diagonal_extremes() {
+        // angle = -45 deg: cos > 0, sin < 0, so the extreme corners are the
+        // *off-diagonal* pair (1,0) -> color2 and (0,1) -> color1, while the
+        // main diagonal corners (0,0) and (1,1) both land exactly on the midpoint.
+        let color1 = Color::new(1.0, 2.0, 3.0);
+        let color2 = Color::new(4.0, 5.0, 6.0);
+        let gradient = GradientPigment::new(color1, color2, -std::f32::consts::FRAC_PI_4);
+
+        assert!(color1.is_close(&gradient.get_color(&Vec2D::new(0.0, 1.0)).unwrap()));
+        assert!(color2.is_close(&gradient.get_color(&Vec2D::new(1.0, 0.0)).unwrap()));
+
+        let mid_color = Color::new(2.5, 3.5, 4.5);
+        assert!(mid_color.is_close(&gradient.get_color(&Vec2D::new(0.0, 0.0)).unwrap()));
+        assert!(mid_color.is_close(&gradient.get_color(&Vec2D::new(1.0, 1.0)).unwrap()));
+    }
+
+    #[test]
+    fn test_gradient_pigments_get_color_beyond_color2() {
         let gradient = setup_gradient();
-        let bottom_left_corner = Vec2D::new(0.9, 0.9);
+        // (1.5, 1.5) lies past the (1,1) corner along the gradient axis
+        // used by `setup_gradient` (60 deg, both cos/sin positive), so t = 1.5
+        // and the result overshoots color2.
+        let expected_color = -0.5 * gradient.color1 + 1.5 * gradient.color2;
 
-        let expected_color = (1.0 - 1.2294228) * gradient.color1 + 1.2294228 * gradient.color2;
+        assert!(expected_color.is_close(&gradient.get_color(&Vec2D::new(1.5, 1.5)).unwrap()));
+    }
 
-        assert!(expected_color.is_close(&gradient.get_color(&bottom_left_corner).unwrap()));
+    #[test]
+    fn test_gradient_pigments_get_color_beyond_color1() {
+        let gradient = setup_gradient();
+        // (-0.2, -0.2) lies before the (0,0) corner along the gradient axis,
+        // so t = -0.2 and the result undershoots color1.
+        let expected_color = 1.2 * gradient.color1 + (-0.2) * gradient.color2;
+
+        assert!(expected_color.is_close(&gradient.get_color(&Vec2D::new(-0.2, -0.2)).unwrap()));
     }
 
     #[test]

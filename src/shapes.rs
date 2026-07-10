@@ -34,7 +34,7 @@ use std::ops::Mul;
 // Traits: CloneShape, Shape and Volumetric
 // ========================================================
 
-/// Helper supertrait that makes `Box<dyn Shape>` cloneable.
+/// Helper super-trait that makes `Box<dyn Shape>` cloneable.
 ///
 /// You never need to implement this manually. The blanket `impl` below
 /// provides it automatically for any type that implements `Shape + Clone`.
@@ -42,7 +42,7 @@ pub trait CloneShape {
     fn clone_shape(&self) -> Box<dyn Shape>;
 }
 
-/// Blanket implementation: any `T: Shape + Clone + 'static` gets
+/// Blanket implementation: any `T: Shape + Clone + `static` gets
 /// [`CloneShape`] for free by boxing a normal `.clone()` call.
 impl<T> CloneShape for T
 where
@@ -66,7 +66,7 @@ where
     }
 }
 
-/// Core trait for ray-intersectable scene objects.
+/// Core trait for ray intersect scene objects.
 ///
 /// Every shape placed in the scene must implement this trait. The four methods together
 /// provide all information the renderer needs to compute lighting at a surface point.
@@ -130,7 +130,7 @@ impl Clone for Box<dyn Volumetric> {
 ///
 /// # UV mapping
 ///
-/// Surface coordinates follow the standard spherical parametrisation:
+/// Surface coordinates follow the standard spherical parametrization:
 /// - `u = φ / 2π ∈ [0, 1]` — longitude (azimuthal angle around the z-axis)
 /// - `v = θ / π ∈ [0, 1]` — colatitude (polar angle from the +z pole)
 #[derive(Clone)]
@@ -941,8 +941,7 @@ mod tests {
 
     #[test]
     fn test_sphere_ray_intersection_bug15() {
-        let sphere: Sphere<Scaling> =
-            Sphere::new(Scaling::new([0.1, 0.1, 0.1]), Material::default());
+        let sphere: Sphere<Scaling> = Sphere::new(Scaling::from(0.1), Material::default());
         for i in 0..100 {
             let ray = Ray::new(Point::new(-10.0 * i as f32, 0.0, 0.0), X_AXIS);
             let hit_record = sphere.ray_intersection(&ray);

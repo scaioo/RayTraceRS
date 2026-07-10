@@ -6,7 +6,6 @@
 //! - It maintains a list of `Shape` objects.
 //! - It implements a `ray_intersection` method that iterates over the shapes,
 //!   searches for intersections, and returns the one closest to the ray origin.
-use crate::geometry::Point;
 use crate::hit_record::HitRecord;
 use crate::light_source::LightSource;
 use crate::ray::Ray;
@@ -65,12 +64,9 @@ impl Add for World {
 }
 #[cfg(test)]
 mod tests {
-    use crate::brdf::DiffusiveBrdf;
-    use crate::color::Color;
     use crate::functions::{IDENTITY_4X4, are_close};
     use crate::geometry::{Point, Vector, is_close};
     use crate::materials::Material;
-    use crate::pigments::UniformPigment;
     use crate::ray::Ray;
     use crate::shapes::{Plane, Sphere};
     use crate::transformations::{Scaling, Transformation, Translation};

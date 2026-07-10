@@ -104,6 +104,7 @@ pub mod lexer;
 pub mod light_source;
 pub mod materials;
 pub mod mesh;
+pub mod parser;
 pub mod pcg;
 pub mod pfm_func;
 pub mod pigments;

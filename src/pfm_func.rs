@@ -31,7 +31,7 @@ use crate::color::Color;
 use crate::hdr_image::{HDR, hdr_to_ldr};
 use anyhow::anyhow;
 use std::fs::File;
-use std::io::{BufRead, BufReader, BufWriter, Read};
+use std::io::{BufRead, BufReader, Read};
 use std::string::ToString;
 
 /// Byte order used in the PFM file.

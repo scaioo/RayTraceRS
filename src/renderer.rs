@@ -17,7 +17,6 @@
 //!
 
 use crate::color::{BLACK, Color, WHITE};
-use crate::geometry::{Dot, Vector};
 use crate::pcg::PCG;
 use crate::ray::Ray;
 use crate::world::World;
@@ -316,16 +315,15 @@ mod tests {
     use crate::brdf::DiffusiveBrdf;
     use crate::camera::OrthogonalCamera;
     use crate::color::{BLACK, Color, WHITE};
-    use crate::functions::{IDENTITY_4X4, Within, are_close};
+    use crate::functions::{IDENTITY_4X4, are_close};
     use crate::geometry::{Point, Vector, X_AXIS, Y_AXIS};
     use crate::hdr_image::HDR;
     use crate::image_tracer::ImageTracer;
-    use crate::lexer::Keyword::SPHERE;
     use crate::light_source::{PointLightSource, SphericalLightSource};
     use crate::materials::Material;
     use crate::pcg::PCG;
     use crate::pigments::UniformPigment;
-    use crate::shapes::{Shape, Sphere};
+    use crate::shapes::Sphere;
     use crate::transformations::{Scaling, Transformation, Translation};
     use anyhow::Result;
     use approx::assert_relative_eq;
@@ -333,7 +331,7 @@ mod tests {
     #[test]
     fn test_on_off_renderer() -> Result<()> {
         // Define variables
-        let scaling = Scaling::new([0.2, 0.2, 0.2]);
+        let scaling: Scaling = 0.2.into();
         let translation = Translation::new(Vector::new(2., 0., 0.));
         let pigment = UniformPigment::new(WHITE);
         let emitted_radiance = UniformPigment::new(BLACK);
@@ -435,7 +433,7 @@ mod tests {
     fn test_flat_renderer() -> Result<()> {
         let sphere_color = Color::new(1.0, 2.0, 3.0);
         // Setup sphere and color specified
-        let scaling = Scaling::new([0.2, 0.2, 0.2]);
+        let scaling: Scaling = 0.2.into();
         let translation = Translation::new(Vector::new(2., 0., 0.));
         let pigment = UniformPigment::new(sphere_color);
         let brdf = DiffusiveBrdf {};

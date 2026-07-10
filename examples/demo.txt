@@ -1,0 +1,67 @@
+# This is the demo image from v0.3.0 - polish this file before merging PR
+
+# Sky dome
+
+material sky_material(
+uniform(<0.5, 0.9, 1.0>),
+diffuse(),
+uniform(<0.5, 0.9, 1.0>)
+)
+
+sphere(
+sky_material,
+scaling([200, 200, 200]) * translation([0, 0, 0.4])
+)
+
+# Checkered floor
+
+material floor_material(
+checkered(
+<0.3, 0.5, 0.1>,
+<0.1, 0.2, 0.5>,
+5
+),
+diffuse(),
+uniform(<0, 0, 0>)
+)
+
+plane(
+floor_material,
+identity, True
+)
+
+# Diffuse sphere
+
+material diffusive_sphere_material(
+uniform(<0.3, 0.4, 0.8>),
+diffuse(),
+uniform(<0.0, 0.0, 0.0>)
+)
+
+sphere(
+diffusive_sphere_material,
+translation([0.0, 0.0, 1.0])
+)
+
+# Mirror sphere
+
+material mirror_material(
+uniform(<0.6, 0.2, 0.3>),
+specular(),
+uniform(<0, 0, 0>)
+)
+
+sphere(
+mirror_material,
+translation([1.0, 2.5, 0.0])
+)
+
+# Camera
+
+camera(
+perspective,
+translation([-1, 0, 1]),
+1.0
+)
+
+# End of world description!

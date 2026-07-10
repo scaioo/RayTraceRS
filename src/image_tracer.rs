@@ -109,14 +109,14 @@ impl<C: Camera> ImageTracer<C> {
 
                 if self.n == 0 {
                     let ray = self.fire_ray(col, row, 0.5, 0.5);
-                    color = color + renderer(ray, world)?;
+                    color += renderer(ray, world)?;
                 } else {
                     for i in 0..self.n {
                         for j in 0..self.n {
                             let u = (i as f32 + pcg.random_float()) / self.n as f32;
                             let v = (j as f32 + pcg.random_float()) / self.n as f32;
                             let ray = self.fire_ray(col, row, u, v);
-                            color = color + renderer(ray, world)? / squares;
+                            color += renderer(ray, world)? / squares;
                         }
                     }
                 }
@@ -196,7 +196,7 @@ mod tests {
                 brdf: Box::new(DiffusiveBrdf {}),
                 emitted_radiance: Box::new(UniformPigment::new(Color::new(10.0, 10.0, 10.0))),
             };
-            let sphere_scaling = Scaling::new([1.0, 1.0, 1.0]);
+            let sphere_scaling: Scaling = 1.0.into();
 
             let central_spheres = vec![Sphere::new(
                 Translation::new(Vector::new(0.0, 0.0, -0.0)) * sphere_scaling,

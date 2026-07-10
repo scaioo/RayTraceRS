@@ -7,6 +7,7 @@
 //! - It implements a `ray_intersection` method that iterates over the shapes,
 //!   searches for intersections, and returns the one closest to the ray origin.
 use crate::hit_record::HitRecord;
+use crate::light_source::LightSource;
 use crate::ray::Ray;
 use crate::shapes::Shape;
 use std::ops::Add;
@@ -15,6 +16,7 @@ use std::ops::Add;
 #[derive(Clone)]
 pub struct World {
     pub objects: Vec<Box<dyn Shape>>,
+    pub light_sources: Vec<Box<dyn LightSource>>,
 }
 
 impl World {
@@ -52,22 +54,20 @@ impl Add for World {
 
     /// Merges two [`World`] instances into one.
     ///
-    /// This operation consumes both worlds and returns a new world containing
-    /// the combined collection of objects. The objects from `rhs` are appended
-    /// to the end of the existing object list.
+    /// Consumes both worlds and returns a new world whose `objects` and
+    /// `light_sources` lists are the concatenation of `self`'s followed by
+    /// `rhs`'s respectively.
     fn add(mut self, rhs: World) -> World {
         self.objects.extend(rhs.objects);
+        self.light_sources.extend(rhs.light_sources);
         self
     }
 }
 #[cfg(test)]
 mod tests {
-    use crate::brdf::DiffusiveBrdf;
-    use crate::color::Color;
     use crate::functions::{IDENTITY_4X4, are_close};
     use crate::geometry::{Point, Vector, is_close};
     use crate::materials::Material;
-    use crate::pigments::UniformPigment;
     use crate::ray::Ray;
     use crate::shapes::{Plane, Sphere};
     use crate::transformations::{Scaling, Transformation, Translation};
@@ -87,6 +87,7 @@ mod tests {
 
         World {
             objects: vec![Box::new(sphere1), Box::new(sphere2), Box::new(bean)],
+            light_sources: vec![],
         }
     }
     #[test]
@@ -144,6 +145,7 @@ mod tests {
                 Box::new(Plane::new(transformation, Material::default(), false)),
                 Box::new(Plane::new(transformation, Material::default(), false)),
             ],
+            light_sources: vec![],
         };
 
         let world = world_1 + world_2;

@@ -14,7 +14,7 @@
 
 use crate::functions::are_close;
 use anyhow::{Result, anyhow};
-use std::ops::{Add, Div, Mul};
+use std::ops::{Add, AddAssign, Div, Mul};
 
 /// RGB color stored as three linear floating-point components.
 ///
@@ -143,6 +143,62 @@ impl Color {
         }
         Ok(())
     }
+
+    /// Applies inverse gamma correction to convert an LDR pixel from gamma-encoded
+    /// space back to a linear light value.
+    ///
+    /// Each channel is decoded as:
+    ///
+    /// ```text
+    /// c_linear = (c_encoded / 256.0) ^ gamma
+    /// ```
+    ///
+    /// # Arguments
+    /// * `gamma` — The gamma exponent used during the original encoding (typically `2.2`).
+    ///   Must be positive; validation is delegated to the caller ([`HDR::load_from_ldr`]).
+    ///
+    /// # Notes
+    /// - The input channel values are assumed to be in the range `[0, 255]` (raw `u8`
+    ///   cast to `f32`).
+    /// - The divisor is `256.0` rather than `255.0`: this keeps pure white (`255`)
+    ///   slightly below `1.0`, which avoids a division by zero in the subsequent
+    ///   [`inverse_tone_mapping`] step (where `1 - c` appears in the denominator).
+    ///   As a result, white is recovered as `≈ 0.996` rather than exactly `1.0`.
+    pub fn inverse_gamma_correction(&mut self, gamma: f32) {
+        // Validation must be done when application
+        self.r = (self.r / 256.0_f32).powf(gamma);
+        self.g = (self.g / 256.0_f32).powf(gamma);
+        self.b = (self.b / 256.0_f32).powf(gamma);
+    }
+
+    /// Applies the inverse of the Reinhard tone mapping operator, recovering an
+    /// approximate HDR luminance from a clamped LDR value.
+    ///
+    /// This is the algebraic inverse of the Reinhard operator `c_ldr = c_hdr / (1 + c_hdr)`,
+    /// scaled by the normalization factor `a / avr_lum`. Each channel is recovered as:
+    ///
+    /// ```text
+    /// c_hdr = (avr_lum * c_ldr) / ((1 - c_ldr) * a)
+    /// ```
+    ///
+    /// # Arguments
+    /// * `factor_a` — The exposure normalization factor used during the forward tone mapping
+    ///   (typically `0.18`). Must be positive; validation is delegated to the caller.
+    /// * `avr_lum` — The log-average luminance of the original HDR scene, used to
+    ///   undo the normalization step. Must be positive; validation is delegated to the caller.
+    ///
+    /// # Notes
+    /// - Channel values must lie strictly in `(0, 1)` before this step. Values at
+    ///   exactly `0` produce `0.0` (safe); values at exactly `1` produce a division
+    ///   by zero (`inf`). In practice this is avoided by using `256.0` instead of
+    ///   `255.0` in [`inverse_gamma_correction`], which keeps `c_ldr < 1`.
+    /// - Validation of `factor_a` and `avr_lum` is the responsibility of the calling function.
+    pub fn inverse_tone_mapping(&mut self, factor_a: f32, avr_lum: f32) {
+        // validation of `a` and `avr_lum` must be done in ldr_to_hdr function.
+        self.r = avr_lum * self.r / ((1.0 - self.r) * factor_a);
+        self.g = avr_lum * self.g / ((1.0 - self.g) * factor_a);
+        self.b = avr_lum * self.b / ((1.0 - self.b) * factor_a);
+    }
 }
 
 // =================================================================
@@ -258,6 +314,15 @@ impl Div<f32> for Color {
             g: self.g / rhs,
             b: self.b / rhs,
         }
+    }
+}
+
+/// Adds `rhs` component-wise in place: `self.r += rhs.r`, etc.
+impl AddAssign for Color {
+    fn add_assign(&mut self, rhs: Color) {
+        self.r += rhs.r;
+        self.g += rhs.g;
+        self.b += rhs.b;
     }
 }
 
@@ -383,6 +448,18 @@ mod tests {
         };
 
         assert_eq!(c1 + c2, c3);
+    }
+
+    #[test]
+    fn test_add_assign() {
+        let mut color1 = Color::new(1.0, 2.0, 3.0);
+
+        color1 += Color::new(4.0, 5.0, 6.0);
+        let expected = Color::new(5.0, 7.0, 9.0);
+        assert!(
+            color1.is_close(&expected),
+            "expected : {expected:?}\ncolor : {color1:?}"
+        );
     }
 
     #[test]
@@ -525,5 +602,53 @@ mod tests {
         let expected = color;
         color.rescale().unwrap();
         assert!(color.is_close(&expected), "color: {:?}\nexpected: {:?}", color, expected);
+    }
+
+    #[test]
+    fn test_inverse_gamma_correction() {
+        let mut color = Color::new(1.0, 2.0, 3.0);
+        let gamma = 0.5;
+        let expected_color = Color {
+            r: (1.0f32 / 256.0).powf(0.5),
+            g: (2.0f32 / 256.0).powf(0.5),
+            b: (3.0f32 / 256.0).powf(0.5),
+        };
+        color.inverse_gamma_correction(gamma);
+        assert!(
+            expected_color.is_close(&color),
+            "color obtained: {:?}",
+            color
+        );
+    }
+
+    #[test]
+    fn test_inverse_gamma_correction_infinity() {
+        let mut color = Color::new(1.0, 2.0, 3.0);
+        let gamma = f32::INFINITY;
+
+        color.inverse_gamma_correction(gamma);
+        let expected_color = Color::new(0.0, 0.0, 0.0);
+        assert!(color.is_close(&expected_color));
+    }
+
+    #[test]
+    fn test_inverse_tone_mapping() {
+        let mut color = Color::new(0.5, 0.0, 0.2);
+        let a: f32 = 0.1;
+        let avr_lum: f32 = 10.0;
+        let expected_color = Color {
+            // 100 * 0.5/0.5
+            r: 100.0,
+            // 100 * 0 / 1
+            g: 0.0,
+            // 100 * 0.2 / 0.8
+            b: 25.0,
+        };
+        color.inverse_tone_mapping(a, avr_lum);
+        assert!(
+            color.is_close(&expected_color),
+            "inverse_tone_mapping result: {:?}",
+            color
+        );
     }
 }

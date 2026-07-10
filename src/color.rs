@@ -597,7 +597,7 @@ mod tests {
     #[test]
     fn test_rescale() {
         let mut color = Color::new(1.0, 2.0, 4.0);
-        let expected = Color::new(0.25, 0.4, 1.0);
+        let expected = Color::new(0.25, 0.5, 1.0);
         color.rescale().unwrap();
         assert!(
             color.is_close(&expected),

@@ -12,7 +12,7 @@
 //! Arithmetic operations do not enforce validity, so callers are
 //! responsible for preserving physically meaningful values.
 
-use crate::functions::are_close;
+use crate::functions::{Within, are_close};
 use anyhow::{Result, anyhow};
 use std::ops::{Add, AddAssign, Div, Mul};
 
@@ -142,6 +142,12 @@ impl Color {
             self.b /= highest;
         }
         Ok(())
+    }
+
+    pub fn validate_reflectance(&self) -> bool {
+        self.r.is_between_close(&0.0, &1.0)
+            && self.g.is_between_close(&0.0, &1.0)
+            && self.b.is_between_close(&0.0, &1.0)
     }
 
     /// Applies inverse gamma correction to convert an LDR pixel from gamma-encoded
@@ -660,5 +666,25 @@ mod tests {
             "inverse_tone_mapping result: {:?}",
             color
         );
+    }
+
+    #[test]
+    fn test_validation_reflectance() {
+        let cases = vec![
+            (Color::new(0.5, 0.3, 0.1), true),
+            (Color::new(1.0, 0.0, 0.0), true),
+            (Color::new(0.5, -1.0, 0.0), false),
+            (Color::new(0.0, 10.0, 0.0), false),
+            (Color::new(0.0, 1.00001, 0.0), false),
+        ];
+
+        for case in cases {
+            assert_eq!(
+                case.0.validate_reflectance(),
+                case.1,
+                "Error validating Reflectance! color: {:?}",
+                case.0
+            );
+        }
     }
 }

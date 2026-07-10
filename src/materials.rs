@@ -32,17 +32,15 @@ pub struct ClampPigment {
 
 impl ClampPigment {
     pub fn new(pigment: Box<dyn Pigment>) -> Self {
-        Self {
-            pigment
-        }
+        Self { pigment }
     }
 }
 
 impl Pigment for ClampPigment {
     fn get_color(&self, uv: &Vec2D) -> anyhow::Result<Color> {
         let mut color = self.pigment.get_color(uv)?;
-            color.rescale()?;
-            Ok(color)
+        color.rescale()?;
+        Ok(color)
     }
 }
 
@@ -195,7 +193,7 @@ mod tests {
         let clamp_pigment = ClampPigment::new(Box::new(pigment));
 
         let color = clamp_pigment.get_color(&Vec2D::new(0.0, 0.0)).unwrap();
-        let expected = Color::new(10.0 / 100.0, 100.0 / 100.0, 1.0/100.0);
+        let expected = Color::new(10.0 / 100.0, 100.0 / 100.0, 1.0 / 100.0);
         assert!(
             color.is_close(&expected),
             "color: {:?}\n expected: {:?}",

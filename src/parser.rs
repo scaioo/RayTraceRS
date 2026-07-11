@@ -866,7 +866,9 @@ mod test {
     use crate::hit_record::HitRecord;
     use crate::lexer::InputStream;
     use crate::pcg::PCG;
+    use crate::pfm_func::Endianness;
     use crate::ray::Ray;
+    use image::{Rgb, RgbImage};
     use std::collections::HashMap;
     use std::fs::File;
     use std::io::Write;
@@ -1051,14 +1053,58 @@ mod test {
     }
 
     #[test]
+    #[should_panic(
+        expected = "Invalid material 'ground_material' at 1:9: UniformPigment has invalid reflection:"
+    )]
+    fn test_parse_material_fail() {
+        let text = r#"material ground_material(
+            uniform(<0.0, 5.1, 0.1>),
+            diffuse(),
+            uniform(<0, 0, 0>)
+        )"#;
+
+        let cursor = std::io::Cursor::new(text);
+        let mut stream = InputStream::new(cursor, 0, 4);
+        let initial_vars = HashMap::new();
+        let _ = parse_scene(&mut stream, initial_vars).unwrap();
+    }
+
+    /// Creates a tiny PFM fixture in `dir` with a safe, always-valid
+    /// reflectance color, and returns its path.
+    fn valid_pfm(dir: &tempfile::TempDir) -> std::path::PathBuf {
+        let path = dir.path().join("fixture.pfm");
+        let mut hdr = HDR::new(1, 1);
+        hdr.set_pixel(0, 0, Color::new(0.2, 0.3, 0.4)).unwrap();
+        let file = File::create(&path).unwrap();
+        hdr.write_pfm(file, &Endianness::LittleEndian).unwrap();
+        path
+    }
+
+    /// Creates a tiny PNG fixture in `dir`, dim enough that `load_from_ldr`'s
+    /// inverse tone-mapping stays within [0,1], and returns its path.
+    fn valid_png(dir: &tempfile::TempDir) -> std::path::PathBuf {
+        let path = dir.path().join("fixture.png");
+        let mut image = RgbImage::new(1, 1);
+        image.put_pixel(0, 0, Rgb([40, 40, 40]));
+        image.save(&path).unwrap();
+        path
+    }
+
+    #[test]
     fn test_parse_pfm_image_pigment() -> Result<()> {
-        let text = r#"
+        let dir = tempdir()?;
+        let path = valid_pfm(&dir);
+
+        let text = format!(
+            r#"
         material ball(
-            image("tests/assets/memorial.pfm"),
+            image("{}"),
             diffuse(),
             uniform(<0, 0, 0>)
         )
-        "#;
+        "#,
+            path.display()
+        );
 
         let cursor = std::io::Cursor::new(text);
         let mut stream = InputStream::new(cursor, 0, 4);
@@ -1066,17 +1112,53 @@ mod test {
 
         assert!(scene.materials.contains_key("ball"));
         Ok(())
+    }
+
+    #[test]
+    #[should_panic(expected = "ImagePigment has invalid reflection:")]
+    fn test_parse_image_pigment_fail() {
+        let dir = tempdir().unwrap();
+        let path = dir.path().join("fixture.pfm");
+
+        let mut hdr = HDR::new(2, 2);
+        hdr.set_pixel(0, 0, Color::new(10.0, 0.0, 0.0)).unwrap();
+        hdr.set_pixel(1, 0, Color::new(0.0, 1.0, 0.0)).unwrap();
+        hdr.set_pixel(0, 1, Color::new(0.0, 0.0, 1.0)).unwrap();
+        hdr.set_pixel(1, 1, Color::new(1.0, 1.0, 1.0)).unwrap();
+        let file = File::create(&path).unwrap();
+        hdr.write_pfm(file, &Endianness::LittleEndian).unwrap();
+
+        let text = format!(
+            r#"
+        material ball(
+            image("{}"),
+            diffuse(),
+            uniform(<0, 0, 0>)
+        )
+        "#,
+            path.display()
+        );
+
+        let cursor = std::io::Cursor::new(text);
+        let mut stream = InputStream::new(cursor, 0, 4);
+        let _ = parse_scene(&mut stream, HashMap::new()).unwrap();
     }
 
     #[test]
     fn test_parse_ldr_image_pigment() -> Result<()> {
-        let text = r#"
+        let dir = tempdir()?;
+        let path = valid_png(&dir);
+
+        let text = format!(
+            r#"
         material ball(
-            image("tests/assets/pixar_ball.png", 0.18, 1.0, 2.2),
+            image("{}", 0.18, 1.0, 2.2),
             diffuse(),
             uniform(<0, 0, 0>)
         )
-        "#;
+        "#,
+            path.display()
+        );
 
         let cursor = std::io::Cursor::new(text);
         let mut stream = InputStream::new(cursor, 0, 4);
@@ -1087,78 +1169,108 @@ mod test {
     }
 
     #[test]
+    #[should_panic(expected = "requires factor_a, avr_lum, and gamma")]
     fn test_parse_ldr_image_pigment_missing_parameters() {
-        let text = r#"
+        let dir = tempdir().unwrap();
+        let path = valid_png(&dir);
+        let text = format!(
+            r#"
         material ball(
-            image("tests/assets/pixar_ball.png"),
+            image("{}"),
             diffuse(),
             uniform(<0, 0, 0>)
         )
-        "#;
+        "#,
+            path.display()
+        );
 
         let cursor = std::io::Cursor::new(text);
         let mut stream = InputStream::new(cursor, 0, 4);
-        assert!(parse_scene(&mut stream, HashMap::new()).is_err());
+        parse_scene(&mut stream, HashMap::new()).unwrap();
     }
 
     #[test]
+    #[should_panic(expected = "only valid for LDR images")]
     fn test_parse_pfm_image_pigment_extra_params_fails() {
-        let text = r#"
+        let dir = tempdir().unwrap();
+        let path = valid_pfm(&dir);
+        let text = format!(
+            r#"
         material ball(
-            image("tests/assets/memorial.pfm", 0.18, 1.0, 2.2),
+            image("{}", 0.18, 1.0, 2.2),
             diffuse(),
             uniform(<0, 0, 0>)
         )
-        "#;
+        "#,
+            path.display()
+        );
 
         let cursor = std::io::Cursor::new(text);
         let mut stream = InputStream::new(cursor, 0, 4);
-        assert!(parse_scene(&mut stream, HashMap::new()).is_err());
+        parse_scene(&mut stream, HashMap::new()).unwrap();
     }
 
     #[test]
+    #[should_panic(expected = "expected symbol ')'")]
     fn test_parse_ldr_image_pigment_fail() {
-        let text = r#"
+        let dir = tempdir().unwrap();
+        let path = valid_png(&dir);
+        let text = format!(
+            r#"
         material ball(
-            image("tests/assets/pixar_ball.png", 0.18, 1.0, 2.2 extra),
+            image("{}", 0.18, 1.0, 2.2 extra),
             diffuse(),
             uniform(<0, 0, 0>)
         )
-        "#;
+        "#,
+            path.display()
+        );
 
         let cursor = std::io::Cursor::new(text);
         let mut stream = InputStream::new(cursor, 0, 4);
-        assert!(parse_scene(&mut stream, HashMap::new()).is_err());
+        parse_scene(&mut stream, HashMap::new()).unwrap();
     }
 
     #[test]
+    #[should_panic(expected = "expected symbol ')'")]
     fn test_parse_ldr_image_pigment_missing_parenthesis() {
-        let text = r#"
+        let dir = tempdir().unwrap();
+        let path = valid_png(&dir);
+        let text = format!(
+            r#"
         material ball(
-            image("tests/assets/pixar_ball.png", 0.18, 1.0, 2.2
+            image("{}", 0.18, 1.0, 2.2
             diffuse(),
             uniform(<0, 0, 0>)
         )
-        "#;
+        "#,
+            path.display()
+        );
 
         let cursor = std::io::Cursor::new(text);
         let mut stream = InputStream::new(cursor, 0, 4);
-        assert!(parse_scene(&mut stream, HashMap::new()).is_err());
+        parse_scene(&mut stream, HashMap::new()).unwrap();
     }
 
     #[test]
+    #[should_panic(expected = "expected symbol ')'")]
     fn test_parse_pfm_image_pigment_fail2() {
-        let text = r#"
+        let dir = tempdir().unwrap();
+        let path = valid_pfm(&dir);
+        let text = format!(
+            r#"
         material ball(
-            image("tests/assets/memorial.pfm" garbage),
+            image("{}" garbage),
             diffuse(),
             uniform(<0, 0, 0>)
         )
-        "#;
+        "#,
+            path.display()
+        );
 
         let cursor = std::io::Cursor::new(text);
         let mut stream = InputStream::new(cursor, 0, 4);
-        assert!(parse_scene(&mut stream, HashMap::new()).is_err());
+        parse_scene(&mut stream, HashMap::new()).unwrap();
     }
 
     #[test]

@@ -474,11 +474,20 @@ pub fn parse_material<B: BufRead>(
     stream: &mut InputStream<B>,
     scene: &Scene,
 ) -> Result<(String, Material)> {
+    let material_loc = stream.source_location;
     let name = expect_identifier(stream)?;
     expect_symbol(stream, '(')?;
 
     let base_pigment = parse_pigment(stream, scene)?;
+    base_pigment.validate_reflectance().map_err(|e| {
+        anyhow!(
+            "Invalid material '{name}' at {}:{}: {e} (reflectance channels must lie in [0,1])",
+            material_loc.line_number,
+            material_loc.col_number
+        )
+    })?;
     expect_symbol(stream, ',')?;
+
     let brdf = parse_brdf(stream)?;
     expect_symbol(stream, ',')?;
     let emitted_radiance = parse_pigment(stream, scene)?;

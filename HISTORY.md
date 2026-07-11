@@ -1,7 +1,19 @@
 ## Head
 
-- Fix an issue with reflectance colors  
-([#30](https://github.com/scaioo/RayTraceRS/issues/30), [PR#31](https://github.com/scaioo/RayTraceRS/pull/31))
+- Add `--reflectance-policy {reject,rescale,ignore}` CLI flag to control how materials
+  with out-of-range reflectance are handled
+  ([PR#31](https://github.com/scaioo/RayTraceRS/pull/31)).
+- Validate material reflectance while parsing scene files, reporting the material name
+  and source location on failure
+  ([PR#31](https://github.com/scaioo/RayTraceRS/pull/31)).
+- Make `Material::new` return `Result` and reject pigments with invalid reflectance
+  ([#30](https://github.com/scaioo/RayTraceRS/issues/30), [PR#31](https://github.com/scaioo/RayTraceRS/pull/31)).
+- Fix `GradientPigment` so a rotated gradient stays within `[color1, color2]` instead of
+  extrapolating past it (changes the rendered output of existing rotated gradients)
+  ([PR#31](https://github.com/scaioo/RayTraceRS/pull/31)).
+- Add `Color::validate_reflectance` and `Pigment::validate_reflectance` to check that
+  reflectance colors stay within `[0,1]`
+  ([#30](https://github.com/scaioo/RayTraceRS/issues/30), [PR#31](https://github.com/scaioo/RayTraceRS/pull/31)).
 - Add Scene Interpreter ([PR#23](https://github.com/scaioo/RayTraceRS/pull/23)).
 - Add `load_from_ldr` to `HdrImage` to support PNG/JPEG textures via
   inverse gamma correction and inverse tone mapping

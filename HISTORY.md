@@ -1,5 +1,7 @@
 ## Head
 
+- Fix an issue with reflectance colors  
+([#30](https://github.com/scaioo/RayTraceRS/issues/30), [PR#31](https://github.com/scaioo/RayTraceRS/pull/31))
 - Add Scene Interpreter ([PR#23](https://github.com/scaioo/RayTraceRS/pull/23)).
 - Add `load_from_ldr` to `HdrImage` to support PNG/JPEG textures via
   inverse gamma correction and inverse tone mapping

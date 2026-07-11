@@ -7,6 +7,10 @@
 use rstrace::parser::ReflectancePolicy;
 use std::collections::HashMap;
 
+/// CLI-facing mirror of [`ReflectancePolicy`], kept separate so the
+/// `rstrace` library doesn't depend on `clap`. Converts into the library
+/// type via [`From`] before being passed to
+/// [`parse_scene_with_policy`](rstrace::parser::parse_scene_with_policy).
 #[derive(Copy, Clone, clap::ValueEnum, Default)]
 pub enum CliReflectancePolicy {
     #[default]

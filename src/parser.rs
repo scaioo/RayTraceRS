@@ -184,11 +184,24 @@ impl Default for Scene {
     }
 }
 
+/// What to do when a material's `pigment` has a reflectance channel outside
+/// `[0,1]` (see [`Pigment::validate_reflectance`]).
+///
+/// Only `pigment` is affected: `emitted_radiance` is never checked or
+/// altered, since self-emission is not bounded to `[0,1]` like reflectance is.
 #[derive(Copy, Clone, Debug, PartialEq, Default)]
 pub enum ReflectancePolicy {
+    /// Fail parsing with an error naming the material and its source
+    /// location. This is the default, matching the behavior before this
+    /// policy existed.
     #[default]
     Reject,
+    /// Accept the material, wrapping the pigment in [`ClampPigment`] so
+    /// out-of-range colors are rescaled at render time. Prints a warning to
+    /// stderr.
     Rescale,
+    /// Accept the material and use the pigment exactly as parsed, with no
+    /// check and no warning.
     Ignore,
 }
 
@@ -478,6 +491,10 @@ pub fn parse_brdf<B: BufRead>(stream: &mut InputStream<B>) -> Result<Box<dyn BRD
 ///
 /// Expected syntax:
 /// `material_name(base_pigment, brdf, emitted_radiance)`
+///
+/// `policy` controls what happens if `base_pigment` has a reflectance
+/// channel outside `[0,1]`; see [`ReflectancePolicy`]. `emitted_radiance`
+/// is never checked, regardless of `policy`.
 pub fn parse_material<B: BufRead>(
     stream: &mut InputStream<B>,
     scene: &Scene,
@@ -811,6 +828,11 @@ pub fn parse_camera<B: BufRead>(
 /// The parser recognizes variable declarations, material definitions,
 /// geometric primitives, meshes, light sources, and the camera, building
 /// a complete [`Scene`] as it consumes the input stream.
+///
+/// Equivalent to [`parse_scene_with_policy`] with [`ReflectancePolicy::Reject`]:
+/// a material whose pigment has a reflectance channel outside `[0,1]` makes
+/// parsing fail. Use [`parse_scene_with_policy`] directly to accept or
+/// rescale such materials instead.
 pub fn parse_scene<B: BufRead>(
     stream: &mut InputStream<B>,
     initial_variables: HashMap<String, f32>,
@@ -818,6 +840,8 @@ pub fn parse_scene<B: BufRead>(
     parse_scene_with_policy(stream, initial_variables, ReflectancePolicy::Reject)
 }
 
+/// Like [`parse_scene`], but lets the caller choose how out-of-range pigment
+/// reflectance is handled via `policy` (see [`ReflectancePolicy`]).
 pub fn parse_scene_with_policy<B: BufRead>(
     stream: &mut InputStream<B>,
     initial_variables: HashMap<String, f32>,

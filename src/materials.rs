@@ -25,12 +25,27 @@ use crate::pigments::{Pigment, UniformPigment};
 // ======================================================================
 // ClampPigment struct
 // ======================================================================
+
+/// A pigment wrapper that rescales out-of-range colors instead of rejecting them.
+///
+/// `get_color` divides each channel by the highest of the three whenever it
+/// exceeds `1.0` (see [`Color::rescale`](crate::color::Color::rescale)), so the
+/// wrapped pigment's hue is preserved but its reflectance is brought back
+/// into `[0,1]`.
+///
+/// Not used by [`Material::new`] or by the parser's default behavior — both
+/// reject out-of-range reflectance instead of silently altering it. This
+/// type exists for
+/// [`ReflectancePolicy::Rescale`](crate::parser::ReflectancePolicy::Rescale),
+/// which wraps the parsed pigment in a `ClampPigment` when the scene file's
+/// author has explicitly opted into rescaling.
 #[derive(Clone)]
 pub struct ClampPigment {
     pub pigment: Box<dyn Pigment>,
 }
 
 impl ClampPigment {
+    /// Wraps `pigment` so its colors are rescaled into `[0,1]` on read.
     pub fn new(pigment: Box<dyn Pigment>) -> Self {
         Self { pigment }
     }
@@ -43,8 +58,11 @@ impl Pigment for ClampPigment {
         Ok(color)
     }
 
+    /// Always `Ok`: `get_color` unconditionally rescales into `[0,1]`, so
+    /// the wrapped pigment's colors are always valid by construction,
+    /// regardless of what the wrapped pigment itself would report.
     fn validate_reflectance(&self) -> anyhow::Result<()> {
-        self.pigment.validate_reflectance()
+        Ok(())
     }
 }
 

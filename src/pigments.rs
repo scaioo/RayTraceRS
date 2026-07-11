@@ -77,7 +77,21 @@ pub trait Pigment: ClonePigment {
     /// Returns the `Color` of a certain point on the surface.
     fn get_color(&self, uv: &Vec2D) -> Result<Color>;
 
-    /// Verifies every color is in [0,1]
+    /// Checks that every color this pigment can produce is a physically
+    /// valid reflectance, i.e. within `[0,1]` per channel (see
+    /// [`Color::validate_reflectance`]).
+    ///
+    /// This is a one-time, whole-pigment check — not run per-sample during
+    /// rendering. Implementations only need to check the finite set of
+    /// colors they store, not every possible `get_color` output; this is
+    /// only sound for pigments that interpolate as a convex combination of
+    /// stored colors (uniform, checkered, bilinear image sampling, and
+    /// [`GradientPigment`] once its projection is normalized to `[0,1]`
+    /// over the unit square), since a convex combination of valid colors is
+    /// itself always valid.
+    ///
+    /// # Errors
+    /// Returns an error describing which stored color(s) are out of range.
     fn validate_reflectance(&self) -> Result<()>;
 }
 
@@ -112,6 +126,8 @@ impl Pigment for UniformPigment {
         Ok(self.color)
     }
 
+    /// Checks the single stored color, since it's the only color this
+    /// pigment can ever produce.
     fn validate_reflectance(&self) -> Result<()> {
         if self.color.validate_reflectance() {
             Ok(())
@@ -165,6 +181,8 @@ impl Pigment for CheckeredPigment {
         }
     }
 
+    /// Checks both stored colors: `get_color` only ever returns `color1` or
+    /// `color2` verbatim, never a blend, so checking these two is exhaustive.
     fn validate_reflectance(&self) -> Result<()> {
         if self.color1.validate_reflectance() && self.color2.validate_reflectance() {
             Ok(())
@@ -206,6 +224,11 @@ impl Pigment for ImagePigment {
         self.image.bilinear_interpolation(uv)
     }
 
+    /// Checks every stored pixel. Since [`get_color`](Pigment::get_color)
+    /// bilinearly interpolates between the four nearest pixels — a convex
+    /// combination — the sampled color can never exceed the range of the
+    /// pixels it's blended from, so a full pixel scan is exhaustive without
+    /// having to sample the whole UV domain.
     fn validate_reflectance(&self) -> Result<()> {
         for pixel in &self.image.pixels {
             if !pixel.validate_reflectance() {
@@ -270,6 +293,13 @@ impl Pigment for GradientPigment {
         Ok(self.color1 * (1.0 - t) + self.color2 * t)
     }
 
+    /// Checks both endpoint colors. This is exhaustive only because
+    /// `get_color`'s projection is normalized over the unit square (see the
+    /// struct docs above): for `uv` within `[0,1] x [0,1]`, every output is
+    /// a convex combination of `color1` and `color2`, so if both endpoints
+    /// are valid, every in-range output is too. `uv` outside the unit
+    /// square can still extrapolate beyond `[color1, color2]` and isn't
+    /// covered by this check.
     fn validate_reflectance(&self) -> Result<()> {
         if !self.color1.validate_reflectance() || !self.color2.validate_reflectance() {
             Err(anyhow!(

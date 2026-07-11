@@ -133,6 +133,27 @@ impl Color {
         Ok(())
     }
 
+    /// Rescales the color in place so no channel exceeds `1.0`, preserving hue.
+    ///
+    /// If the highest channel is already `<= 1.0`, the color is left
+    /// unchanged. Otherwise every channel is divided by the highest one, so
+    /// the highest channel becomes exactly `1.0` and the ratios between
+    /// channels (the hue) are preserved. Unlike [`Color::tone_map`], this is
+    /// a no-op for colors already within range, and channels below `0.0`
+    /// are not touched.
+    ///
+    /// # Errors
+    /// Returns an error if the color is invalid (see [`Color::self_check`]).
+    ///
+    /// # Examples
+    /// ```rust
+    /// use rstrace::color::Color;
+    ///
+    /// let mut c = Color::new(1.0, 2.0, 4.0);
+    /// c.rescale().unwrap();
+    ///
+    /// assert!(c.is_close(&Color::new(0.25, 0.5, 1.0)));
+    /// ```
     pub fn rescale(&mut self) -> Result<()> {
         self.self_check()?;
         let highest = self.r.max(self.g.max(self.b));
@@ -144,6 +165,23 @@ impl Color {
         Ok(())
     }
 
+    /// Returns `true` if every channel is a physically meaningful
+    /// reflectance value, i.e. within `[0,1]` (inclusive, with the same
+    /// tolerance as [`are_close`]).
+    ///
+    /// A surface can reflect at most as much light as it receives on a given
+    /// channel, so a reflectance color (as opposed to an emitted-radiance
+    /// color, which is unbounded) must stay within this range to be
+    /// physically valid. Used by [`Pigment::validate_reflectance`](crate::pigments::Pigment::validate_reflectance)
+    /// to check pigments before they are used as a `Material`'s surface color.
+    ///
+    /// # Examples
+    /// ```rust
+    /// use rstrace::color::Color;
+    ///
+    /// assert!(Color::new(0.5, 0.3, 1.0).validate_reflectance());
+    /// assert!(!Color::new(0.5, 1.5, 0.0).validate_reflectance());
+    /// ```
     pub fn validate_reflectance(&self) -> bool {
         self.r.is_between_close(&0.0, &1.0)
             && self.g.is_between_close(&0.0, &1.0)

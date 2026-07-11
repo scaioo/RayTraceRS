@@ -107,12 +107,13 @@ impl Material {
         pigment: impl Pigment + 'static,
         brdf: impl BRDF + 'static,
         emitted_radiance: impl Pigment + 'static,
-    ) -> Self {
-        Material {
-            pigment: Box::new(ClampPigment::new(Box::new(pigment))),
+    ) -> anyhow::Result<Self> {
+        pigment.validate_reflectance()?;
+        Ok(Material {
+            pigment: Box::new(pigment),
             brdf: Box::new(brdf),
             emitted_radiance: Box::new(emitted_radiance),
-        }
+        })
     }
 }
 impl Default for Material {
@@ -153,10 +154,14 @@ mod tests {
         let brdf = DiffusiveBrdf {};
         let emitted_radiance = UniformPigment::new(Color::new(1000.0, 2.0, 1.0));
 
-        let material = Material::new(pigment, brdf, emitted_radiance);
+        let material = Material {
+            pigment: Box::new(ClampPigment::new(Box::new(pigment))),
+            brdf: Box::new(brdf),
+            emitted_radiance: Box::new(emitted_radiance),
+        };
 
         let color = material.pigment.get_color(&Vec2D::new(0.25, 0.25)).unwrap();
-        let expected = Color::new(0.5, 2.0 / 3.0, 0.75);
+        let expected = Color::new(1.0 / 3.0, 2.0 / 3.0, 1.0);
         assert!(
             color.is_close(&expected),
             "Pigment clamping assert failed:\ncolor: {:?}, expected: {:?}",
@@ -204,5 +209,21 @@ mod tests {
             color,
             expected
         );
+    }
+
+    #[test]
+    fn test_material_constructor() {
+        let pigment = CheckeredPigment::new(Color::new(0.9, 0.01, 0.30), WHITE, 2);
+        let brdf = DiffusiveBrdf {};
+        let emitted_radiance = UniformPigment::new(Color::new(1000.0, 10.0, 0.0));
+        assert!(Material::new(pigment, brdf, emitted_radiance).is_ok());
+    }
+
+    #[test]
+    fn test_material_constructor_fail() {
+        let emitted_radiance = CheckeredPigment::new(Color::new(0.9, 0.01, 0.30), WHITE, 2);
+        let brdf = DiffusiveBrdf {};
+        let pigment = UniformPigment::new(Color::new(1000.0, 10.0, 0.0));
+        assert!(Material::new(pigment, brdf, emitted_radiance).is_err());
     }
 }

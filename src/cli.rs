@@ -4,7 +4,30 @@
 //! normalizing output filenames) rather than core ray tracing logic, so
 //! they live alongside the binary instead of in the library crate.
 
+use rstrace::parser::ReflectancePolicy;
 use std::collections::HashMap;
+
+/// CLI-facing mirror of [`ReflectancePolicy`], kept separate so the
+/// `rstrace` library doesn't depend on `clap`. Converts into the library
+/// type via [`From`] before being passed to
+/// [`parse_scene_with_policy`](rstrace::parser::parse_scene_with_policy).
+#[derive(Copy, Clone, clap::ValueEnum, Default)]
+pub enum CliReflectancePolicy {
+    #[default]
+    Reject,
+    Rescale,
+    Ignore,
+}
+
+impl From<CliReflectancePolicy> for ReflectancePolicy {
+    fn from(p: CliReflectancePolicy) -> Self {
+        match p {
+            CliReflectancePolicy::Reject => Self::Reject,
+            CliReflectancePolicy::Rescale => Self::Rescale,
+            CliReflectancePolicy::Ignore => Self::Ignore,
+        }
+    }
+}
 
 /// Helper function to parse variables from the CLI into a HashMap
 pub fn build_variable_table(declare_float: &[String]) -> HashMap<String, f32> {

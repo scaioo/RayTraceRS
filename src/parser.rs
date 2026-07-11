@@ -87,7 +87,7 @@ use crate::geometry::{Point, Vector};
 use crate::hdr_image::HDR;
 use crate::lexer::{InputStream, Keyword, TokenKind};
 use crate::light_source::{PointLightSource, SphericalLightSource};
-use crate::materials::Material;
+use crate::materials::{ClampPigment, Material};
 use crate::mesh::SimpleMesh;
 use crate::pfm_func::read_pfm_file;
 use crate::pigments::{CheckeredPigment, GradientPigment, ImagePigment, Pigment, UniformPigment};
@@ -182,6 +182,27 @@ impl Default for Scene {
     fn default() -> Self {
         Self::new()
     }
+}
+
+/// What to do when a material's `pigment` has a reflectance channel outside
+/// `[0,1]` (see [`Pigment::validate_reflectance`]).
+///
+/// Only `pigment` is affected: `emitted_radiance` is never checked or
+/// altered, since self-emission is not bounded to `[0,1]` like reflectance is.
+#[derive(Copy, Clone, Debug, PartialEq, Default)]
+pub enum ReflectancePolicy {
+    /// Fail parsing with an error naming the material and its source
+    /// location. This is the default, matching the behavior before this
+    /// policy existed.
+    #[default]
+    Reject,
+    /// Accept the material, wrapping the pigment in [`ClampPigment`] so
+    /// out-of-range colors are rescaled at render time. Prints a warning to
+    /// stderr.
+    Rescale,
+    /// Accept the material and use the pigment exactly as parsed, with no
+    /// check and no warning.
+    Ignore,
 }
 
 // ==========================================
@@ -470,15 +491,47 @@ pub fn parse_brdf<B: BufRead>(stream: &mut InputStream<B>) -> Result<Box<dyn BRD
 ///
 /// Expected syntax:
 /// `material_name(base_pigment, brdf, emitted_radiance)`
+///
+/// `policy` controls what happens if `base_pigment` has a reflectance
+/// channel outside `[0,1]`; see [`ReflectancePolicy`]. `emitted_radiance`
+/// is never checked, regardless of `policy`.
 pub fn parse_material<B: BufRead>(
     stream: &mut InputStream<B>,
     scene: &Scene,
+    policy: ReflectancePolicy,
 ) -> Result<(String, Material)> {
+    let material_loc = stream.source_location;
     let name = expect_identifier(stream)?;
     expect_symbol(stream, '(')?;
 
     let base_pigment = parse_pigment(stream, scene)?;
+    let base_pigment: Box<dyn Pigment> = match policy {
+        ReflectancePolicy::Reject => {
+            base_pigment.validate_reflectance().map_err(|e| {
+                anyhow!(
+            "Invalid material '{name}' at {}:{}: {e} (reflectance channels must lie in [0,1])",
+            material_loc.line_number,
+            material_loc.col_number
+        )
+            })?;
+            base_pigment
+        }
+        ReflectancePolicy::Rescale => {
+            if base_pigment.validate_reflectance().is_err() {
+                eprintln!(
+                    "Warning: material '{name}' at {}:{}: pigment reflectance outside [0,1], colors rescaled",
+                    material_loc.line_number, material_loc.col_number
+                );
+                Box::new(ClampPigment::new(base_pigment))
+            } else {
+                base_pigment
+            }
+        }
+        ReflectancePolicy::Ignore => base_pigment,
+    };
+
     expect_symbol(stream, ',')?;
+
     let brdf = parse_brdf(stream)?;
     expect_symbol(stream, ',')?;
     let emitted_radiance = parse_pigment(stream, scene)?;
@@ -775,9 +828,24 @@ pub fn parse_camera<B: BufRead>(
 /// The parser recognizes variable declarations, material definitions,
 /// geometric primitives, meshes, light sources, and the camera, building
 /// a complete [`Scene`] as it consumes the input stream.
+///
+/// Equivalent to [`parse_scene_with_policy`] with [`ReflectancePolicy::Reject`]:
+/// a material whose pigment has a reflectance channel outside `[0,1]` makes
+/// parsing fail. Use [`parse_scene_with_policy`] directly to accept or
+/// rescale such materials instead.
 pub fn parse_scene<B: BufRead>(
     stream: &mut InputStream<B>,
     initial_variables: HashMap<String, f32>,
+) -> Result<Scene> {
+    parse_scene_with_policy(stream, initial_variables, ReflectancePolicy::Reject)
+}
+
+/// Like [`parse_scene`], but lets the caller choose how out-of-range pigment
+/// reflectance is handled via `policy` (see [`ReflectancePolicy`]).
+pub fn parse_scene_with_policy<B: BufRead>(
+    stream: &mut InputStream<B>,
+    initial_variables: HashMap<String, f32>,
+    policy: ReflectancePolicy,
 ) -> Result<Scene> {
     let mut scene = Scene::new();
     scene.overridden_variables = initial_variables.keys().cloned().collect();
@@ -799,7 +867,7 @@ pub fn parse_scene<B: BufRead>(
                 }
             }
             TokenKind::Keyword(Keyword::Material) => {
-                let (name, material) = parse_material(stream, &scene)?;
+                let (name, material) = parse_material(stream, &scene, policy)?;
                 scene.materials.insert(name, material);
             }
             TokenKind::Keyword(Keyword::Sphere) => {
@@ -857,7 +925,9 @@ mod test {
     use crate::hit_record::HitRecord;
     use crate::lexer::InputStream;
     use crate::pcg::PCG;
+    use crate::pfm_func::Endianness;
     use crate::ray::Ray;
+    use image::{Rgb, RgbImage};
     use std::collections::HashMap;
     use std::fs::File;
     use std::io::Write;
@@ -1042,14 +1112,58 @@ mod test {
     }
 
     #[test]
+    #[should_panic(
+        expected = "Invalid material 'ground_material' at 1:9: UniformPigment has invalid reflection:"
+    )]
+    fn test_parse_material_fail() {
+        let text = r#"material ground_material(
+            uniform(<0.0, 5.1, 0.1>),
+            diffuse(),
+            uniform(<0, 0, 0>)
+        )"#;
+
+        let cursor = std::io::Cursor::new(text);
+        let mut stream = InputStream::new(cursor, 0, 4);
+        let initial_vars = HashMap::new();
+        let _ = parse_scene(&mut stream, initial_vars).unwrap();
+    }
+
+    /// Creates a tiny PFM fixture in `dir` with a safe, always-valid
+    /// reflectance color, and returns its path.
+    fn valid_pfm(dir: &tempfile::TempDir) -> std::path::PathBuf {
+        let path = dir.path().join("fixture.pfm");
+        let mut hdr = HDR::new(1, 1);
+        hdr.set_pixel(0, 0, Color::new(0.2, 0.3, 0.4)).unwrap();
+        let file = File::create(&path).unwrap();
+        hdr.write_pfm(file, &Endianness::LittleEndian).unwrap();
+        path
+    }
+
+    /// Creates a tiny PNG fixture in `dir`, dim enough that `load_from_ldr`'s
+    /// inverse tone-mapping stays within [0,1], and returns its path.
+    fn valid_png(dir: &tempfile::TempDir) -> std::path::PathBuf {
+        let path = dir.path().join("fixture.png");
+        let mut image = RgbImage::new(1, 1);
+        image.put_pixel(0, 0, Rgb([40, 40, 40]));
+        image.save(&path).unwrap();
+        path
+    }
+
+    #[test]
     fn test_parse_pfm_image_pigment() -> Result<()> {
-        let text = r#"
+        let dir = tempdir()?;
+        let path = valid_pfm(&dir);
+
+        let text = format!(
+            r#"
         material ball(
-            image("tests/assets/memorial.pfm"),
+            image("{}"),
             diffuse(),
             uniform(<0, 0, 0>)
         )
-        "#;
+        "#,
+            path.display()
+        );
 
         let cursor = std::io::Cursor::new(text);
         let mut stream = InputStream::new(cursor, 0, 4);
@@ -1057,17 +1171,53 @@ mod test {
 
         assert!(scene.materials.contains_key("ball"));
         Ok(())
+    }
+
+    #[test]
+    #[should_panic(expected = "ImagePigment has invalid reflection:")]
+    fn test_parse_image_pigment_fail() {
+        let dir = tempdir().unwrap();
+        let path = dir.path().join("fixture.pfm");
+
+        let mut hdr = HDR::new(2, 2);
+        hdr.set_pixel(0, 0, Color::new(10.0, 0.0, 0.0)).unwrap();
+        hdr.set_pixel(1, 0, Color::new(0.0, 1.0, 0.0)).unwrap();
+        hdr.set_pixel(0, 1, Color::new(0.0, 0.0, 1.0)).unwrap();
+        hdr.set_pixel(1, 1, Color::new(1.0, 1.0, 1.0)).unwrap();
+        let file = File::create(&path).unwrap();
+        hdr.write_pfm(file, &Endianness::LittleEndian).unwrap();
+
+        let text = format!(
+            r#"
+        material ball(
+            image("{}"),
+            diffuse(),
+            uniform(<0, 0, 0>)
+        )
+        "#,
+            path.display()
+        );
+
+        let cursor = std::io::Cursor::new(text);
+        let mut stream = InputStream::new(cursor, 0, 4);
+        let _ = parse_scene(&mut stream, HashMap::new()).unwrap();
     }
 
     #[test]
     fn test_parse_ldr_image_pigment() -> Result<()> {
-        let text = r#"
+        let dir = tempdir()?;
+        let path = valid_png(&dir);
+
+        let text = format!(
+            r#"
         material ball(
-            image("tests/assets/pixar_ball.png", 0.18, 1.0, 2.2),
+            image("{}", 0.18, 1.0, 2.2),
             diffuse(),
             uniform(<0, 0, 0>)
         )
-        "#;
+        "#,
+            path.display()
+        );
 
         let cursor = std::io::Cursor::new(text);
         let mut stream = InputStream::new(cursor, 0, 4);
@@ -1078,78 +1228,108 @@ mod test {
     }
 
     #[test]
+    #[should_panic(expected = "requires factor_a, avr_lum, and gamma")]
     fn test_parse_ldr_image_pigment_missing_parameters() {
-        let text = r#"
+        let dir = tempdir().unwrap();
+        let path = valid_png(&dir);
+        let text = format!(
+            r#"
         material ball(
-            image("tests/assets/pixar_ball.png"),
+            image("{}"),
             diffuse(),
             uniform(<0, 0, 0>)
         )
-        "#;
+        "#,
+            path.display()
+        );
 
         let cursor = std::io::Cursor::new(text);
         let mut stream = InputStream::new(cursor, 0, 4);
-        assert!(parse_scene(&mut stream, HashMap::new()).is_err());
+        parse_scene(&mut stream, HashMap::new()).unwrap();
     }
 
     #[test]
+    #[should_panic(expected = "only valid for LDR images")]
     fn test_parse_pfm_image_pigment_extra_params_fails() {
-        let text = r#"
+        let dir = tempdir().unwrap();
+        let path = valid_pfm(&dir);
+        let text = format!(
+            r#"
         material ball(
-            image("tests/assets/memorial.pfm", 0.18, 1.0, 2.2),
+            image("{}", 0.18, 1.0, 2.2),
             diffuse(),
             uniform(<0, 0, 0>)
         )
-        "#;
+        "#,
+            path.display()
+        );
 
         let cursor = std::io::Cursor::new(text);
         let mut stream = InputStream::new(cursor, 0, 4);
-        assert!(parse_scene(&mut stream, HashMap::new()).is_err());
+        parse_scene(&mut stream, HashMap::new()).unwrap();
     }
 
     #[test]
+    #[should_panic(expected = "expected symbol ')'")]
     fn test_parse_ldr_image_pigment_fail() {
-        let text = r#"
+        let dir = tempdir().unwrap();
+        let path = valid_png(&dir);
+        let text = format!(
+            r#"
         material ball(
-            image("tests/assets/pixar_ball.png", 0.18, 1.0, 2.2 extra),
+            image("{}", 0.18, 1.0, 2.2 extra),
             diffuse(),
             uniform(<0, 0, 0>)
         )
-        "#;
+        "#,
+            path.display()
+        );
 
         let cursor = std::io::Cursor::new(text);
         let mut stream = InputStream::new(cursor, 0, 4);
-        assert!(parse_scene(&mut stream, HashMap::new()).is_err());
+        parse_scene(&mut stream, HashMap::new()).unwrap();
     }
 
     #[test]
+    #[should_panic(expected = "expected symbol ')'")]
     fn test_parse_ldr_image_pigment_missing_parenthesis() {
-        let text = r#"
+        let dir = tempdir().unwrap();
+        let path = valid_png(&dir);
+        let text = format!(
+            r#"
         material ball(
-            image("tests/assets/pixar_ball.png", 0.18, 1.0, 2.2
+            image("{}", 0.18, 1.0, 2.2
             diffuse(),
             uniform(<0, 0, 0>)
         )
-        "#;
+        "#,
+            path.display()
+        );
 
         let cursor = std::io::Cursor::new(text);
         let mut stream = InputStream::new(cursor, 0, 4);
-        assert!(parse_scene(&mut stream, HashMap::new()).is_err());
+        parse_scene(&mut stream, HashMap::new()).unwrap();
     }
 
     #[test]
+    #[should_panic(expected = "expected symbol ')'")]
     fn test_parse_pfm_image_pigment_fail2() {
-        let text = r#"
+        let dir = tempdir().unwrap();
+        let path = valid_pfm(&dir);
+        let text = format!(
+            r#"
         material ball(
-            image("tests/assets/memorial.pfm" garbage),
+            image("{}" garbage),
             diffuse(),
             uniform(<0, 0, 0>)
         )
-        "#;
+        "#,
+            path.display()
+        );
 
         let cursor = std::io::Cursor::new(text);
         let mut stream = InputStream::new(cursor, 0, 4);
-        assert!(parse_scene(&mut stream, HashMap::new()).is_err());
+        parse_scene(&mut stream, HashMap::new()).unwrap();
     }
 
     #[test]
@@ -1165,6 +1345,63 @@ mod test {
         let cursor = std::io::Cursor::new(text);
         let mut stream = InputStream::new(cursor, 0, 4);
         assert!(parse_scene(&mut stream, HashMap::new()).is_err());
+    }
+
+    #[test]
+    fn test_parse_scene_with_policy_no_rescale() -> Result<()> {
+        let text = r#"material ball(
+        uniform(<0.1, 0.2, 0.3>), diffuse(), uniform(black))"#;
+        let cursor = std::io::Cursor::new(text);
+        let mut stream = InputStream::new(cursor, 0, 4);
+        let scene =
+            parse_scene_with_policy(&mut stream, HashMap::new(), ReflectancePolicy::Rescale)?;
+        let color = scene.materials["ball"]
+            .pigment
+            .get_color(&Vec2D::new(0.0, 0.0))?;
+        assert!(
+            color.is_close(&Color::new(0.1, 0.2, 0.3)),
+            "expected pigment to be left untouched, got {:?}",
+            color
+        );
+        Ok(())
+    }
+
+    #[test]
+    fn test_parse_scene_with_policy_rescale() -> Result<()> {
+        let text = r#"material ball(
+        uniform(<1, 2, 0.3>), diffuse(), uniform(black))"#;
+        let cursor = std::io::Cursor::new(text);
+        let mut stream = InputStream::new(cursor, 0, 4);
+        let scene =
+            parse_scene_with_policy(&mut stream, HashMap::new(), ReflectancePolicy::Rescale)?;
+        let color = scene.materials["ball"]
+            .pigment
+            .get_color(&Vec2D::new(0.0, 0.0))?;
+        assert!(
+            color.is_close(&Color::new(0.5, 1.0, 0.15)),
+            "expected pigment to be half the original, got {:?}",
+            color
+        );
+        Ok(())
+    }
+
+    #[test]
+    fn test_parse_scene_with_policy_ignore() -> Result<()> {
+        let text = r#"material ball(
+        uniform(<1, 2, 0.3>), diffuse(), uniform(black))"#;
+        let cursor = std::io::Cursor::new(text);
+        let mut stream = InputStream::new(cursor, 0, 4);
+        let scene =
+            parse_scene_with_policy(&mut stream, HashMap::new(), ReflectancePolicy::Ignore)?;
+        let color = scene.materials["ball"]
+            .pigment
+            .get_color(&Vec2D::new(0.0, 0.0))?;
+        assert!(
+            color.is_close(&Color::new(1.0, 2.0, 0.3)),
+            "expected pigment to be left untouched, got {:?}",
+            color
+        );
+        Ok(())
     }
 
     #[test]

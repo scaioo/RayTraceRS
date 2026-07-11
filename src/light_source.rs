@@ -180,20 +180,20 @@ mod tests {
         PointLightSource,
         World,
     ) {
-        let color1 = Color::new(10.0, 1.0, 4.0);
-        let color2 = Color::new(1.0, 2.0, 3.0);
+        let color1 = Color::new(1.0, 0.1, 0.4);
+        let color2 = Color::new(0.1, 0.2, 0.3);
         let blue = Color::new(0.0, 0.0, 1.0);
         let red = Color::new(10.0, 0.0, 0.0);
         let pigment1 = UniformPigment::new(color1);
         let brdf = DiffusiveBrdf {};
         let emission = UniformPigment::new(BLACK);
-        let material1 = Material::new(pigment1, brdf, emission.clone());
+        let material1 = Material::new(pigment1, brdf, emission.clone()).unwrap();
         let transformation1 = Translation::new(Z_AXIS * 2.0);
         let sphere1 = Sphere::new(transformation1, material1.clone());
 
         let pigment2 = UniformPigment::new(color2);
         let transformation2 = Translation::new(Z_AXIS * 6.5) * Scaling::from(0.5);
-        let material2 = Material::new(pigment2, brdf, emission);
+        let material2 = Material::new(pigment2, brdf, emission).unwrap();
         let sphere2 = Sphere::new(transformation2, material2.clone());
 
         let objects: Vec<Box<dyn Shape>> = vec![Box::new(sphere1), Box::new(sphere2)];
@@ -243,7 +243,7 @@ mod tests {
             material: &material1.clone(),
         };
 
-        let expected_color = Color::new(10.0, 1.0, 4.0) * Color::new(0.0, 0.0, 1.0);
+        let expected_color = Color::new(1.0, 0.1, 0.4) * Color::new(0.0, 0.0, 1.0);
 
         let result_color = light1
             .source_contribution(&hit_point, &world, &mut PCG::default())
@@ -253,11 +253,11 @@ mod tests {
 
     #[test]
     fn test_point_light_source_source_contribution_cosine() {
-        let color2 = Color::new(1.0, 2.0, 3.0);
+        let color2 = Color::new(0.1, 0.2, 0.3);
         let pigment2 = UniformPigment::new(color2);
         let brdf = DiffusiveBrdf {};
         let emission = UniformPigment::new(BLACK);
-        let material2 = Material::new(pigment2, brdf, emission);
+        let material2 = Material::new(pigment2, brdf, emission).unwrap();
         let plane = Plane::new(Transformation::new(IDENTITY_4X4), material2.clone(), false);
 
         let y = 3.0_f32.sqrt() / 2.0;
@@ -326,7 +326,7 @@ mod tests {
             material: &material1,
         };
 
-        let expected_color = Color::new(10.0, 1.0, 4.0) * Color::new(1.0, 2.0, 3.0);
+        let expected_color = Color::new(1.0, 0.1, 0.4) * Color::new(1.0, 2.0, 3.0);
         println!("\n{:?}\n", expected_color);
         let result_color = sun
             .source_contribution(&hit_point, &world, &mut PCG::default())

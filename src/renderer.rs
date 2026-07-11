@@ -336,7 +336,7 @@ mod tests {
         let pigment = UniformPigment::new(WHITE);
         let emitted_radiance = UniformPigment::new(BLACK);
         let brdf = DiffusiveBrdf {};
-        let material = Material::new(pigment, brdf, emitted_radiance);
+        let material = Material::new(pigment, brdf, emitted_radiance)?;
         let sphere = Sphere::new(translation * scaling, material);
 
         let image = HDR::new(3, 3);
@@ -431,14 +431,14 @@ mod tests {
     }
     #[test]
     fn test_flat_renderer() -> Result<()> {
-        let sphere_color = Color::new(1.0, 2.0, 3.0);
+        let sphere_color = Color::new(0.1, 0.2, 0.3);
         // Setup sphere and color specified
         let scaling: Scaling = 0.2.into();
         let translation = Translation::new(Vector::new(2., 0., 0.));
         let pigment = UniformPigment::new(sphere_color);
         let brdf = DiffusiveBrdf {};
         let emitted_radiance = UniformPigment::new(BLACK);
-        let material = Material::new(pigment, brdf, emitted_radiance);
+        let material = Material::new(pigment, brdf, emitted_radiance)?;
         let sphere = Sphere::new(translation * scaling, material);
         let mut pcg = PCG::default();
         // Setup scene & raytracer
@@ -488,7 +488,9 @@ mod tests {
                 .is_close(&BLACK),
             "Mismatch at (0,1)"
         );
-        // Verify that flat_renderer return the color of the sphere
+        // Verify that flat_renderer returns the color of the sphere.
+        // `Material::new` no longer wraps the pigment in `ClampPigment`, so a
+        // pigment that's already within [0,1] is returned unchanged.
         assert!(
             tracer
                 .image
@@ -545,7 +547,7 @@ mod tests {
                 UniformPigment::new(WHITE * reflectance),
                 DiffusiveBrdf {},
                 UniformPigment::new(WHITE * emitted_radiance),
-            );
+            )?;
             let sphere = Sphere::new(Transformation::new(IDENTITY_4X4), enclosure_material);
             let world = World {
                 objects: vec![Box::new(sphere)],
@@ -581,7 +583,8 @@ mod tests {
             UniformPigment::new(WHITE),
             DiffusiveBrdf {},
             UniformPigment::new(BLACK),
-        );
+        )
+        .unwrap();
 
         // Sphere centered at origin
         let sphere = Sphere::new(Transformation::new(IDENTITY_4X4), material);
@@ -654,7 +657,8 @@ mod tests {
             UniformPigment::new(WHITE),
             DiffusiveBrdf {},
             UniformPigment::new(BLACK),
-        );
+        )
+        .unwrap();
 
         let sphere = Sphere::new(Transformation::new(IDENTITY_4X4), material);
 

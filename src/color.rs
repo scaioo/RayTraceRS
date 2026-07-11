@@ -12,7 +12,7 @@
 //! Arithmetic operations do not enforce validity, so callers are
 //! responsible for preserving physically meaningful values.
 
-use crate::functions::are_close;
+use crate::functions::{Within, are_close};
 use anyhow::{Result, anyhow};
 use std::ops::{Add, AddAssign, Div, Mul};
 
@@ -131,6 +131,61 @@ impl Color {
         self.g = self.g / (self.g + 1.0);
         self.b = self.b / (self.b + 1.0);
         Ok(())
+    }
+
+    /// Rescales the color in place so no channel exceeds `1.0`, preserving hue.
+    ///
+    /// If the highest channel is already `<= 1.0`, the color is left
+    /// unchanged. Otherwise every channel is divided by the highest one, so
+    /// the highest channel becomes exactly `1.0` and the ratios between
+    /// channels (the hue) are preserved. Unlike [`Color::tone_map`], this is
+    /// a no-op for colors already within range, and channels below `0.0`
+    /// are not touched.
+    ///
+    /// # Errors
+    /// Returns an error if the color is invalid (see [`Color::self_check`]).
+    ///
+    /// # Examples
+    /// ```rust
+    /// use rstrace::color::Color;
+    ///
+    /// let mut c = Color::new(1.0, 2.0, 4.0);
+    /// c.rescale().unwrap();
+    ///
+    /// assert!(c.is_close(&Color::new(0.25, 0.5, 1.0)));
+    /// ```
+    pub fn rescale(&mut self) -> Result<()> {
+        self.self_check()?;
+        let highest = self.r.max(self.g.max(self.b));
+        if highest > 1.0 {
+            self.r /= highest;
+            self.g /= highest;
+            self.b /= highest;
+        }
+        Ok(())
+    }
+
+    /// Returns `true` if every channel is a physically meaningful
+    /// reflectance value, i.e. within `[0,1]` (inclusive, with the same
+    /// tolerance as [`are_close`]).
+    ///
+    /// A surface can reflect at most as much light as it receives on a given
+    /// channel, so a reflectance color (as opposed to an emitted-radiance
+    /// color, which is unbounded) must stay within this range to be
+    /// physically valid. Used by [`Pigment::validate_reflectance`](crate::pigments::Pigment::validate_reflectance)
+    /// to check pigments before they are used as a `Material`'s surface color.
+    ///
+    /// # Examples
+    /// ```rust
+    /// use rstrace::color::Color;
+    ///
+    /// assert!(Color::new(0.5, 0.3, 1.0).validate_reflectance());
+    /// assert!(!Color::new(0.5, 1.5, 0.0).validate_reflectance());
+    /// ```
+    pub fn validate_reflectance(&self) -> bool {
+        self.r.is_between_close(&0.0, &1.0)
+            && self.g.is_between_close(&0.0, &1.0)
+            && self.b.is_between_close(&0.0, &1.0)
     }
 
     /// Applies inverse gamma correction to convert an LDR pixel from gamma-encoded
@@ -578,6 +633,32 @@ mod tests {
     }
 
     #[test]
+    fn test_rescale() {
+        let mut color = Color::new(1.0, 2.0, 4.0);
+        let expected = Color::new(0.25, 0.5, 1.0);
+        color.rescale().unwrap();
+        assert!(
+            color.is_close(&expected),
+            "color: {:?}\nexpected: {:?}",
+            color,
+            expected
+        );
+    }
+
+    #[test]
+    fn test_rescale_null() {
+        let mut color = Color::new(0.25, 0.4, 1.0);
+        let expected = color;
+        color.rescale().unwrap();
+        assert!(
+            color.is_close(&expected),
+            "color: {:?}\nexpected: {:?}",
+            color,
+            expected
+        );
+    }
+
+    #[test]
     fn test_inverse_gamma_correction() {
         let mut color = Color::new(1.0, 2.0, 3.0);
         let gamma = 0.5;
@@ -623,5 +704,25 @@ mod tests {
             "inverse_tone_mapping result: {:?}",
             color
         );
+    }
+
+    #[test]
+    fn test_validation_reflectance() {
+        let cases = vec![
+            (Color::new(0.5, 0.3, 0.1), true),
+            (Color::new(1.0, 0.0, 0.0), true),
+            (Color::new(0.5, -1.0, 0.0), false),
+            (Color::new(0.0, 10.0, 0.0), false),
+            (Color::new(0.0, 1.00001, 0.0), false),
+        ];
+
+        for case in cases {
+            assert_eq!(
+                case.0.validate_reflectance(),
+                case.1,
+                "Error validating Reflectance! color: {:?}",
+                case.0
+            );
+        }
     }
 }

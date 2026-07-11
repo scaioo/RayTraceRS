@@ -37,6 +37,7 @@ impl World {
             // If the shape had an internal Result error (like in point_to_uv),
             // it already returned None via .ok()?, so the world stays safe.
             if let Some(hit) = object.ray_intersection(ray)
+                && hit.t >= ray.t_min
                 && hit.t < closest_t
             {
                 closest_t = hit.t;

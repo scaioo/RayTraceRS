@@ -2,7 +2,7 @@ mod cli;
 
 use anyhow::{Result, anyhow};
 use clap::Parser;
-use cli::{build_variable_table, ensure_extension, ensure_image_extension};
+use cli::{CliReflectancePolicy, build_variable_table, ensure_extension, ensure_image_extension};
 use rstrace::camera::Camera;
 use rstrace::color::{BLACK, Color};
 use rstrace::hdr_image::HDR;
@@ -107,6 +107,11 @@ enum Commands {
         #[arg(long, default_value_t = 4)]
         tab_size: usize,
 
+        /// Policy for pigments with reflectance channels outside [0,1].
+        /// Accepted values: `reject`, `rescale`, `ignore`.
+        #[arg(long, default_value = "reject")]
+        reflectance_policy: CliReflectancePolicy,
+
         /// Declare a variable. Syntax: VAR:VALUE. Example: --declare-float=clock:150
         #[arg(short = 'd', long = "declare-float")]
         declare_float: Vec<String>,
@@ -157,6 +162,7 @@ fn main() -> Result<()> {
             init_seq,
             antialiasing,
             tab_size,
+            reflectance_policy,
             declare_float,
         } => {
             // 1. Parse command line variables
@@ -171,7 +177,12 @@ fn main() -> Result<()> {
             let mut stream = rstrace::lexer::InputStream::new(reader, 0, tab_size);
 
             println!("Parsing scene '{}'...", input_scene_name);
-            let scene = rstrace::parser::parse_scene(&mut stream, variables)?;
+
+            let scene = rstrace::parser::parse_scene_with_policy(
+                &mut stream,
+                variables,
+                reflectance_policy.into(),
+            )?;
 
             // 3. Setup Image and Camera
             let mut img = HDR::new(width, height);

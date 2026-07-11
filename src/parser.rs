@@ -87,7 +87,7 @@ use crate::geometry::{Point, Vector};
 use crate::hdr_image::HDR;
 use crate::lexer::{InputStream, Keyword, TokenKind};
 use crate::light_source::{PointLightSource, SphericalLightSource};
-use crate::materials::Material;
+use crate::materials::{ClampPigment, Material};
 use crate::mesh::SimpleMesh;
 use crate::pfm_func::read_pfm_file;
 use crate::pigments::{CheckeredPigment, GradientPigment, ImagePigment, Pigment, UniformPigment};
@@ -182,6 +182,14 @@ impl Default for Scene {
     fn default() -> Self {
         Self::new()
     }
+}
+
+#[derive(Copy, Clone, Debug, PartialEq, Default)]
+pub enum ReflectancePolicy {
+    #[default]
+    Reject,
+    Rescale,
+    Ignore,
 }
 
 // ==========================================
@@ -473,19 +481,38 @@ pub fn parse_brdf<B: BufRead>(stream: &mut InputStream<B>) -> Result<Box<dyn BRD
 pub fn parse_material<B: BufRead>(
     stream: &mut InputStream<B>,
     scene: &Scene,
+    policy: ReflectancePolicy,
 ) -> Result<(String, Material)> {
     let material_loc = stream.source_location;
     let name = expect_identifier(stream)?;
     expect_symbol(stream, '(')?;
 
     let base_pigment = parse_pigment(stream, scene)?;
-    base_pigment.validate_reflectance().map_err(|e| {
-        anyhow!(
+    let base_pigment: Box<dyn Pigment> = match policy {
+        ReflectancePolicy::Reject => {
+            base_pigment.validate_reflectance().map_err(|e| {
+                anyhow!(
             "Invalid material '{name}' at {}:{}: {e} (reflectance channels must lie in [0,1])",
             material_loc.line_number,
             material_loc.col_number
         )
-    })?;
+            })?;
+            base_pigment
+        }
+        ReflectancePolicy::Rescale => {
+            if base_pigment.validate_reflectance().is_err() {
+                eprintln!(
+                    "Warning: material '{name}' at {}:{}: pigment reflectance outside [0,1], colors rescaled",
+                    material_loc.line_number, material_loc.col_number
+                );
+                Box::new(ClampPigment::new(base_pigment))
+            } else {
+                base_pigment
+            }
+        }
+        ReflectancePolicy::Ignore => base_pigment,
+    };
+
     expect_symbol(stream, ',')?;
 
     let brdf = parse_brdf(stream)?;
@@ -788,6 +815,14 @@ pub fn parse_scene<B: BufRead>(
     stream: &mut InputStream<B>,
     initial_variables: HashMap<String, f32>,
 ) -> Result<Scene> {
+    parse_scene_with_policy(stream, initial_variables, ReflectancePolicy::Reject)
+}
+
+pub fn parse_scene_with_policy<B: BufRead>(
+    stream: &mut InputStream<B>,
+    initial_variables: HashMap<String, f32>,
+    policy: ReflectancePolicy,
+) -> Result<Scene> {
     let mut scene = Scene::new();
     scene.overridden_variables = initial_variables.keys().cloned().collect();
     scene.float_variables = initial_variables;
@@ -808,7 +843,7 @@ pub fn parse_scene<B: BufRead>(
                 }
             }
             TokenKind::Keyword(Keyword::Material) => {
-                let (name, material) = parse_material(stream, &scene)?;
+                let (name, material) = parse_material(stream, &scene, policy)?;
                 scene.materials.insert(name, material);
             }
             TokenKind::Keyword(Keyword::Sphere) => {
@@ -1286,6 +1321,63 @@ mod test {
         let cursor = std::io::Cursor::new(text);
         let mut stream = InputStream::new(cursor, 0, 4);
         assert!(parse_scene(&mut stream, HashMap::new()).is_err());
+    }
+
+    #[test]
+    fn test_parse_scene_with_policy_no_rescale() -> Result<()> {
+        let text = r#"material ball(
+        uniform(<0.1, 0.2, 0.3>), diffuse(), uniform(black))"#;
+        let cursor = std::io::Cursor::new(text);
+        let mut stream = InputStream::new(cursor, 0, 4);
+        let scene =
+            parse_scene_with_policy(&mut stream, HashMap::new(), ReflectancePolicy::Rescale)?;
+        let color = scene.materials["ball"]
+            .pigment
+            .get_color(&Vec2D::new(0.0, 0.0))?;
+        assert!(
+            color.is_close(&Color::new(0.1, 0.2, 0.3)),
+            "expected pigment to be left untouched, got {:?}",
+            color
+        );
+        Ok(())
+    }
+
+    #[test]
+    fn test_parse_scene_with_policy_rescale() -> Result<()> {
+        let text = r#"material ball(
+        uniform(<1, 2, 0.3>), diffuse(), uniform(black))"#;
+        let cursor = std::io::Cursor::new(text);
+        let mut stream = InputStream::new(cursor, 0, 4);
+        let scene =
+            parse_scene_with_policy(&mut stream, HashMap::new(), ReflectancePolicy::Rescale)?;
+        let color = scene.materials["ball"]
+            .pigment
+            .get_color(&Vec2D::new(0.0, 0.0))?;
+        assert!(
+            color.is_close(&Color::new(0.5, 1.0, 0.15)),
+            "expected pigment to be half the original, got {:?}",
+            color
+        );
+        Ok(())
+    }
+
+    #[test]
+    fn test_parse_scene_with_policy_ignore() -> Result<()> {
+        let text = r#"material ball(
+        uniform(<1, 2, 0.3>), diffuse(), uniform(black))"#;
+        let cursor = std::io::Cursor::new(text);
+        let mut stream = InputStream::new(cursor, 0, 4);
+        let scene =
+            parse_scene_with_policy(&mut stream, HashMap::new(), ReflectancePolicy::Ignore)?;
+        let color = scene.materials["ball"]
+            .pigment
+            .get_color(&Vec2D::new(0.0, 0.0))?;
+        assert!(
+            color.is_close(&Color::new(1.0, 2.0, 0.3)),
+            "expected pigment to be left untouched, got {:?}",
+            color
+        );
+        Ok(())
     }
 
     #[test]

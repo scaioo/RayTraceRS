@@ -28,7 +28,7 @@ where
         Box::new(self.clone())
     }
 }
-pub trait LightSource: CloneLightSource {
+pub trait LightSource: CloneLightSource + Send + Sync {
     /// Computes the direct illumination contribution of a light source at a hit point.
     ///
     /// Returns [`BLACK`] for points in shadow.

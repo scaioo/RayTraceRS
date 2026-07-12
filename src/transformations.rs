@@ -42,7 +42,7 @@ pub static IDENTITY_TRANSFORMATION: Transformation = Transformation {
 /// The `Copy` supertrait is required so that transformation values can be passed
 /// by value to generic functions (such as [`SimpleMesh::from_obj`](crate::mesh::SimpleMesh::from_obj))
 /// without incurring heap allocation.
-pub trait IsHomogeneousMatrix: Copy {
+pub trait IsHomogeneousMatrix: Copy + Send + Sync {
     /// Returns a reference to the 16-element array representing the 4x4 transformation matrix.
     fn mat(&self) -> &[f32; 16];
 

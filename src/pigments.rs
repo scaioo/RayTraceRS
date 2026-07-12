@@ -73,7 +73,7 @@ where
 /// Describes the color distribution over a surface.
 ///
 /// A `Pigment` maps UV texture coordinates to a [`Color`].
-pub trait Pigment: ClonePigment {
+pub trait Pigment: ClonePigment + Send + Sync {
     /// Returns the `Color` of a certain point on the surface.
     fn get_color(&self, uv: &Vec2D) -> Result<Color>;
 

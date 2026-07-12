@@ -70,7 +70,7 @@ where
 ///
 /// Every shape placed in the scene must implement this trait. The four methods together
 /// provide all information the renderer needs to compute lighting at a surface point.
-pub trait Shape: CloneShape {
+pub trait Shape: CloneShape + Send + Sync {
     /// Tests whether `ray` intersects this shape.
     ///
     /// Returns the closest valid [`HitRecord`] within `[ray.t_min, ray.t_max]`,

@@ -24,7 +24,7 @@ use std::ops::Mul;
 // =======================================================================
 
 /// Common interface for all camera types.
-pub trait Camera {
+pub trait Camera: Send + Sync {
     /// Sets the aspect ratio of the camera (width / height).
     ///
     /// # Errors

@@ -115,6 +115,11 @@ enum Commands {
         /// Declare a variable. Syntax: VAR:VALUE. Example: --declare-float=clock:150
         #[arg(short = 'd', long = "declare-float")]
         declare_float: Vec<String>,
+
+        /// Number of threads used for rendering.
+        /// Use 1 to disable multi-threading; 0 (the default) uses all CPU cores.
+        #[arg(long, default_value_t = 0)]
+        threads: usize,
     },
 }
 
@@ -164,7 +169,16 @@ fn main() -> Result<()> {
             tab_size,
             reflectance_policy,
             declare_float,
+            threads,
         } => {
+            // 0. Configure the rendering thread pool (0 = one thread per core)
+            if threads > 0 {
+                rayon::ThreadPoolBuilder::new()
+                    .num_threads(threads)
+                    .build_global()
+                    .map_err(|e| anyhow!("Could not configure the thread pool: {}", e))?;
+            }
+
             // 1. Parse command line variables
             let variables = build_variable_table(&declare_float);
 
@@ -203,21 +217,21 @@ fn main() -> Result<()> {
             let flat_renderer = FlatRenderer::new(BLACK);
             let onoff_renderer = OnOffRenderer::default();
 
-            let mut pcg = PCG::new(init_state, init_seq);
+            let pcg = PCG::new(init_state, init_seq);
             let path_tracer = PathTracer::new(BLACK, num_of_rays, max_depth, 2);
             let whitted = PointLightRenderer {
                 background_color: BLACK,
             };
 
-            let render_closure = |ray: Ray, world: &World| -> Result<Color> {
+            let render_closure = |ray: Ray, world: &World, pcg: &mut PCG| -> Result<Color> {
                 if algorithm == "onoff" {
-                    onoff_renderer.render(&ray, world, &mut pcg)
+                    onoff_renderer.render(&ray, world, pcg)
                 } else if algorithm == "flat" {
-                    flat_renderer.render(&ray, world, &mut pcg)
+                    flat_renderer.render(&ray, world, pcg)
                 } else if algorithm == "pathtracing" {
-                    path_tracer.render(&ray, world, &mut pcg)
+                    path_tracer.render(&ray, world, pcg)
                 } else if algorithm == "point-light" {
-                    whitted.render(&ray, world, &mut pcg)
+                    whitted.render(&ray, world, pcg)
                 } else {
                     panic!("Unknown algorithm: {}", algorithm);
                 }
@@ -225,7 +239,7 @@ fn main() -> Result<()> {
 
             // 5. Execute Render
             println!("Rendering in progress...");
-            imagetracer.fire_all_rays(&scene.world, render_closure)?;
+            imagetracer.fire_all_rays(&scene.world, pcg, render_closure)?;
             img = imagetracer.image;
 
             // 6. Save outputs

@@ -347,11 +347,12 @@ mod tests {
             light_sources: vec![],
         };
 
-        let mut pcg = PCG::default();
+        let pcg = PCG::default();
         let renderer = OnOffRenderer::default();
 
-        let _ =
-            tracer.fire_all_rays(&world, |ray, world| renderer.render(&ray, world, &mut pcg))?;
+        let _ = tracer.fire_all_rays(&world, pcg, |ray, world, pcg| {
+            renderer.render(&ray, world, pcg)
+        })?;
 
         assert!(
             tracer
@@ -440,7 +441,7 @@ mod tests {
         let emitted_radiance = UniformPigment::new(BLACK);
         let material = Material::new(pigment, brdf, emitted_radiance)?;
         let sphere = Sphere::new(translation * scaling, material);
-        let mut pcg = PCG::default();
+        let pcg = PCG::default();
         // Setup scene & raytracer
         let image = HDR::new(3, 3);
         let camera = OrthogonalCamera::new(Transformation::new(IDENTITY_4X4));
@@ -452,8 +453,9 @@ mod tests {
 
         let renderer = FlatRenderer::default();
 
-        let _ =
-            tracer.fire_all_rays(&world, |ray, world| renderer.render(&ray, world, &mut pcg))?;
+        let _ = tracer.fire_all_rays(&world, pcg, |ray, world, pcg| {
+            renderer.render(&ray, world, pcg)
+        })?;
 
         assert!(
             tracer

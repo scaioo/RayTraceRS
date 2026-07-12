@@ -44,7 +44,7 @@ where
 ///
 /// Implementors describe how a surface scatters an incoming ray into an
 /// outgoing ray
-pub trait BRDF: CloneBrdf {
+pub trait BRDF: CloneBrdf + Send + Sync {
     /// Computes the scattered [`Ray`] produced when `incoming_dir` hits a
     /// surface at `interacting_point`.
     ///

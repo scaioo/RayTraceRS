@@ -24,7 +24,10 @@ use std::ops::Mul;
 // =======================================================================
 
 /// Common interface for all camera types.
-pub trait Camera {
+///
+/// `Send + Sync` are required so the camera can be shared by the rendering
+/// threads in [`fire_all_rays`](crate::image_tracer::ImageTracer::fire_all_rays).
+pub trait Camera: Send + Sync {
     /// Sets the aspect ratio of the camera (width / height).
     ///
     /// # Errors

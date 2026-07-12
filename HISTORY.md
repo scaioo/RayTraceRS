@@ -1,5 +1,9 @@
 ## Head
 
+- Add `--threads` CLI flag to control rendering thread count
+  ([PR#32](https://github.com/scaioo/RayTraceRS/pull/32)).
+- Parallelize rendering across CPU cores with `rayon`
+  ([PR#32](https://github.com/scaioo/RayTraceRS/pull/32)).
 - Add `--reflectance-policy {reject,rescale,ignore}` CLI flag to control how materials
   with out-of-range reflectance are handled
   ([PR#31](https://github.com/scaioo/RayTraceRS/pull/31)).

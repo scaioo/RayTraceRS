@@ -115,6 +115,11 @@ enum Commands {
         /// Declare a variable. Syntax: VAR:VALUE. Example: --declare-float=clock:150
         #[arg(short = 'd', long = "declare-float")]
         declare_float: Vec<String>,
+
+        /// Number of threads used for rendering.
+        /// Use 1 to disable multi-threading; 0 (the default) uses all CPU cores.
+        #[arg(long, default_value_t = 0)]
+        threads: usize,
     },
 }
 
@@ -164,7 +169,16 @@ fn main() -> Result<()> {
             tab_size,
             reflectance_policy,
             declare_float,
+            threads,
         } => {
+            // 0. Configure the rendering thread pool (0 = one thread per core)
+            if threads > 0 {
+                rayon::ThreadPoolBuilder::new()
+                    .num_threads(threads)
+                    .build_global()
+                    .map_err(|e| anyhow!("Could not configure the thread pool: {}", e))?;
+            }
+
             // 1. Parse command line variables
             let variables = build_variable_table(&declare_float);
 

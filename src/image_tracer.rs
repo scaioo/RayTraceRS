@@ -72,7 +72,7 @@ impl<C: Camera> ImageTracer<C> {
         let v = 1.0 - ((row as f32 + v_pixel) / (self.image.height as f32));
         self.camera.fire_ray(u, v)
     }
-    
+
     /// Renders the entire image by firing rays for every pixel, in parallel.
     ///
     /// The pixel buffer is split into rows and the rows are distributed across

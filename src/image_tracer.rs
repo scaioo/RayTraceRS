@@ -17,6 +17,7 @@ use crate::ray::Ray;
 use crate::world::World;
 use anyhow::Result;
 use indicatif::{ProgressBar, ProgressStyle};
+use rayon::prelude::*;
 
 /// The engine responsible for shooting rays through the camera and painting the image.
 ///
@@ -85,10 +86,10 @@ impl<C: Camera> ImageTracer<C> {
     /// # Errors
     /// Returns an error if the shading function fails or if setting the pixel
     /// goes out of bounds (which should mathematically never happen here).
-    pub fn fire_all_rays<F>(&mut self, world: &World, mut renderer: F) -> Result<()>
+    pub fn fire_all_rays<F>(&mut self, world: &World, mut pcg: PCG, renderer: F) -> Result<()>
     where
-        // `func` takes a Ray and returns a Color (adjust return type as needed)
-        F: FnMut(Ray, &World) -> Result<Color>,
+        F: Fn(Ray, &World, &mut PCG) -> Result<Color> + Sync,
+        C: Sync,
     {
         // Import and initialize the toolbar tools
         let total_pixels = (self.image.width * self.image.height) as u64;
@@ -101,32 +102,47 @@ impl<C: Camera> ImageTracer<C> {
                 .progress_chars("#>-")
         );
 
-        let mut pcg = PCG::default();
-        for row in 0..self.image.height {
-            for col in 0..self.image.width {
-                let squares = (self.n * self.n) as f32;
-                let mut color: Color = Color::default();
+        let master_state = ((pcg.random() as u64) << 32) | pcg.random() as u64;
 
-                if self.n == 0 {
-                    let ray = self.fire_ray(col, row, 0.5, 0.5);
-                    color += renderer(ray, world)?;
-                } else {
-                    for i in 0..self.n {
-                        for j in 0..self.n {
-                            let u = (i as f32 + pcg.random_float()) / self.n as f32;
-                            let v = (j as f32 + pcg.random_float()) / self.n as f32;
-                            let ray = self.fire_ray(col, row, u, v);
-                            color += renderer(ray, world)? / squares;
+        let n = self.n;
+        let mut pixels = std::mem::take(&mut self.image.pixels);
+        let this: &Self = self;
+
+        let render_result = pixels
+            .par_chunks_mut(this.image.width)
+            .enumerate()
+            .try_for_each(|(row, row_pixels)| -> Result<()> {
+                let mut pcg = PCG::new(master_state, row as u64);
+                let squares = (n * n) as f32;
+
+                for (col, pixel) in row_pixels.iter_mut().enumerate() {
+                    let mut color: Color = Color::default();
+
+                    if n == 0 {
+                        let ray = this.fire_ray(col, row, 0.5, 0.5);
+                        color += renderer(ray, world, &mut pcg)?;
+                    } else {
+                        for i in 0..n {
+                            for j in 0..n {
+                                let u = (i as f32 + pcg.random_float()) / n as f32;
+                                let v = (j as f32 + pcg.random_float()) / n as f32;
+                                let ray = this.fire_ray(col, row, u, v);
+                                color += renderer(ray, world, &mut pcg)? / squares;
+                            }
                         }
                     }
+
+                    *pixel = color;
+
+                    // For every pixel calculated, we advance the bar by 1
+                    pb.inc(1);
                 }
+                Ok(())
+            });
 
-                self.image.set_pixel(col, row, color)?;
+        self.image.pixels = pixels;
+        render_result?;
 
-                // For every pixel calculated, we advance the bar by 1
-                pb.inc(1);
-            }
-        }
         pb.finish_with_message("Rendering completed!");
 
         Ok(())
@@ -176,7 +192,7 @@ mod tests {
 
     #[test]
     fn test_image_coverage() -> Result<()> {
-        fn color_image(ray: Ray, world: &World) -> Result<Color> {
+        fn color_image(ray: Ray, world: &World, _pcg: &mut PCG) -> Result<Color> {
             let inters = world.ray_intersection(&ray);
             match inters {
                 Some(_x) => {
@@ -217,7 +233,7 @@ mod tests {
         let mut camera = PerspectiveCamera::new(Transformation::new(IDENTITY_4X4));
         camera.set_aspect_ratio(2.0)?;
         let mut tracer = ImageTracer::new(image, camera, 1);
-        tracer.fire_all_rays(&demo_world(), color_image)?;
+        tracer.fire_all_rays(&demo_world(), PCG::default(), color_image)?;
 
         // 2. Iterate through the tracer's image to verify the pixels
         let expected_color = Color::new(1.0, 1.0, 1.0);

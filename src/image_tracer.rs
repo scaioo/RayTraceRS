@@ -72,20 +72,29 @@ impl<C: Camera> ImageTracer<C> {
         let v = 1.0 - ((row as f32 + v_pixel) / (self.image.height as f32));
         self.camera.fire_ray(u, v)
     }
-    /// Renders the entire image by firing rays for every pixel.
+    
+    /// Renders the entire image by firing rays for every pixel, in parallel.
     ///
-    /// This method iterates through every `(col, row)` of the target HDR image,
-    /// fires a ray through the center of the pixel, and evaluates its color
-    /// using the provided `func` closure.
+    /// The pixel buffer is split into rows and the rows are distributed across
+    /// all available CPU cores (via [rayon]'s work-stealing thread pool). Each
+    /// thread writes only into its own row slice, so no synchronization is
+    /// needed on the image.
+    ///
+    /// # Randomness & reproducibility
+    /// The caller-supplied `pcg` is drawn from once to derive a 64-bit master
+    /// seed; every row then gets its own independent [`PCG`] stream
+    /// (`PCG::new(master_state, row)`). The rendered image is therefore
+    /// deterministic for a given input `pcg`, regardless of thread count or
+    /// row scheduling order.
     ///
     /// # Arguments
     /// * `world` - A reference to the 3D scene containing the shapes.
-    /// * `func` - A closure (the "shader") that takes a `Ray` and the `World`
-    ///   and returns the computed [`Color`] for that ray.
+    /// * `pcg` - Source of randomness; seeds one independent RNG stream per row.
+    /// * `renderer` - A closure (the "shader") that takes a `Ray`, the `World`
+    ///   and the row-local RNG, and returns the computed [`Color`] for that ray.
     ///
     /// # Errors
-    /// Returns an error if the shading function fails or if setting the pixel
-    /// goes out of bounds (which should mathematically never happen here).
+    /// Returns an error if the shading function fails.
     pub fn fire_all_rays<F>(&mut self, world: &World, mut pcg: PCG, renderer: F) -> Result<()>
     where
         F: Fn(Ray, &World, &mut PCG) -> Result<Color> + Sync,
@@ -102,14 +111,19 @@ impl<C: Camera> ImageTracer<C> {
                 .progress_chars("#>-")
         );
 
+        // A single draw from the caller's PCG picks the master seed shared by
+        // every row; each row then selects its own PCG *stream* (same state,
+        // different `inc`), so rows never share random sequences.
         let master_state = ((pcg.random() as u64) << 32) | pcg.random() as u64;
 
         let n = self.n;
+        // Move the pixel buffer out of `self` so the threads can write to it
+        // while `self` stays borrowed immutably (for `fire_ray`).
         let mut pixels = std::mem::take(&mut self.image.pixels);
         let this: &Self = self;
 
         let render_result = pixels
-            .par_chunks_mut(this.image.width)
+            .par_chunks_mut(this.image.width) // one chunk = one image row
             .enumerate()
             .try_for_each(|(row, row_pixels)| -> Result<()> {
                 let mut pcg = PCG::new(master_state, row as u64);
@@ -140,6 +154,7 @@ impl<C: Camera> ImageTracer<C> {
                 Ok(())
             });
 
+        // Put the buffer back before propagating any rendering error.
         self.image.pixels = pixels;
         render_result?;
 

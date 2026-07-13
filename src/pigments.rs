@@ -253,7 +253,7 @@ impl Pigment for ImagePigment {
 /// bounded: whichever corner has the smallest projection is always
 /// exactly `color1` and whichever has the largest is always exactly
 /// `color2`, regardless of `angle`. Outside the unit square, colors
-/// extrapolate beyond the `[color1, color2]` range.
+/// saturate to the nearest endpoint (`color1` or `color2`).
 #[derive(Clone, Debug, PartialEq)]
 pub struct GradientPigment {
     pub color1: Color,
@@ -279,8 +279,9 @@ impl Pigment for GradientPigment {
     ///
     /// The projection of `uv` onto the gradient axis is rescaled so that
     /// the unit square's extreme corners map exactly to `color1` and
-    /// `color2`. `uv` outside `[0,1] x [0,1]` is not clamped, so colors
-    /// may extrapolate beyond `color1` and `color2`.
+    /// `color2`. The parameter `t` is clamped to `[0,1]`, so `uv` outside
+    /// `[0,1] x [0,1]` saturates to the endpoints instead of extrapolating
+    /// past them (which could produce colors with negative channels).
     fn get_color(&self, uv: &Vec2D) -> Result<Color> {
         let (c, s) = (self.angle.cos(), self.angle.sin());
         let t_min = [0.0f32, c, s, c + s]
@@ -289,17 +290,14 @@ impl Pigment for GradientPigment {
         let t_max = [0.0f32, c, s, c + s]
             .into_iter()
             .fold(f32::NEG_INFINITY, f32::max);
-        let t = (uv.x * c + uv.y * s - t_min) / (t_max - t_min);
+        let t = ((uv.x * c + uv.y * s - t_min) / (t_max - t_min)).clamp(0.0, 1.0);
         Ok(self.color1 * (1.0 - t) + self.color2 * t)
     }
 
-    /// Checks both endpoint colors. This is exhaustive only because
-    /// `get_color`'s projection is normalized over the unit square (see the
-    /// struct docs above): for `uv` within `[0,1] x [0,1]`, every output is
-    /// a convex combination of `color1` and `color2`, so if both endpoints
-    /// are valid, every in-range output is too. `uv` outside the unit
-    /// square can still extrapolate beyond `[color1, color2]` and isn't
-    /// covered by this check.
+    /// Checks both endpoint colors. This is exhaustive because `get_color`
+    /// clamps `t` to `[0,1]`, so every output is a convex combination of
+    /// `color1` and `color2` for any `uv`: if both endpoints are valid,
+    /// every output is too.
     fn validate_reflectance(&self) -> Result<()> {
         if !self.color1.validate_reflectance() || !self.color2.validate_reflectance() {
             Err(anyhow!(
@@ -360,7 +358,12 @@ mod tests {
         let pigment = UniformPigment::new(color);
         let result = pigment.get_color(&Vec2D { x: -0.1, y: 0.0 }).unwrap();
 
-        assert!(color.is_close(&result), "expected: {:?}\nfound: {:?}", color, result);
+        assert!(
+            color.is_close(&result),
+            "expected: {:?}\nfound: {:?}",
+            color,
+            result
+        );
     }
 
     #[test]
@@ -369,7 +372,12 @@ mod tests {
         let pigment = UniformPigment::new(color);
         let result = pigment.get_color(&Vec2D { x: 0.1, y: 10.0 }).unwrap();
 
-        assert!(color.is_close(&result), "expected: {:?}\nfound: {:?}", color, result);
+        assert!(
+            color.is_close(&result),
+            "expected: {:?}\nfound: {:?}",
+            color,
+            result
+        );
     }
 
     // - - - - - - - - - - - - - - - - - - - - - -
@@ -525,11 +533,19 @@ mod tests {
         let red = Color::new(1.0, 0.0, 0.0);
         let green = Color::new(0.0, 1.0, 0.0);
         let pigment = CheckeredPigment::new(red, green, 2);
-        let uv = Vec2D { x: 0.4, y: 1.0 - 1e-9 };
+        let uv = Vec2D {
+            x: 0.4,
+            y: 1.0 - 1e-9,
+        };
 
         let color = pigment.get_color(&uv).unwrap();
 
-        assert!(color.is_close(&red), "expected: {:?}\nactual: {:?}", color, red);
+        assert!(
+            color.is_close(&red),
+            "expected: {:?}\nactual: {:?}",
+            color,
+            red
+        );
     }
 
     #[test]
@@ -541,7 +557,12 @@ mod tests {
 
         let color = pigment.get_color(&uv).unwrap();
 
-        assert!(color.is_close(&red), "expected: {:?}\nactual: {:?}", color, red);
+        assert!(
+            color.is_close(&red),
+            "expected: {:?}\nactual: {:?}",
+            color,
+            red
+        );
     }
 
     #[test]
@@ -635,10 +656,15 @@ mod tests {
     #[test]
     fn test_image_pigments_get_color_rounded_to_one() {
         let pigment = ImagePigment::new(setup_test_rainbow());
-        let result = pigment.get_color(&Vec2D::new(0.2, 1.0-1e-9)).unwrap();
+        let result = pigment.get_color(&Vec2D::new(0.2, 1.0 - 1e-9)).unwrap();
         let expected = pigment.get_color(&Vec2D::new(0.2, 0.0)).unwrap();
 
-        assert!(expected.is_close(&result), "expected {:?}, got {:?}", expected, result);
+        assert!(
+            expected.is_close(&result),
+            "expected {:?}, got {:?}",
+            expected,
+            result
+        );
     }
 
     #[test]
@@ -647,16 +673,26 @@ mod tests {
         let result = pigment.get_color(&Vec2D::new(0.2, -0.9)).unwrap();
         let expected = pigment.get_color(&Vec2D::new(0.2, 0.1)).unwrap();
 
-        assert!(expected.is_close(&result), "expected {:?}, got {:?}", expected, result);
+        assert!(
+            expected.is_close(&result),
+            "expected {:?}, got {:?}",
+            expected,
+            result
+        );
     }
 
     #[test]
     fn test_image_pigments_get_color_rounded_to_one_u_coordinate() {
         let pigment = ImagePigment::new(setup_test_rainbow());
-        let result = pigment.get_color(&Vec2D::new(1.0-1e-9, 0.6)).unwrap();
+        let result = pigment.get_color(&Vec2D::new(1.0 - 1e-9, 0.6)).unwrap();
         let expected = pigment.get_color(&Vec2D::new(0.0, 0.6)).unwrap();
 
-        assert!(expected.is_close(&result), "expected {:?}, got {:?}", expected, result);
+        assert!(
+            expected.is_close(&result),
+            "expected {:?}, got {:?}",
+            expected,
+            result
+        );
     }
 
     #[test]
@@ -665,7 +701,12 @@ mod tests {
         let result = pigment.get_color(&Vec2D::new(0.2, -1e-9)).unwrap();
         let expected = pigment.get_color(&Vec2D::new(0.2, 0.0)).unwrap();
 
-        assert!(expected.is_close(&result), "expected {:?}, got {:?}", expected, result);
+        assert!(
+            expected.is_close(&result),
+            "expected {:?}, got {:?}",
+            expected,
+            result
+        );
     }
 
     #[test]
@@ -674,7 +715,12 @@ mod tests {
         let result = pigment.get_color(&Vec2D::new(-1e-9, 0.6)).unwrap();
         let expected = pigment.get_color(&Vec2D::new(0.0, 0.6)).unwrap();
 
-        assert!(expected.is_close(&result), "expected {:?}, got {:?}", expected, result);
+        assert!(
+            expected.is_close(&result),
+            "expected {:?}, got {:?}",
+            expected,
+            result
+        );
     }
 
     #[test]
@@ -829,7 +875,6 @@ mod tests {
         assert!(mid_color.is_close(&gradient.get_color(&Vec2D::new(0.0, 0.0)).unwrap()));
         assert!(mid_color.is_close(&gradient.get_color(&Vec2D::new(1.0, 1.0)).unwrap()));
     }
-    
 
     #[test]
     fn test_gradient_pigments_get_color_saturation_plateau() {
@@ -837,7 +882,12 @@ mod tests {
         let result = gradient.get_color(&Vec2D::new(1.5, 1.5)).unwrap();
         let expected = gradient.get_color(&Vec2D::new(2.0, 2.0)).unwrap();
 
-        assert!(expected.is_close(&result), "expected: {:?}\n found: {:?}", expected, result);
+        assert!(
+            expected.is_close(&result),
+            "expected: {:?}\n found: {:?}",
+            expected,
+            result
+        );
     }
 
     #[test]
@@ -845,8 +895,13 @@ mod tests {
         let gradient = setup_gradient();
         let uv = Vec2D::new(-0.2, -0.2);
         let result = gradient.get_color(&uv).unwrap();
-        
-        assert!(gradient.color1.is_close(&result), "expected: {:?}\n found: {:?}", gradient.color1 ,result);
+
+        assert!(
+            gradient.color1.is_close(&result),
+            "expected: {:?}\n found: {:?}",
+            gradient.color1,
+            result
+        );
     }
 
     #[test]
@@ -857,8 +912,16 @@ mod tests {
             std::f32::consts::FRAC_PI_2,
         );
 
-        assert!(gradient.color2.is_close(&gradient.get_color(&Vec2D::new(0.3, 1.5)).unwrap()));
-        assert!(gradient.color1.is_close(&gradient.get_color(&Vec2D::new(0.3, -0.5)).unwrap()));
+        assert!(
+            gradient
+                .color2
+                .is_close(&gradient.get_color(&Vec2D::new(0.3, 1.5)).unwrap())
+        );
+        assert!(
+            gradient
+                .color1
+                .is_close(&gradient.get_color(&Vec2D::new(0.3, -0.5)).unwrap())
+        );
     }
 
     #[test]
@@ -867,7 +930,12 @@ mod tests {
         let color = gradient.get_color(&Vec2D { x: -1e-9, y: 0.101 }).unwrap();
         let expected_color = gradient.get_color(&Vec2D { x: 0.0, y: 0.101 }).unwrap();
 
-        assert!(expected_color.is_close(&color), "expected: {:?}\nfound: {:?}", expected_color, color);
+        assert!(
+            expected_color.is_close(&color),
+            "expected: {:?}\nfound: {:?}",
+            expected_color,
+            color
+        );
     }
 
     #[test]

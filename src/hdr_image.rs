@@ -848,7 +848,12 @@ mod test {
             .bilinear_interpolation(&Vec2D::new(0.2, 0.0))
             .unwrap();
 
-        assert!(expected.is_close(&result), "expected {:?}, got {:?}", expected, result);
+        assert!(
+            expected.is_close(&result),
+            "expected {:?}, got {:?}",
+            expected,
+            result
+        );
     }
 
     #[test]
@@ -862,7 +867,12 @@ mod test {
             .bilinear_interpolation(&Vec2D::new(0.0, 0.6))
             .unwrap();
 
-        assert!(expected.is_close(&result), "expected {:?}, got {:?}", expected, result);
+        assert!(
+            expected.is_close(&result),
+            "expected {:?}, got {:?}",
+            expected,
+            result
+        );
     }
 
     #[test]

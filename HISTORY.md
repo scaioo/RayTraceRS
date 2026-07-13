@@ -1,5 +1,7 @@
 ## Head
 
+- Fix `GradientPigment` and `bilinear_interpolation` handling of negative coordinates 
+([#33](https://github.com/scaioo/RayTraceRS/issues/33), [PR#34](https://github.com/scaioo/RayTraceRS/pull/34)).
 - Add `--threads` CLI flag to control rendering thread count
   ([PR#32](https://github.com/scaioo/RayTraceRS/pull/32)).
 - Parallelize rendering across CPU cores with `rayon`

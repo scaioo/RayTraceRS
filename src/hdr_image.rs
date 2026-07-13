@@ -333,10 +333,6 @@ impl HDR {
     ///
     /// The interpolation is performed using the four neighboring texels.
     ///
-    /// # Warning
-    ///
-    /// UV coordinate are assumed to be positive. No validation is implemented.
-    ///
     /// # Errors
     ///
     /// Returns an error if the image contains no pixels.
@@ -358,13 +354,18 @@ impl HDR {
             let x = u_wrapped * self.width as f32;
             let y = v_wrapped * self.height as f32;
 
-            let i0 = x.floor() as usize;
-            let j0 = y.floor() as usize;
+            // For uv barely below 0, `uv - uv.floor()` rounds up to exactly 1.0
+            // in f32, so x/y can reach width/height: keep the unwrapped floor
+            // for tx/ty, then wrap the indices back into range.
+            let x_floor = x.floor();
+            let y_floor = y.floor();
+            let tx = x - x_floor;
+            let ty = y - y_floor;
+
+            let i0 = (x_floor as usize) % self.width;
+            let j0 = (y_floor as usize) % self.height;
             let i1 = (i0 + 1) % self.width;
             let j1 = (j0 + 1) % self.height;
-
-            let tx = x - i0 as f32;
-            let ty = y - j0 as f32;
 
             let top = (1.0 - tx) * self.pixels[i0 + j0 * self.width]
                 + tx * self.pixels[i1 + j0 * self.width];

@@ -28,6 +28,7 @@ use crate::ray::Ray;
 use crate::transformations::IsHomogeneousMatrix;
 use anyhow::{Result, anyhow};
 use std::ops::Mul;
+use crate::csg::{Event, EventKind};
 // ========================================================
 // Traits: CloneShape, Shape and Volumetric
 // ========================================================
@@ -107,6 +108,8 @@ impl Clone for Box<dyn Shape> {
 pub trait Volumetric: CloneVolumetric + Shape {
     fn entry_exit_t(&self, ray: &Ray) -> Option<(f32, f32)>;
     fn hit_from_t(&self, ray: &Ray, t: f32) -> Option<HitRecord>;
+
+    fn fill_intersection_vector(&self, ray: &Ray, vec: & mut Vec<Event>, is_subtracted: bool) ;
 }
 
 impl Clone for Box<dyn Volumetric> {
@@ -264,6 +267,31 @@ where
             ray: *ray,
             material: &self.material,
         })
+    }
+
+    fn fill_intersection_vector(&self, ray: &Ray, vec: & mut Vec<Event>, is_subtracted: bool) {
+        if let Some((entry, exit)) = self.entry_exit_t(ray) {
+            if !is_subtracted {
+
+                vec.push(Event {
+                    t: entry,
+                    kind: EventKind::EnterA,
+                });
+                vec.push(Event {
+                    t: exit,
+                    kind: EventKind::ExitA,
+                });
+            } else {
+                vec.push(Event {
+                    t: entry,
+                    kind: EventKind::EnterB,
+                });
+                vec.push(Event {
+                    t: exit,
+                    kind: EventKind::ExitB,
+                });
+            }
+        }
     }
 }
 // =================================================================================
@@ -546,6 +574,9 @@ impl Volumetric for AABB {
             ray: *ray,
             material: &self.material,
         })
+    }
+    fn fill_intersection_vector(&self, ray: &Ray, vec: &mut Vec<Event>, is_subtracted: bool) {
+        todo!()
     }
 }
 

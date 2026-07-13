@@ -23,10 +23,10 @@ use std::time::Instant;
 
 #[derive(Parser)]
 struct Cli {
-    #[arg(long, default_value_t = 100)]
+    #[arg(long, default_value_t = 200)]
     width: usize,
 
-    #[arg(long, default_value_t = 100)]
+    #[arg(long, default_value_t = 200)]
     height: usize,
 
     #[arg(long)]
@@ -105,11 +105,11 @@ fn demo_world() -> World {
 
     // 3. DIFFUSE SPHERE
     let sphere_material = Material {
-        pigment: Box::new(UniformPigment::new(Color::new(0.3, 0.4, 0.2))),
+        pigment: Box::new(UniformPigment::new(Color::new(0.7, 0.4, 0.2))),
         brdf: Box::new(DiffusiveBrdf {}),
         emitted_radiance: Box::new(UniformPigment::new(BLACK)),
     };
-    let s1_transform = Translation::new(Vector::new(-0.2, 0.3, 1.1));
+    let s1_transform = Translation::new(Vector::new(1.0, 0.0, 1.0));
     //objects.push(Box::new(Sphere::new(s1_transform, mirror_material)));
 
     // 4. MIRROR SPHERE
@@ -118,8 +118,10 @@ fn demo_world() -> World {
         brdf: Box::new(SpecularBrdf {}),
         emitted_radiance: Box::new(UniformPigment::new(BLACK)),
     };
+ //   objects.push(Box::new(Sphere::new(s1_transform, mirror_material)));
 
-    let s2_transform = Translation::new(Vector::new(-0.3, 0.3, 1.1));
+
+    let s2_transform = Translation::new(Vector::new(0.0, 0.5, 1.0));
     //objects.push(Box::new(Sphere::new(s2_transform, mirror_material)));
 
    let csg = Box::new(CSG::new(

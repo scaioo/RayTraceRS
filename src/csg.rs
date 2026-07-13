@@ -8,8 +8,7 @@ use crate::hit_record::HitRecord;
 use crate::materials::Material;
 use crate::ray::Ray;
 use crate::shapes::{Shape, Volumetric};
-use anyhow::anyhow;
-use std::cmp::min;
+use crate::transformations::Transformation;
 
 #[derive(Clone)]
 pub enum OperationsCSGType {
@@ -25,6 +24,46 @@ pub struct CSG {
     pub operation: OperationsCSGType,
 }
 
+#[derive(Debug, Clone, Copy, PartialEq)]
+pub enum EventKind {
+    EnterA,
+    ExitA,
+    EnterB,
+    ExitB,
+}
+
+#[derive(Debug, Clone, Copy)]
+pub struct Event {
+    pub(crate) t: f32,
+    pub(crate) kind: EventKind,
+}
+
+pub fn events_for_object(entry: f32, exit: f32, is_a: bool) -> Vec<Event> {
+    if is_a {
+        vec![
+            Event {
+                t: entry,
+                kind: EventKind::EnterA,
+            },
+            Event {
+                t: exit,
+                kind: EventKind::ExitA,
+            },
+        ]
+    } else {
+        vec![
+            Event {
+                t: entry,
+                kind: EventKind::EnterB,
+            },
+            Event {
+                t: exit,
+                kind: EventKind::ExitB,
+            },
+        ]
+    }
+}
+
 impl CSG {
     pub fn new(
         object1: Box<dyn Volumetric>,
@@ -37,72 +76,22 @@ impl CSG {
             operation,
         }
     }
-
-    pub fn eet_intersection(&self, ray: &Ray) -> Option<(f32, f32)> {
-        let (a1, b1): (f32, f32);
-        let (a2, b2): (f32, f32);
-        match self.object1.entry_exit_t(ray) {
-            None => return None,
-            Some((a, b)) => {
-                (a1, b1) = (a, b)
-            }
-        }
-        match self.object2.entry_exit_t(ray) {
-            None => return None,
-            Some((a, b)) => {
-                (a2, b2) = (a, b)
-            }
-        }
-        let entry = a1.max(a2);
-        let exit = b1.min(b2);
-        if entry < exit {
-            // No borders
-            Some((entry, exit))
-        } else {
-            None
-        }
-    }
-
-    // Design choice: if there is no intersection or total intersection code returns error.
-    pub fn eet_difference(&self, ray: &Ray) -> anyhow::Result<Option<(f32, f32)>> {
-        match self.object1.entry_exit_t(ray) {
-            None => Ok(None),
-            Some((a, b)) => match self.object2.entry_exit_t(ray) {
-                None => Ok(Some((a, b))),
-                Some((c, d)) => {
-                    if a < c && b.is_between_close(&c, &d) {
-                        Ok(Some((a, c)))
-                    } else if c < a && d.is_between_close(&a, &b) {
-                        Ok(Some((d, b)))
-                    } else {
-                        Err(anyhow!(
-                            "Unsupported CSG difference configuration:
-object1 interval = ({a}, {b})
-object2 interval = ({c}, {d})
-
-The current implementation only supports a single partial overlap."
-                        ))
-                    }
-                }
-            },
-        }
-    }
 }
 
 impl Shape for CSG {
     fn ray_intersection(&self, ray: &Ray) -> Option<HitRecord<'_>> {
         match self.operation {
             OperationsCSGType::Intersection => {
-
-                    let (t1_a, t2_a) = self.object1.entry_exit_t(ray)?;
-                    let (t1_b, t2_b) = self.object2.entry_exit_t(ray)?;
-
+                let (t1_a, t2_a) = self.object1.entry_exit_t(ray)?;
+                let (t1_b, t2_b) = self.object2.entry_exit_t(ray)?;
 
                 let entry = t1_a.max(t1_b);
-                let exit  = t2_a.min(t2_b);
-                if entry >= exit || entry < 0.0 { return None; }
+                let exit = t2_a.min(t2_b);
+                if entry >= exit || entry < 0.0 {
+                    return None;
+                }
 
-                let (obj, t_hit) = if are_close(entry, t1_a){
+                let (obj, t_hit) = if are_close(entry, t1_a) {
                     (&self.object1, entry)
                 } else {
                     (&self.object2, entry)
@@ -112,7 +101,7 @@ impl Shape for CSG {
 
                 // the solution below would be faster, check problems for Difference below to see why i'm not using it
 
-                  /* let world_point = ray.at(t_hit);
+                /* let world_point = ray.at(t_hit);
                 let normal = obj.normal_at(world_point, ray);
                     Some(HitRecord {
                         world_point,
@@ -122,7 +111,7 @@ impl Shape for CSG {
                         ray: *ray,
                         material: obj.material(),
                     })*/
-                }
+            }
 
             OperationsCSGType::Union => {
                 let int1 = self.object1.ray_intersection(ray);
@@ -141,53 +130,107 @@ impl Shape for CSG {
                 }
             }
 
-            //Difference needs some fixing:
-            // - normal_at returns a normal in local space, to put it in world space it needs to be multiplied by self.object2.transformation
-            // (if the object is a sphere at least).
-            // objects in csg are of a generic type, self.object2.transformation cannot be called since it is not a method for Volumetric
-            // this problem for intersection could be ignored since we could return obj.ray_intersection(ray)
-            // for Difference we need to calculate normal_at for exit point of the subtracted object, ray_intersection cannot be used in this case
-
-            // i tried returning self.transformation * result in normal_at for Sphere instead of doing it right after the funcion call
-            // (the same operation is performed in tey_intersection: self.transformation * self.normal_at(hit_point, ray);
-            // i still don't know why this solution does not return the correct normal
-
-
             OperationsCSGType::Difference => {
-                let ent_ex_1 = self.object1.entry_exit_t(ray);
-                let ent_ex_2 = self.object2.entry_exit_t(ray);
-                match ent_ex_1 {
-                    Some((t1, t2)) => {
-                        match ent_ex_2 {
-                            Some((t1_diff, t2_diff)) => {
-                                if t1_diff < t1 {
-                                    if t2_diff > t2 { return None } //obj2 makes a hole in obj1
-                                    if t2_diff > t1 {
-                                        //let world_point = transformed_ray.at(t2_diff);
-                                        /*return Some(HitRecord {
-                                            world_point,
-                                            normal: -self.object2.transformation * self.object2.normal_at(world_point, ray),
-                                            uv: self.object1.point_to_uv(&world_point).unwrap(),
-                                            t: t2_diff,
-                                            ray: *ray,
-                                            material: self.object1.material(),
-                                        })*/
+/*
+                let mut events = Vec::new();
 
-                                    /*let world_point = ray.at(t2_diff)
-                                    let mut hit = HitRecord{
-                                        world_point,
-
-                                    */
-                                    }
-
-                                }
-                                self.object1.ray_intersection(ray)
-                        },
-                            None => self.object1.ray_intersection(ray)
-                        }
-                    },
-                    None => None
+                if let Some((a1, a2)) = self.object1.entry_exit_t(ray) {
+                    // se l'intervallo è dietro al raggio, ignoriamo
+                    if a2 > 0.0 || are_close(a2, 0.0) {
+                        events.extend(events_for_object(a1, a2, true));
+                    }
+                } else {
+                    return None;
                 }
+
+                if let Some((b1, b2)) = self.object2.entry_exit_t(ray) {
+                    if b2 > 0.0 || are_close(b2, 0.0)  {
+                        events.extend(events_for_object(b1, b2, false));
+                    }
+                }
+
+
+                if events.is_empty() {
+                    return None;
+                }
+
+                events.extend(events_for_object(1.0, 3.0, false));
+
+                // ordina gli eventi per t
+                events.sort_by(|e1, e2| e1.t.partial_cmp(&e2.t).unwrap());
+
+                let mut inside_a = false;
+                let mut inside_b = false;
+
+                for event in events {
+                    match event.kind {
+                        EventKind::EnterA => inside_a = true,
+                        EventKind::ExitA => {},
+                        EventKind::EnterB => {},
+                        EventKind::ExitB => inside_b = false,
+                    }
+
+                    // Difference: A - B → visibile quando dentro A e fuori B
+                    if inside_a && !inside_b && event.t >= 0.0 {
+                        let world_point = ray.at(event.t);
+
+                        // Se l'evento è EnterA o ExitA → normale di A
+                        // Se è EnterB o ExitB → normale di B
+                        let mut hit = match event.kind {
+                            EventKind::EnterA | EventKind::ExitA => self.object1.hit_from_t(ray, event.t)?,
+                            EventKind::ExitB | EventKind::EnterB => self.object2.hit_from_t(ray, event.t)?,
+                        };
+
+                        hit.material = self.object1.material();
+                        return Some(hit);
+                    }
+                    match event.kind {
+                        EventKind::EnterA => {},
+                        EventKind::ExitA => inside_a = false,
+                        EventKind::EnterB => inside_b = true,
+                        EventKind::ExitB => {},
+                    }
+                }
+
+                None*/
+
+                let mut events = Vec::new();
+
+                self.fill_intersection_vector(ray, & mut events, false);
+
+                events.sort_by(|e1, e2| e1.t.partial_cmp(&e2.t).unwrap());
+
+                let mut is_in_a = false;
+                let mut is_in_b = false;
+
+                for event in events {
+                    match event.kind {
+                        EventKind::EnterA => is_in_a = true,
+                        EventKind::ExitA => is_in_a = false,
+                        EventKind::EnterB => is_in_b = true,
+                        EventKind::ExitB => is_in_b = false
+                    }
+
+                    if is_in_a && !is_in_b && event.t > 0.0 {
+                        let mut hit = match event.kind {
+                            EventKind::EnterA | EventKind::ExitA => self.object1.hit_from_t(ray, event.t)?,
+                            EventKind::ExitB | EventKind::EnterB => self.object2.hit_from_t(ray, event.t)?,
+                        };
+
+                        hit.material = self.object1.material();
+                        return Some(hit);
+                    }
+                    match event.kind {
+                        EventKind::EnterA => is_in_a = true,
+                        EventKind::ExitA => is_in_a = false,
+                        EventKind::EnterB => is_in_b = true,
+                        EventKind::ExitB => is_in_b = false
+                    }
+
+                }
+
+
+                None
             }
         }
     }
@@ -203,13 +246,23 @@ impl Shape for CSG {
     // Might be useful to change it in Shape definition
     // to feature the possibility of having more than one material
     fn material(&self) -> &Material {
-        todo!()
+        &self.object1.material()
     }
+
 }
 
 impl Volumetric for CSG {
     fn entry_exit_t(&self, ray: &Ray) -> Option<(f32, f32)> {
         todo!()
+    }
+
+    fn hit_from_t(&self, ray: &Ray, t: f32) -> Option<HitRecord> {
+        todo!()
+    }
+
+    fn fill_intersection_vector(&self, ray: &Ray, vec: &mut Vec<Event>, is_subtracted: bool) {
+        self.object1.fill_intersection_vector(ray, vec, true == is_subtracted);
+        self.object2.fill_intersection_vector(ray, vec, false == is_subtracted);
     }
 }
 
@@ -219,12 +272,13 @@ impl Volumetric for CSG {
 
 #[cfg(test)]
 mod tests {
+    use std::num::FpCategory::Normal;
     use super::*;
-    use crate::functions::{IDENTITY_4X4, are_close};
-    use crate::geometry::{Vector, Y_AXIS, Z_AXIS};
+    use crate::functions::IDENTITY_4X4;
+    use crate::geometry::Vector;
     use crate::materials::Material;
-    use crate::shapes::{AABB, Sphere};
-    use crate::transformations::{Scaling, Transformation, Translation};
+    use crate::shapes::Sphere;
+    use crate::transformations::{Transformation, Translation};
     #[test]
     fn test_csg_constructor() {
         let transformation = Transformation::new(IDENTITY_4X4);
@@ -240,83 +294,345 @@ mod tests {
         let _ = CSG::new(object1, Box::new(csg), OperationsCSGType::Union);
     }
 
-    fn setup_csg_intersection() -> CSG {
+    #[test]
+    fn test_union_1() {
+        let transformation = Transformation::new(IDENTITY_4X4);
         let material = Material::default();
-        let transformation = Translation::new(Z_AXIS) * Scaling::new([0.5, 0.5, 0.5]);
+
         let object1: Box<dyn Volumetric> = Box::new(Sphere::new(transformation, material.clone()));
-        let point1 = Point::new(0.0, 0.0, 0.0);
-        let point2 = Point::new(1.0, 1.0, 1.0);
-        let object2: Box<dyn Volumetric> =
-            Box::new(AABB::new(point1, point2, material.clone()).unwrap());
-        CSG::new(object1, object2, OperationsCSGType::Intersection)
+        let object2: Box<dyn Volumetric> = Box::new(Sphere::new(
+            Translation::new(Vector::new(0.0, 0.0, 0.0)),
+            material,
+        ));
+        let csg = CSG::new(object1, object2, OperationsCSGType::Union);
+        let origin = Point::new(-3.0, 0.0, 0.0);
+        let dir = Vector::new(1.0, 0.0, 0.0);
+        let ray = Ray::new(origin, dir);
+        let int = csg.ray_intersection(&ray);
+        match int {
+            None => {
+                panic!("ray_intersection should have found an intersection")
+            }
+            Some(int) => {
+                assert_eq!(int.t, 2.0);
+                assert_eq!(int.world_point, Point::new(-1.0, 0.0, 0.0));
+            }
+        }
     }
 
     #[test]
-    fn test_csg_eet_intersection_totally_miss() {
-        let intersection_csg = setup_csg_intersection();
+    fn test_union_complete_overlap() {
+        let material = Material::default();
 
-        let origin = Point::new(10.0, 0.0, 0.0);
-        let ray_miss = Ray::new(origin, Y_AXIS);
-
-        let intersection = intersection_csg.eet_intersection(&ray_miss);
-        assert!(intersection.is_none(), "{:?}", intersection);
+        let object1: Box<dyn Volumetric> = Box::new(Sphere::new(
+            Translation::new(Vector::new(0.0, 0.0, 0.0)),
+            material.clone(),
+        ));
+        let object2: Box<dyn Volumetric> = Box::new(Sphere::new(
+            Translation::new(Vector::new(0.0, 0.0, 0.0)),
+            material,
+        ));
+        let csg = CSG::new(object1, object2, OperationsCSGType::Union);
+        let origin = Point::new(-3.0, 0.0, 0.0);
+        let dir = Vector::new(1.0, 0.0, 0.0);
+        let ray = Ray::new(origin, dir);
+        let int = csg.ray_intersection(&ray);
+        match int {
+            None => {
+                panic!("ray_intersection should have found an intersection")
+            }
+            Some(int) => {
+                assert_eq!(int.t, 2.0);
+                assert_eq!(int.world_point, Point::new(-1.0, 0.0, 0.0));
+            }
+        }
     }
 
     #[test]
-    fn test_csg_eet_intersection_miss_sphere() {
-        let intersection_csg = setup_csg_intersection();
+    fn test_union_no_overlap() {
+        let material = Material::default();
 
-        let origin = Point::new(0.7, 0.7, 0.0);
-        let ray_miss = Ray::new(origin, Z_AXIS);
-
-        let intersection = intersection_csg.eet_intersection(&ray_miss);
-        assert!(intersection.is_none(), "{:?}", intersection);
+        let object1: Box<dyn Volumetric> = Box::new(Sphere::new(
+            Translation::new(Vector::new(10.0, 0.0, 0.0)),
+            material.clone(),
+        ));
+        let object2: Box<dyn Volumetric> = Box::new(Sphere::new(
+            Translation::new(Vector::new(0.0, 0.0, 0.0)),
+            material,
+        ));
+        let csg = CSG::new(object1, object2, OperationsCSGType::Union);
+        let origin = Point::new(-3.0, 0.0, 0.0);
+        let dir = Vector::new(1.0, 0.0, 0.0);
+        let ray = Ray::new(origin, dir);
+        let int = csg.ray_intersection(&ray);
+        match int {
+            None => {
+                panic!("ray_intersection should have found an intersection")
+            }
+            Some(int) => {
+                assert_eq!(int.t, 2.0);
+                assert_eq!(int.world_point, Point::new(-1.0, 0.0, 0.0));
+            }
+        }
     }
 
     #[test]
-    fn test_csg_eet_intersection_miss_cube() {
-        let intersection_csg = setup_csg_intersection();
+    fn test_union_from_inside() {
+        let material = Material::default();
 
-        let origin = Point::new(0.2, -0.1, 1.2);
-        let ray_miss = Ray::new(origin, Y_AXIS);
-
-        let intersection = intersection_csg.eet_intersection(&ray_miss);
-        assert!(intersection.is_none(), "{:?}", intersection);
+        let object1: Box<dyn Volumetric> = Box::new(Sphere::new(
+            Translation::new(Vector::new(10.0, 0.0, 0.0)),
+            material.clone(),
+        ));
+        let object2: Box<dyn Volumetric> = Box::new(Sphere::new(
+            Translation::new(Vector::new(0.0, 0.0, 0.0)),
+            material,
+        ));
+        let csg = CSG::new(object1, object2, OperationsCSGType::Union);
+        let origin = Point::new(-0.0, 0.0, 0.0);
+        let dir = Vector::new(1.0, 0.0, 0.0);
+        let ray = Ray::new(origin, dir);
+        let int = csg.ray_intersection(&ray);
+        match int {
+            None => {
+                panic!("ray_intersection should have found an intersection")
+            }
+            Some(int) => {
+                assert_eq!(int.t, 1.0);
+                assert_eq!(int.world_point, Point::new(1.0, 0.0, 0.0));
+            }
+        }
     }
 
     #[test]
-    fn test_csg_eet_intersection_out() {
-        let intersection_csg = setup_csg_intersection();
+    fn test_difference_from_inside_z() {
+        let material = Material::default();
 
-        let origin = Point::new(0.2, 0.2, -1.0);
-        let ray_hit = Ray::new(origin, Z_AXIS);
-
-        let (t1, t2): (f32, f32) = match intersection_csg.eet_intersection(&ray_hit) {
-            None => panic!("Should hit!!"),
-            Some((a, b)) => (a, b),
-        };
-
-        // x^2 + y^2 + (z-1)^2 = 0.5^2 => z = 1 - sqrt(0.5^2 - 2 *  0.2^2)
-        let z = 1.0 - ((0.5 * 0.5 - 2.0 * 0.2 * 0.2) as f32).sqrt();
-        assert!(are_close(t1, z + 1.0), "{}", t1);
-        assert!(are_close(t2, 2.0), "{}", t2);
+        let object1: Box<dyn Volumetric> = Box::new(Sphere::new(
+            Translation::new(Vector::new(0.0, 0.0, 0.0)),
+            material.clone(),
+        ));
+        let object2: Box<dyn Volumetric> = Box::new(Sphere::new(
+            Translation::new(Vector::new(0.0, 0.0, -1.0)),
+            material,
+        ));
+        let csg = CSG::new(object1, object2, OperationsCSGType::Difference);
+        let origin = Point::new(0.0, 0.0, -0.5);
+        let dir = Vector::new(0.0, 0.0, -1.0);
+        let ray = Ray::new(origin, dir);
+        let int = csg.ray_intersection(&ray);
+        match int {
+            Some(_int) => {
+                panic!(
+                    "error using difference for csg: ray with origin in the subtracted part of the sphere\
+                is intersecting the subtracted side"
+                );
+            }
+            None => {}
+        }
     }
 
     #[test]
-    fn test_csg_eet_intersection_in() {
-        let intersection_csg = setup_csg_intersection();
-        let origin = Point::new(0.2, 0.2, 0.7);
-        let ray_hit = Ray::new(origin, -Z_AXIS);
+    fn test_difference_from_inside_y() {
+        let material = Material::default();
 
-        let (t1, t2): (f32, f32) = match intersection_csg.eet_intersection(&ray_hit) {
-            None => panic!("Should hit!!"),
-            Some((a, b)) => (a, b),
-        };
+        let object1: Box<dyn Volumetric> = Box::new(Sphere::new(
+            Translation::new(Vector::new(0.0, 0.0, 0.0)),
+            material.clone(),
+        ));
+        let object2: Box<dyn Volumetric> = Box::new(Sphere::new(
+            Translation::new(Vector::new(0.0, -1.0, 0.0)),
+            material,
+        ));
+        let csg = CSG::new(object1, object2, OperationsCSGType::Difference);
+        let origin = Point::new(0.0, -0.5, 0.0);
+        let dir = Vector::new(0.0, -1.0, 0.0);
+        let ray = Ray::new(origin, dir);
+        let int = csg.ray_intersection(&ray);
+        match int {
+            Some(_int) => {
+                panic!(
+                    "error using difference for csg: ray with origin in the subtracted part of the sphere\
+                is intersecting the subtracted side"
+                );
+            }
+            None => {}
+        }
+    }
 
-        // Once again
-        // x^2 + y^2 + (z-1)^2 = 0.5^2 => z = 1 - sqrt(0.5^2 - 2 *  0.2^2)
-        let z_intersection = 1.0 - ((0.5 * 0.5 - 2.0 * 0.2 * 0.2) as f32).sqrt();
-        assert!(are_close(t1, -0.3), "{}", t1);
-        assert!(are_close(t2, 0.7 - z_intersection), "{}", t2);
+    #[test]
+    fn test_difference_from_inside_z_2() {
+        let material = Material::default();
+
+        let object1: Box<dyn Volumetric> = Box::new(Sphere::new(
+            Translation::new(Vector::new(0.0, 0.0, 0.0)),
+            material.clone(),
+        ));
+        let object2: Box<dyn Volumetric> = Box::new(Sphere::new(
+            Translation::new(Vector::new(0.0, 0.0, -1.0)),
+            material,
+        ));
+        let csg = CSG::new(object1, object2, OperationsCSGType::Difference);
+        let origin = Point::new(0.0, 0.0, -0.5);
+        let dir = Vector::new(0.0, 0.0, 1.0);
+        let ray = Ray::new(origin, dir);
+        let int = csg.ray_intersection(&ray);
+        match int {
+            Some(int) => {
+                let point = Point::new(0.0, 0.0, 0.0);
+                assert_eq!(point, int.world_point);
+            }
+            None => {panic!(
+                "error using difference for csg: ray with origin in the subtracted part of the sphere\
+                is not intersecting"
+            );}
+        }
+    }
+
+    #[test]
+    fn test_difference_from_inside_y_2() {
+        let material = Material::default();
+
+        let object1: Box<dyn Volumetric> = Box::new(Sphere::new(
+            Translation::new(Vector::new(0.0, 0.0, 0.0)),
+            material.clone(),
+        ));
+        let object2: Box<dyn Volumetric> = Box::new(Sphere::new(
+            Translation::new(Vector::new(0.0, -1.0, 0.0)),
+            material,
+        ));
+        let csg = CSG::new(object1, object2, OperationsCSGType::Difference);
+        let origin = Point::new(0.0, -0.5, 0.0);
+        let dir = Vector::new(0.0, 1.0, 0.0);
+        let ray = Ray::new(origin, dir);
+        let int = csg.ray_intersection(&ray);
+        match int {
+            Some(int) => {
+                let point = Point::new(0.0, 0.0, 0.0);
+                assert_eq!(point, int.world_point);
+            }
+            None => {panic!(
+                "error using difference for csg: ray with origin in the subtracted part of the sphere\
+                is not intersecting"
+            );}
+        }
+    }
+
+    #[test]
+    fn test_difference_from_inside_t2_sub_behind_ray_origin_z() {
+        let material = Material::default();
+
+        let object1: Box<dyn Volumetric> = Box::new(Sphere::new(
+            Translation::new(Vector::new(0.0, 0.0, 0.0)),
+            material.clone(),
+        ));
+        let object2: Box<dyn Volumetric> = Box::new(Sphere::new(
+            Translation::new(Vector::new(0.0, 0.0, -1.0)),
+            material,
+        ));
+        let csg = CSG::new(object1, object2, OperationsCSGType::Difference);
+        let origin = Point::new(0.0, 0.0, 0.5);
+        let dir = Vector::new(0.0, 0.0, 1.0);
+        let ray = Ray::new(origin, dir);
+        let int = csg.ray_intersection(&ray);
+        match int {
+            Some(int) => {
+                let point = Point::new(0.0, 0.0, 1.0);
+                assert_eq!(point, int.world_point)
+            }
+            None => {
+
+                panic!("should intersect object 1 in t2 (exit): {:?}", int.unwrap().world_point)
+            }
+        }
+    }
+    #[test]
+    fn test_difference_from_inside_t2_sub_behind_ray_origin_y() {
+        let material = Material::default();
+
+        let object1: Box<dyn Volumetric> = Box::new(Sphere::new(
+            Translation::new(Vector::new(0.0, 0.0, 0.0)),
+            material.clone(),
+        ));
+        let object2: Box<dyn Volumetric> = Box::new(Sphere::new(
+            Translation::new(Vector::new(0.0, -1.0, 0.0)),
+            material,
+        ));
+        let csg = CSG::new(object1, object2, OperationsCSGType::Difference);
+        let origin = Point::new(0.0, 0.5, 0.0);
+        let dir = Vector::new(0.0, 1.0, 0.0);
+        let ray = Ray::new(origin, dir);
+        let int = csg.ray_intersection(&ray);
+        match int {
+            Some(int) => {
+                let point = Point::new(0.0, 1.0, 0.0);
+                assert_eq!(point, int.world_point)
+
+            }
+            None => {
+                panic!("should intersect object 1 in t2 (exit)")
+            }
+        }
+    }
+
+    #[test]
+    fn test_difference_without_intersections() {
+        let material = Material::default();
+
+        let object1: Box<dyn Volumetric> = Box::new(Sphere::new(
+            Translation::new(Vector::new(0.0, 0.0, 0.0)),
+            material.clone(),
+        ));
+        let object2: Box<dyn Volumetric> = Box::new(Sphere::new(
+            Translation::new(Vector::new(0.0, 0.0, 10.0)),
+            material,
+        ));
+        let csg = CSG::new(object1, object2, OperationsCSGType::Difference);
+        let origin = Point::new(-10.0, 0.0, 0.0);
+        let dir = Vector::new(1.0, 0.0, 0.0);
+        let ray = Ray::new(origin, dir);
+        let int = csg.ray_intersection(&ray).unwrap();
+        assert_eq!(9.0, int.t);
+        assert_eq!(Point::new(-1.0, 0.0, 0.0), int.world_point);
+
+        // -------------------
+        let material = Material::default();
+
+        let object1: Box<dyn Volumetric> = Box::new(Sphere::new(
+            Translation::new(Vector::new(0.0, 0.0, 0.0)),
+            material.clone(),
+        ));
+        let object2: Box<dyn Volumetric> = Box::new(Sphere::new(
+            Translation::new(Vector::new(0.0, 0.0, -10.0)),
+            material,
+        ));
+        let csg = CSG::new(object1, object2, OperationsCSGType::Difference);
+        let origin = Point::new(-10.0, 0.0, 0.0);
+        let dir = Vector::new(1.0, 0.0, 0.0);
+        let ray = Ray::new(origin, dir);
+        let int = csg.ray_intersection(&ray).unwrap();
+        assert_eq!(9.0, int.t);
+        assert_eq!(Point::new(-1.0, 0.0, 0.0), int.world_point);
+
+        // -------------------
+        let material = Material::default();
+
+        let object1: Box<dyn Volumetric> = Box::new(Sphere::new(
+            Translation::new(Vector::new(0.0, 0.0, 0.0)),
+            material.clone(),
+        ));
+        let object2: Box<dyn Volumetric> = Box::new(Sphere::new(
+            Translation::new(Vector::new(0.0, 0.0, -100.0)),
+            material,
+        ));
+        let csg = CSG::new(object1, object2, OperationsCSGType::Difference);
+        let origin = Point::new(-10.0, 0.0, 0.0);
+        let dir = Vector::new(1.0, 0.0, 0.0);
+        let ray = Ray::new(origin, dir);
+        let int = csg.ray_intersection(&ray).unwrap();
+        assert_eq!(9.0, int.t);
+        assert_eq!(Point::new(-1.0, 0.0, 0.0), int.world_point);
+
+
     }
 }

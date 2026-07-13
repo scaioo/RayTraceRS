@@ -34,8 +34,8 @@ impl World {
             // We use the Option returned by the shape.
             // If the shape had an internal Result error (like in point_to_uv),
             // it already returned None via .ok()?, so the world stays safe.
-            match object.ray_intersection(ray){
-                None => {},
+            match object.ray_intersection(ray) {
+                None => {}
                 Some(hit) => {
                     if hit.t < closest_t {
                         closest_t = hit.t;

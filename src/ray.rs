@@ -66,7 +66,7 @@ impl Ray {
             origin,
             dir,
             t_max: f32::INFINITY,
-            t_min: 1.0e-5,
+            t_min: 1.0e-4,
             depth: 0,
         }
     }

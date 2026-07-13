@@ -837,6 +837,34 @@ mod test {
     }
 
     #[test]
+    fn test_bilinear_interpolation_small_negative_v() {
+        let hdr_image = setup_test_rainbow();
+
+        let result = hdr_image
+            .bilinear_interpolation(&Vec2D::new(0.2, -1e-9))
+            .unwrap();
+        let expected = hdr_image
+            .bilinear_interpolation(&Vec2D::new(0.2, 0.0))
+            .unwrap();
+
+        assert!(expected.is_close(&result), "expected {:?}, got {:?}", expected, result);
+    }
+
+    #[test]
+    fn test_bilinear_interpolation_small_negative_u() {
+        let hdr_image = setup_test_rainbow();
+
+        let result = hdr_image
+            .bilinear_interpolation(&Vec2D::new(-1e-9, 0.6))
+            .unwrap();
+        let expected = hdr_image
+            .bilinear_interpolation(&Vec2D::new(0.0, 0.6))
+            .unwrap();
+
+        assert!(expected.is_close(&result), "expected {:?}, got {:?}", expected, result);
+    }
+
+    #[test]
     #[should_panic(expected = "bilinear_interpolation(): cannot interpolate an empty image")]
     fn test_bilinear_interpolation_fail() {
         let hdr_image = HDR::new(0, 0);

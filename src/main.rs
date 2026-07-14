@@ -19,14 +19,9 @@ use std::time::Instant;
 /// Command-line interface for the rstrace ray tracer.
 ///
 /// Supports two subcommands: converting a PFM file into a viewable LDR image
-/// (`pfm2png`), and rendering a scene description file (`render`).
+/// (`pfm-ldr`), and rendering a scene description file (`render`).
 #[derive(Parser)]
 struct Cli {
-    /// Output raster format for the final rendered image.
-    /// Accepted values: `png`, `jpg`, `jpeg`.
-    #[arg(long, default_value = "png")]
-    format: String,
-
     #[command(subcommand)]
     command: Commands,
 }
@@ -36,7 +31,7 @@ enum Commands {
     /// Convert a PFM (HDR, floating-point) image into a viewable LDR image,
     /// applying tone mapping (average luminosity normalization) and gamma
     /// correction.
-    Pfm2Png {
+    PfmLdr {
         /// Path to the input PFM file.
         input_file: String,
 
@@ -45,10 +40,14 @@ enum Commands {
 
         /// Normalization factor `a` used during tone mapping: scales pixel
         /// luminosity before compression. Higher values brighten the image.
+        /// The default (0.18) is the conventional middle-grey reference.
+        #[arg(long, default_value_t = 0.18)]
         factor_a: f32,
 
         /// Gamma correction exponent applied after tone mapping
-        /// (typically in the 1.0-2.2 range).
+        /// (typically in the 1.0-2.2 range). The default (2.2) matches the
+        /// standard sRGB display response.
+        #[arg(long, default_value_t = 2.2)]
         gamma: f32,
     },
 
@@ -70,6 +69,11 @@ enum Commands {
         /// Accepted values: `pathtracing`, `flat`, `onoff`, `point-light`.
         #[arg(long, default_value = "pathtracing")]
         algorithm: String,
+
+        /// Output raster format for the final rendered image.
+        /// Accepted values: `png`, `jpg`, `jpeg`.
+        #[arg(long, default_value = "png")]
+        format: String,
 
         /// Name of the output PFM (raw HDR) file. The `.pfm` extension is
         /// added automatically if not already present.
@@ -132,15 +136,8 @@ fn main() -> Result<()> {
 
     let cli = Cli::parse();
 
-    if !["png", "jpeg", "jpg"].contains(&cli.format.as_str()) {
-        return Err(anyhow!(
-            "Invalid value '{}' for --format: expected one of png, jpg, jpeg",
-            cli.format
-        ));
-    }
-
     match cli.command {
-        Commands::Pfm2Png {
+        Commands::PfmLdr {
             input_file,
             output_file,
             factor_a,
@@ -166,11 +163,19 @@ fn main() -> Result<()> {
             init_state,
             init_seq,
             antialiasing,
+            format,
             tab_size,
             reflectance_policy,
             declare_float,
             threads,
         } => {
+            if !["png", "jpeg", "jpg"].contains(&format.as_str()) {
+                return Err(anyhow!(
+                    "Invalid value '{}' for --format: expected one of png, jpg, jpeg",
+                    format
+                ));
+            }
+
             // 0. Configure the rendering thread pool (0 = one thread per core)
             if threads > 0 {
                 rayon::ThreadPoolBuilder::new()
@@ -246,10 +251,8 @@ fn main() -> Result<()> {
             std::fs::create_dir_all("outputs")?;
 
             let pfm_filename = format!("outputs/{}", ensure_extension(&pfm_output, "pfm"));
-            let ldr_filename = format!(
-                "outputs/{}",
-                ensure_image_extension(&image_output, &cli.format)
-            );
+            let ldr_filename =
+                format!("outputs/{}", ensure_image_extension(&image_output, &format));
 
             let file = File::create(&pfm_filename)?;
             let disk_writer = BufWriter::new(&file);
@@ -259,7 +262,7 @@ fn main() -> Result<()> {
             pfm_to_ldr(pfm_filename, 0.18, 2.2, ldr_filename.clone())?;
             println!(
                 "{} image written to {}",
-                cli.format.to_uppercase(),
+                format.to_uppercase(),
                 ldr_filename
             );
 

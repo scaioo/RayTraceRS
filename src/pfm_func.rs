@@ -441,12 +441,6 @@ pub fn pfm_to_ldr(
     ];
 
     let mut params = Parameter::new(&args)?;
-
-    let file = File::open(&args[0]);
-    let mut reader: BufReader<File> = BufReader::new(file?);
-    let mut img = read_pfm(&mut reader)?;
-    img.normalization(Some(&factor_a))?;
-    img.sem_clamp_image()?;
     hdr_to_ldr(&mut params)?;
     Ok(())
 }

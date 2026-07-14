@@ -1,5 +1,7 @@
 ## Head
 
+- Improve pfm-ldr/render CLI: rename the command, make factor-a/gamma options, scope --format
+to render ([PR#35](https://github.com/scaioo/RayTraceRS/pull/35).
 - Fix `GradientPigment` and `bilinear_interpolation` handling of negative coordinates 
 ([#33](https://github.com/scaioo/RayTraceRS/issues/33), [PR#34](https://github.com/scaioo/RayTraceRS/pull/34)).
 - Add `--threads` CLI flag to control rendering thread count

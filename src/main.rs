@@ -169,6 +169,7 @@ fn main() -> Result<()> {
             declare_float,
             threads,
         } => {
+            // 0.1 Validate format and configure the rendering thread pool
             if !["png", "jpeg", "jpg"].contains(&format.as_str()) {
                 return Err(anyhow!(
                     "Invalid value '{}' for --format: expected one of png, jpg, jpeg",
@@ -176,7 +177,6 @@ fn main() -> Result<()> {
                 ));
             }
 
-            // 0. Configure the rendering thread pool (0 = one thread per core)
             if threads > 0 {
                 rayon::ThreadPoolBuilder::new()
                     .num_threads(threads)

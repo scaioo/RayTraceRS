@@ -77,7 +77,6 @@ impl CSG {
             operation,
         }
     }
-}
 
     pub fn logic_for_csg(
         &self,
@@ -192,7 +191,6 @@ impl CSG {
         }
     }
 }
-
 impl Shape for CSG {
     fn ray_intersection(&self, ray: &Ray) -> Option<HitRecord<'_>> {
         let mut events = Vec::new();
@@ -275,7 +273,7 @@ impl Shape for CSG {
     }
 
     fn point_to_uv(&self, point: &Point) -> anyhow::Result<Vec2D> {
-       unreachable!("there is still no implementation for this function")
+        unreachable!("there is still no implementation for this function")
     }
 
     // Might be useful to change it in Shape definition
@@ -331,17 +329,8 @@ impl Volumetric for CSG {
     fn fill_intersection_vector(&self, ray: &Ray, vec: &mut Vec<Event>, is_subtracted: bool) {
         self.object1
             .fill_intersection_vector(ray, vec, true == is_subtracted);
-        match self.operation {
-            OperationsCSGType::Difference => {
-                self.object2
-                    .fill_intersection_vector(ray, vec, false == is_subtracted);
-            }
-            _ => {
-                self.object2
-                    .fill_intersection_vector(ray, vec, true == is_subtracted);
-                // println!("AAAAAAAAAAAAAAAAAAAAAAA");
-            }
-        }
+        self.object2
+            .fill_intersection_vector(ray, vec, false == is_subtracted);
     }
 }
 
@@ -705,7 +694,6 @@ mod tests {
             Some(int) => {
                 let point = Point::new(0.0, 1.0, 0.0);
                 assert_eq!(point, int.world_point)
-
             }
             None => {
                 panic!("should intersect object 1 in t2 (exit)")
@@ -770,7 +758,5 @@ mod tests {
         let int = csg.ray_intersection(&ray).unwrap();
         assert_eq!(9.0, int.t);
         assert_eq!(Point::new(-1.0, 0.0, 0.0), int.world_point);
-
-
     }
 }

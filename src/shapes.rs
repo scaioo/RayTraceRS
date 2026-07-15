@@ -109,7 +109,7 @@ impl Clone for Box<dyn Shape> {
 // implementations, but no such extension is currently planned.
 pub trait Volumetric: CloneVolumetric + Shape {
     fn entry_exit_t(&self, ray: &Ray) -> Option<(f32, f32)>;
-    fn hit_from_t(&self, ray: &Ray, t: f32) -> Option<HitRecord>;
+    fn hit_from_t(&self, ray: &Ray, t: f32, is_subtracted: bool) -> Option<HitRecord>;
 
     fn fill_intersection_vector(&self, ray: &Ray, vec: & mut Vec<Event>, is_subtracted: bool) ;
 }
@@ -260,7 +260,7 @@ where
         Some((t1, t2))
     }
 
-    fn hit_from_t(&self, ray: &Ray, t: f32) -> Option<HitRecord> {
+    fn hit_from_t(&self, ray: &Ray, t: f32, is_subtracted: bool) -> Option<HitRecord> {
         let transformed_ray = self.transform_ray(ray);
         let hit_point = transformed_ray.origin + transformed_ray.dir * t;
         let uv = self.point_to_uv(&hit_point).ok()?;

@@ -23,10 +23,10 @@ use std::time::Instant;
 
 #[derive(Parser)]
 struct Cli {
-    #[arg(long, default_value_t = 200)]
+    #[arg(long, default_value_t = 150)]
     width: usize,
 
-    #[arg(long, default_value_t = 200)]
+    #[arg(long, default_value_t = 150)]
     height: usize,
 
     #[arg(long)]
@@ -105,11 +105,11 @@ fn demo_world() -> World {
 
     // 3. DIFFUSE SPHERE
     let sphere_material = Material {
-        pigment: Box::new(UniformPigment::new(Color::new(0.7, 0.4, 0.2))),
+        pigment: Box::new(UniformPigment::new(Color::new(0.0, 5.0, 0.0))),
         brdf: Box::new(DiffusiveBrdf {}),
         emitted_radiance: Box::new(UniformPigment::new(BLACK)),
     };
-    let s1_transform = Translation::new(Vector::new(1.0, 0.0, 1.0));
+    let s1_transform = Translation::new(Vector::new(1.0, 0.0, 1.3));
     //objects.push(Box::new(Sphere::new(s1_transform, mirror_material)));
 
     // 4. MIRROR SPHERE
@@ -118,18 +118,28 @@ fn demo_world() -> World {
         brdf: Box::new(SpecularBrdf {}),
         emitted_radiance: Box::new(UniformPigment::new(BLACK)),
     };
- //   objects.push(Box::new(Sphere::new(s1_transform, mirror_material)));
-
-
-    let s2_transform = Translation::new(Vector::new(0.0, 0.5, 1.0));
+    //objects.push(Box::new(Sphere::new(s1_transform, sphere_material)));
+    let s2_transform = Translation::new(Vector::new(1.0, 1.0, 1.2));
     //objects.push(Box::new(Sphere::new(s2_transform, mirror_material)));
 
-   let csg = Box::new(CSG::new(
+    let csg = Box::new(CSG::new(
         Box::new(Sphere::new(s1_transform, mirror_material)),
         Box::new(Sphere::new(s2_transform, sphere_material)),
-        Difference,
+        Union,
     ));
     objects.push(csg);
+
+    // PALLINA
+    /*let pallina_material = Material {
+        // FlatRenderer uses pigment, we give the color of the sky
+        pigment: Box::new(UniformPigment::new(Color::new(0.8, 0.3, 0.0))),
+        brdf: Box::new(DiffusiveBrdf {}),
+        emitted_radiance: Box::new(UniformPigment::new(Color::new(0.0, 0.0, 0.0))),
+    };
+    let pallina_transform =
+        Scaling::new([0.6, 0.6, 0.6]) * Translation::new(Vector::new(0.9, 3.5, 4.0));
+    //objects.push(Box::new(Sphere::new(pallina_transform, pallina_material)));*/
+
     World { objects }
 }
 

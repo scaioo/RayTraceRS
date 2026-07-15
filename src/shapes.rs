@@ -20,6 +20,7 @@
 //! rotation, or composed). Triangle operates directly in world space and does not accept a
 //! transformation parameter; apply transformations to its vertices before construction.
 
+use crate::csg::{Event, EventKind};
 use crate::functions::{Within, are_close, cramer};
 use crate::geometry::{Cross, Dot, Normal, Point, Vec2D, Vector, X_AXIS, Y_AXIS, Z_AXIS};
 use crate::hit_record::HitRecord;
@@ -28,7 +29,6 @@ use crate::ray::Ray;
 use crate::transformations::IsHomogeneousMatrix;
 use anyhow::{Result, anyhow};
 use std::ops::Mul;
-use crate::csg::{Event, EventKind};
 // ========================================================
 // Traits: CloneShape, Shape and Volumetric
 // ========================================================
@@ -106,10 +106,10 @@ impl Clone for Box<dyn Shape> {
 // In principle this could be generalized to all `Shape`
 // implementations, but no such extension is currently planned.
 pub trait Volumetric: CloneVolumetric + Shape {
-    fn entry_exit_t(&self, ray: &Ray) -> Option<(f32, f32)>;
+    fn entry_exit_t(&self, ray: &Ray, is_subtracted: bool) -> Option<(f32, f32)>;
     fn hit_from_t(&self, ray: &Ray, t: f32, is_subtracted: bool) -> Option<HitRecord>;
 
-    fn fill_intersection_vector(&self, ray: &Ray, vec: & mut Vec<Event>, is_subtracted: bool) ;
+    fn fill_intersection_vector(&self, ray: &Ray, vec: &mut Vec<Event>, is_subtracted: bool);
 }
 
 impl Clone for Box<dyn Volumetric> {
@@ -165,7 +165,7 @@ where
     fn ray_intersection(&self, ray: &Ray) -> Option<HitRecord<'_>> {
         let transformed_ray = self.transform_ray(ray);
 
-        let (t1, t2) = match self.entry_exit_t(&ray) {
+        let (t1, t2) = match self.entry_exit_t(&ray, false) {
             Some((t1, t2)) => (t1, t2),
             None => return None,
         };
@@ -192,7 +192,7 @@ where
             material: &self.material,
         })*/
 
-        self.hit_from_t(ray, t)
+        self.hit_from_t(ray, t, false)
     }
 
     fn normal_at(&self, point: Point, ray: &Ray) -> Normal {
@@ -234,7 +234,7 @@ where
         + Copy
         + 'static,
 {
-    fn entry_exit_t(&self, ray: &Ray) -> Option<(f32, f32)> {
+    fn entry_exit_t(&self, ray: &Ray, is_subtracted: bool) -> Option<(f32, f32)> {
         let transformed_ray = self.transform_ray(ray);
         let origin = transformed_ray.origin - Point::new(0.0, 0.0, 0.0);
 
@@ -269,10 +269,9 @@ where
         })
     }
 
-    fn fill_intersection_vector(&self, ray: &Ray, vec: & mut Vec<Event>, is_subtracted: bool) {
-        if let Some((entry, exit)) = self.entry_exit_t(ray) {
+    fn fill_intersection_vector(&self, ray: &Ray, vec: &mut Vec<Event>, is_subtracted: bool) {
+        if let Some((entry, exit)) = self.entry_exit_t(ray, is_subtracted) {
             if !is_subtracted {
-
                 vec.push(Event {
                     t: entry,
                     kind: EventKind::EnterA,
@@ -474,7 +473,7 @@ impl Default for AABB {
 
 impl Shape for AABB {
     fn ray_intersection(&self, ray: &Ray) -> Option<HitRecord<'_>> {
-        let (t_enter, t_exit) = match self.entry_exit_t(ray) {
+        let (t_enter, t_exit) = match self.entry_exit_t(ray, false) {
             Some(t) => t,
             None => return None,
         };
@@ -490,7 +489,7 @@ impl Shape for AABB {
             return None;
         }
 
-       self.hit_from_t(ray, t)
+        self.hit_from_t(ray, t, false)
     }
 
     fn normal_at(&self, point: Point, ray: &Ray) -> Normal {
@@ -544,7 +543,7 @@ impl Shape for AABB {
 }
 
 impl Volumetric for AABB {
-    fn entry_exit_t(&self, ray: &Ray) -> Option<(f32, f32)> {
+    fn entry_exit_t(&self, ray: &Ray, is_subtracted: bool) -> Option<(f32, f32)> {
         let tx1 = (self.p_min.x - ray.origin.x) / ray.dir.x;
         let tx2 = (self.p_max.x - ray.origin.x) / ray.dir.x;
         let ty1 = (self.p_min.y - ray.origin.y) / ray.dir.y;
@@ -564,7 +563,7 @@ impl Volumetric for AABB {
             Some((t_enter, t_exit))
         }
     }
-    fn hit_from_t(&self, ray: &Ray, t: f32) -> Option<HitRecord> {
+    fn hit_from_t(&self, ray: &Ray, t: f32, is_subtracted: bool) -> Option<HitRecord> {
         let point = ray.at(t);
         Some(HitRecord {
             world_point: point,
@@ -991,7 +990,7 @@ mod tests {
         let sphere = Sphere::new(Transformation::new(IDENTITY_4X4), Material::default());
         let ray = Ray::new(Point::new(0.0, 0.0, 0.0), Z_AXIS);
 
-        let (t1, t2) = sphere.entry_exit_t(&ray).unwrap();
+        let (t1, t2) = sphere.entry_exit_t(&ray, false).unwrap();
         assert!(are_close(t1, -1.0), "t1: {}", t1);
         assert!(are_close(t2, 1.0), "t2: {}", t2);
     }
@@ -1000,11 +999,11 @@ mod tests {
     fn test_sphere_entry_exit_t2() {
         let (sphere, ray1, ray2) = setup2();
 
-        let (t1, t2) = sphere.entry_exit_t(&ray1).unwrap();
+        let (t1, t2) = sphere.entry_exit_t(&ray1, false).unwrap();
         assert!(are_close(t1, 1.0), "t1: {}", t1);
         assert!(are_close(t2, 3.0), "t2: {}", t2);
 
-        let (t1, t2) = sphere.entry_exit_t(&ray2).unwrap();
+        let (t1, t2) = sphere.entry_exit_t(&ray2, false).unwrap();
         assert!(are_close(t1, 2.0), "t1: {}", t1);
         assert!(are_close(t2, 4.0), "t2: {}", t2);
     }
@@ -1013,7 +1012,7 @@ mod tests {
     fn test_sphere_entry_exit_t_far_outputs() {
         let sphere = Sphere::new(Transformation::new(IDENTITY_4X4), Material::default());
         let ray = Ray::new(Point::new(10.0, 0.0, 0.0), X_AXIS);
-        let result = sphere.entry_exit_t(&ray).unwrap();
+        let result = sphere.entry_exit_t(&ray, false).unwrap();
         assert_eq!(result, (-11.0, -9.0), "(t1, t2) = {:?}", result);
     }
 
@@ -1021,7 +1020,7 @@ mod tests {
     fn test_sphere_entry_exit_t_miss() {
         let sphere = Sphere::new(Transformation::new(IDENTITY_4X4), Material::default());
         let ray = Ray::new(Point::new(10.0, 0.0, 0.0), Y_AXIS);
-        let result = sphere.entry_exit_t(&ray);
+        let result = sphere.entry_exit_t(&ray, false);
         assert!(result.is_none(), "(t1, t2) = {:?}", result.unwrap());
     }
 
@@ -1310,7 +1309,7 @@ mod tests {
     fn test_aabb_entry_exit_t_inside_cube() {
         let aabb = AABB::default();
         let ray = Ray::new(Point::new(0.0, 0.0, 0.0), Y_AXIS);
-        let (t1, t2) = aabb.entry_exit_t(&ray).unwrap();
+        let (t1, t2) = aabb.entry_exit_t(&ray, false).unwrap();
         assert!(are_close(t1, -0.5), "{}", t1);
         assert!(are_close(t2, 0.5), "{}", t2);
     }
@@ -1319,7 +1318,7 @@ mod tests {
     fn test_aabb_entry_exit_t_outside_cube() {
         let aabb = AABB::default();
         let ray = Ray::new(Point::new(-10.0, -0.1, 0.2), X_AXIS);
-        let (t1, t2) = aabb.entry_exit_t(&ray).unwrap();
+        let (t1, t2) = aabb.entry_exit_t(&ray, false).unwrap();
         assert!(are_close(t1, 9.5), "{}", t1);
         assert!(are_close(t2, 10.5), "{}", t2);
     }
@@ -1328,7 +1327,7 @@ mod tests {
     fn test_aabb_entry_exit_t_back_cube() {
         let aabb = AABB::default();
         let ray = Ray::new(Point::new(0.0, 10.5, 0.0), Y_AXIS);
-        let (t1, t2) = aabb.entry_exit_t(&ray).unwrap();
+        let (t1, t2) = aabb.entry_exit_t(&ray, false).unwrap();
         assert!(are_close(t1, -11.0), "{}", t1);
         assert!(are_close(t2, -10.0), "{}", t2);
     }
@@ -1363,7 +1362,7 @@ mod tests {
             let dir = (bar - origin).normalize();
             let ray = Ray::new(origin, dir);
 
-            let (t1, t2) = match aabb.entry_exit_t(&ray) {
+            let (t1, t2) = match aabb.entry_exit_t(&ray, false) {
                 Some((t1, t2)) => (t1, t2),
                 None => panic!(
                     "SOMETHING IS NOT CORRECT!\n test_aabb_entry_exit_t\n ray:{}",

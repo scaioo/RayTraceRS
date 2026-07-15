@@ -9,6 +9,7 @@ use crate::materials::Material;
 use crate::ray::Ray;
 use crate::shapes::{Shape, Volumetric};
 use crate::transformations::Transformation;
+use std::cmp::min;
 
 #[derive(Clone)]
 pub enum OperationsCSGType {
@@ -76,192 +77,204 @@ impl CSG {
             operation,
         }
     }
+
+    pub fn logic_for_csg(
+        &self,
+        event: &Event,
+        ray: &Ray,
+        is_in_a: bool,
+        is_in_b: bool,
+        old_state_a: bool,
+        old_state_b: bool,
+        is_subtracted: bool,
+    ) -> Option<HitRecord> {
+        match self.operation {
+            OperationsCSGType::Intersection => {
+                if !old_state_a || !old_state_b {
+                    if is_in_a && is_in_b {
+                        let mut hit = match event.kind {
+                            EventKind::EnterA | EventKind::ExitA => {
+                                self.object1.hit_from_t(ray, event.t, is_subtracted)?
+                            }
+                            EventKind::ExitB | EventKind::EnterB => {
+                                self.object2.hit_from_t(ray, event.t, is_subtracted)?
+                            }
+                        };
+
+                        hit.material = self.object1.material();
+                        return Some(hit);
+                    }
+                } else {
+                    //if the ray origin is inside the intersected part
+                    if !is_in_a || !is_in_b {
+                        let mut hit = match event.kind {
+                            EventKind::EnterA | EventKind::ExitA => {
+                                self.object1.hit_from_t(ray, event.t, is_subtracted)?
+                            }
+                            EventKind::ExitB | EventKind::EnterB => {
+                                self.object2.hit_from_t(ray, event.t, is_subtracted)?
+                            }
+                        };
+
+                        hit.material = self.object1.material();
+                        return Some(hit);
+                    }
+                }
+                None
+            }
+            OperationsCSGType::Union => {
+                if !old_state_a && !old_state_b {
+                    if (is_in_a || is_in_b) {
+                        let mut hit = match event.kind {
+                            EventKind::EnterA | EventKind::ExitA => {
+                                self.object1.hit_from_t(ray, event.t, is_subtracted)?
+                            }
+                            EventKind::ExitB | EventKind::EnterB => {
+                                self.object2.hit_from_t(ray, event.t, is_subtracted)?
+                            }
+                        };
+
+                        hit.material = self.object1.material();
+                        return Some(hit);
+                    }
+                    None
+                } else {
+                    if !is_in_a && !is_in_b {
+                        let mut hit = match event.kind {
+                            EventKind::EnterA | EventKind::ExitA => {
+                                self.object1.hit_from_t(ray, event.t, is_subtracted)?
+                            }
+                            EventKind::ExitB | EventKind::EnterB => {
+                                self.object2.hit_from_t(ray, event.t, is_subtracted)?
+                            }
+                        };
+
+                        hit.material = self.object1.material();
+                        return Some(hit);
+                    }
+                    None
+                }
+            }
+            OperationsCSGType::Difference => {
+                if old_state_b || !old_state_a {
+                    if is_in_a && !is_in_b {
+                        let mut hit = match event.kind {
+                            EventKind::EnterA | EventKind::ExitA => {
+                                self.object1.hit_from_t(ray, event.t, is_subtracted)?
+                            }
+                            EventKind::ExitB | EventKind::EnterB => {
+                                self.object2.hit_from_t(ray, event.t, !is_subtracted)?
+                            }
+                        };
+
+                        hit.material = self.object1.material();
+                        return Some(hit);
+                    }
+                    None
+                } else {
+                    if !is_in_a || is_in_b {
+                        let mut hit = match event.kind {
+                            EventKind::EnterA | EventKind::ExitA => {
+                                self.object1.hit_from_t(ray, event.t, is_subtracted)?
+                            }
+                            EventKind::ExitB | EventKind::EnterB => {
+                                self.object2.hit_from_t(ray, event.t, !is_subtracted)?
+                            }
+                        };
+
+                        hit.material = self.object1.material();
+                        return Some(hit);
+                    }
+                    None
+                }
+            }
+        }
+    }
 }
 
 impl Shape for CSG {
     fn ray_intersection(&self, ray: &Ray) -> Option<HitRecord<'_>> {
-        match self.operation {
-            OperationsCSGType::Intersection => {
+        let mut events = Vec::new();
 
-                let mut events = Vec::new();
+        self.fill_intersection_vector(ray, &mut events, false);
 
-                self.fill_intersection_vector(ray, & mut events, false);
+        events.sort_by(|e1, e2| e1.t.partial_cmp(&e2.t).unwrap());
 
-                events.sort_by(|e1, e2| e1.t.partial_cmp(&e2.t).unwrap());
+        let mut is_in_a = false;
+        let mut is_in_b = false;
+        let mut old_state_a = false;
+        let mut old_state_b = false;
 
-                let mut is_in_a = false;
-                let mut is_in_b = false;
-
-                for event in events {
-                    match event.kind {
-                        EventKind::EnterA => is_in_a = true,
-                        EventKind::ExitA => is_in_a = false,
-                        EventKind::EnterB => is_in_b = true,
-                        EventKind::ExitB => is_in_b = false,
+        for event in events {
+            match event.kind {
+                EventKind::EnterA => {
+                    is_in_a = true;
+                    if event.t < 0.0 || are_close(event.t, 0.0) {
+                        old_state_a = true;
                     }
-
-                    if is_in_a && is_in_b && event.t > 0.0 && !are_close(event.t, 0.0) {
-                        let mut hit = match event.kind {
-                            EventKind::EnterA | EventKind::ExitA => self.object1.hit_from_t(ray, event.t)?,
-                            EventKind::ExitB | EventKind::EnterB => self.object2.hit_from_t(ray, event.t)?,
-                        };
-
-                        hit.material = self.object1.material();
-                        return Some(hit);
-                    }
-
                 }
-                None
-
+                EventKind::ExitA => {
+                    is_in_a = false;
+                    if event.t < 0.0 || are_close(event.t, 0.0) {
+                        old_state_a = false;
+                    }
+                }
+                EventKind::EnterB => {
+                    is_in_b = true;
+                    if event.t < 0.0 || are_close(event.t, 0.0) {
+                        old_state_b = true;
+                    }
+                }
+                EventKind::ExitB => {
+                    is_in_b = false;
+                    if event.t < 0.0 || are_close(event.t, 0.0) {
+                        old_state_b = false;
+                    }
+                }
             }
-
-            OperationsCSGType::Union => {
-                let mut events = Vec::new();
-
-                self.fill_intersection_vector(ray, & mut events, false);
-
-                events.sort_by(|e1, e2| e1.t.partial_cmp(&e2.t).unwrap());
-
-                let mut is_in_a = false;
-                let mut is_in_b = false;
-
-                for event in events {
-                    match event.kind {
-                        EventKind::EnterA => is_in_a = true,
-                        EventKind::ExitA => is_in_a = false,
-                        EventKind::EnterB => is_in_b = true,
-                        EventKind::ExitB => is_in_b = false,
-                    }
-
-                    if (is_in_a || is_in_b) && event.t > 0.0 && !are_close(event.t, 0.0) {
-                        let mut hit = match event.kind {
-                            EventKind::EnterA | EventKind::ExitA => self.object1.hit_from_t(ray, event.t)?,
-                            EventKind::ExitB | EventKind::EnterB => self.object2.hit_from_t(ray, event.t)?,
-                        };
-
-                        hit.material = self.object1.material();
+            if event.t > 0.0 && !are_close(event.t, 0.0) {
+                match self.logic_for_csg(
+                    &event,
+                    ray,
+                    is_in_a,
+                    is_in_b,
+                    old_state_a,
+                    old_state_b,
+                    false,
+                ) {
+                    Some(hit) => {
                         return Some(hit);
                     }
-
+                    None => {}
                 }
-                None
-            }
-
-            OperationsCSGType::Difference => {
-
-               /* let mut events = Vec::new();
-
-                if let Some((a1, a2)) = self.object1.entry_exit_t(ray) {
-                    // se l'intervallo è dietro al raggio, ignoriamo
-                    if a2 > 0.0 || are_close(a2, 0.0) {
-                        events.extend(events_for_object(a1, a2, true));
-                    }
-                } else {
-                    return None;
-                }
-
-                if let Some((b1, b2)) = self.object2.entry_exit_t(ray) {
-                    if b2 > 0.0 || are_close(b2, 0.0)  {
-                        events.extend(events_for_object(b1, b2, false));
-                    }
-                }
-
-
-                if events.is_empty() {
-                    return None;
-                }
-
-                events.extend(events_for_object(1.0, 3.0, false));
-
-                // ordina gli eventi per t
-                events.sort_by(|e1, e2| e1.t.partial_cmp(&e2.t).unwrap());
-
-                let mut inside_a = false;
-                let mut inside_b = false;
-
-                for event in events {
-                    match event.kind {
-                        EventKind::EnterA => inside_a = true,
-                        EventKind::ExitA => {},
-                        EventKind::EnterB => {},
-                        EventKind::ExitB => inside_b = false,
-                    }
-
-                    // Difference: A - B → visibile quando dentro A e fuori B
-                    if inside_a && !inside_b && event.t >= 0.0 {
-                        let world_point = ray.at(event.t);
-
-                        // Se l'evento è EnterA o ExitA → normale di A
-                        // Se è EnterB o ExitB → normale di B
-                        let mut hit = match event.kind {
-                            EventKind::EnterA | EventKind::ExitA => self.object1.hit_from_t(ray, event.t)?,
-                            EventKind::ExitB | EventKind::EnterB => self.object2.hit_from_t(ray, event.t)?,
-                        };
-
-                        hit.material = self.object1.material();
-                        return Some(hit);
-                    }
-                    match event.kind {
-                        EventKind::EnterA => {},
-                        EventKind::ExitA => inside_a = false,
-                        EventKind::EnterB => inside_b = true,
-                        EventKind::ExitB => {},
-                    }
-                }
-
-                None*/
-
-                    let mut events = Vec::new();
-
-                    self.fill_intersection_vector(ray, & mut events, false);
-
-                    events.sort_by(|e1, e2| e1.t.partial_cmp(&e2.t).unwrap());
-
-                    let mut is_in_a = false;
-                    let mut is_in_b = false;
-
-                    for event in events {
-                        match event.kind {
-                            EventKind::EnterA => is_in_a = true,
-                            /*EventKind::ExitA => is_in_a = false,
-                            EventKind::EnterB => is_in_b = true,*/
-                            EventKind::ExitB => is_in_b = false,
-                            _ => {}
-                        }
-
-                        if is_in_a && !is_in_b && event.t > 0.0 && !are_close(event.t, 0.0) {
-                            let mut hit = match event.kind {
-                                EventKind::EnterA | EventKind::ExitA => self.object1.hit_from_t(ray, event.t)?,
-                                EventKind::ExitB | EventKind::EnterB => self.object2.hit_from_t(ray, event.t)?,
-                            };
-
-                            hit.material = self.object1.material();
-                            return Some(hit);
-                        }
-                        match event.kind {
-                           /*EventKind::EnterA => is_in_a = true,
-                            EventKind::ExitB => is_in_b = false,*/
-
-                            EventKind::ExitA => is_in_a = false,
-                             EventKind::EnterB => is_in_b = true,
-                            _ => {}
-
-                        }
-
-                    }
-
-
-                    None
             }
         }
+        None
     }
 
     fn normal_at(&self, point: Point, ray: &Ray) -> Normal {
-        todo!()
+        let mut events = Vec::new();
+        self.fill_intersection_vector(ray, &mut events, false);
+        events.sort_by(|e1, e2| e1.t.partial_cmp(&e2.t).unwrap());
+
+        for event in events {
+            if are_close((ray.origin + ray.dir * event.t).x, point.x)
+                && are_close((ray.origin + ray.dir * event.t).y, point.y)
+                && are_close((ray.origin + ray.dir * event.t).z, point.z)
+            {
+                return match event.kind {
+                    EventKind::EnterA => self.object1.normal_at(point, ray),
+                    EventKind::ExitA => self.object1.normal_at(point, ray),
+                    EventKind::EnterB => self.object2.normal_at(point, ray),
+                    EventKind::ExitB => self.object2.normal_at(point, ray),
+                };
+            }
+        }
+        panic!("could not compute normal")
     }
 
     fn point_to_uv(&self, point: &Point) -> anyhow::Result<Vec2D> {
-        todo!()
+       
     }
 
     // Might be useful to change it in Shape definition
@@ -269,21 +282,65 @@ impl Shape for CSG {
     fn material(&self) -> &Material {
         &self.object1.material()
     }
-
 }
 
 impl Volumetric for CSG {
-    fn entry_exit_t(&self, ray: &Ray) -> Option<(f32, f32)> {
-        todo!()
+    /// returns first entry and first exit: to see the next interval modify origin of ray
+    /// and set it to the exit point of the previous interval
+    fn entry_exit_t(&self, ray: &Ray, is_subtracted: bool) -> Option<(f32, f32)> {
+        /*let mut events = Vec::new();
+                self.fill_intersection_vector(ray, & mut events, is_subtracted);
+                events.sort_by(|e1, e2| e1.t.partial_cmp(&e2.t).unwrap());
+
+                let mut is_in_a = false;
+                let mut is_in_b = false;
+
+                for event in events {
+                    match event.kind {
+                        EventKind::EnterA => is_in_a = true,
+                        EventKind::ExitA => is_in_a = false,
+                        EventKind::EnterB => is_in_b = true,
+                        EventKind::ExitB => is_in_b = false,
+                        _ => {}
+                    }
+        todo!();
+        r
+
+                }*/
+        return None;
     }
 
-    fn hit_from_t(&self, ray: &Ray, t: f32) -> Option<HitRecord> {
-        todo!()
+    fn hit_from_t(&self, ray: &Ray, t: f32, is_subtracted: bool) -> Option<HitRecord> {
+        let hit_a = self.object1.hit_from_t(ray, t, false);
+        let hit_b = self.object2.hit_from_t(ray, t, false);
+        return match hit_a {
+            Some(hit_a) => match hit_b {
+                Some(hit_b) => {
+                    if hit_a.t < hit_b.t && !are_close(hit_a.t, hit_b.t) {
+                        return Some(hit_a);
+                    }
+                    Some(hit_b)
+                }
+                None => Some(hit_a),
+            },
+            None => hit_b,
+        };
     }
 
     fn fill_intersection_vector(&self, ray: &Ray, vec: &mut Vec<Event>, is_subtracted: bool) {
-        self.object1.fill_intersection_vector(ray, vec, true == is_subtracted);
-        self.object2.fill_intersection_vector(ray, vec, false == is_subtracted);
+        self.object1
+            .fill_intersection_vector(ray, vec, true == is_subtracted);
+        match self.operation {
+            OperationsCSGType::Difference => {
+                self.object2
+                    .fill_intersection_vector(ray, vec, false == is_subtracted);
+            }
+            _ => {
+                self.object2
+                    .fill_intersection_vector(ray, vec, true == is_subtracted);
+                // println!("AAAAAAAAAAAAAAAAAAAAAAA");
+            }
+        }
     }
 }
 
@@ -293,13 +350,13 @@ impl Volumetric for CSG {
 
 #[cfg(test)]
 mod tests {
-    use std::num::FpCategory::Normal;
     use super::*;
     use crate::functions::IDENTITY_4X4;
     use crate::geometry::Vector;
     use crate::materials::Material;
     use crate::shapes::Sphere;
     use crate::transformations::{Scaling, Transformation, Translation};
+    use std::num::FpCategory::Normal;
     #[test]
     fn test_csg_constructor() {
         let transformation = Transformation::new(IDENTITY_4X4);
@@ -335,7 +392,7 @@ mod tests {
         match int {
             None => {}
             Some(int) => {
-               panic!("there should me no intersections! {}", int.t)
+                panic!("there should me no intersections! {}", int.t)
             }
         }
     }
@@ -349,7 +406,8 @@ mod tests {
             material.clone(),
         ));
         let object2: Box<dyn Volumetric> = Box::new(Sphere::new(
-            /*Scaling::new([0.2, 0.2, 0.2]) **/Translation::new(Vector::new(11.0, 0.0, 0.0)),
+            /*Scaling::new([0.2, 0.2, 0.2]) **/
+            Translation::new(Vector::new(11.0, 0.0, 0.0)),
             material,
         ));
         let csg = CSG::new(object1, object2, OperationsCSGType::Intersection);
@@ -555,10 +613,12 @@ mod tests {
                 let point = Point::new(0.0, 0.0, 0.0);
                 assert_eq!(point, int.world_point);
             }
-            None => {panic!(
-                "error using difference for csg: ray with origin in the subtracted part of the sphere\
+            None => {
+                panic!(
+                    "error using difference for csg: ray with origin in the subtracted part of the sphere\
                 is not intersecting"
-            );}
+                );
+            }
         }
     }
 
@@ -584,10 +644,12 @@ mod tests {
                 let point = Point::new(0.0, 0.0, 0.0);
                 assert_eq!(point, int.world_point);
             }
-            None => {panic!(
-                "error using difference for csg: ray with origin in the subtracted part of the sphere\
+            None => {
+                panic!(
+                    "error using difference for csg: ray with origin in the subtracted part of the sphere\
                 is not intersecting"
-            );}
+                );
+            }
         }
     }
 
@@ -614,8 +676,10 @@ mod tests {
                 assert_eq!(point, int.world_point)
             }
             None => {
-
-                panic!("should intersect object 1 in t2 (exit): {:?}", int.unwrap().world_point)
+                panic!(
+                    "should intersect object 1 in t2 (exit): {:?}",
+                    int.unwrap().world_point
+                )
             }
         }
     }
@@ -640,7 +704,6 @@ mod tests {
             Some(int) => {
                 let point = Point::new(0.0, 1.0, 0.0);
                 assert_eq!(point, int.world_point)
-
             }
             None => {
                 panic!("should intersect object 1 in t2 (exit)")
@@ -705,7 +768,5 @@ mod tests {
         let int = csg.ray_intersection(&ray).unwrap();
         assert_eq!(9.0, int.t);
         assert_eq!(Point::new(-1.0, 0.0, 0.0), int.world_point);
-
-
     }
 }

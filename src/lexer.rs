@@ -301,7 +301,7 @@ impl<B: BufRead> InputStream<B> {
             "point" => TokenKind::Keyword(Keyword::Point),
             "point_light" => TokenKind::Keyword(Keyword::PtLightSource),
             "spherical_light" => TokenKind::Keyword(Keyword::SphLightSource),
-            "union" | "u"=> TokenKind::Keyword(Keyword::Union),
+            "union" | "u" => TokenKind::Keyword(Keyword::Union),
             "difference" | "diff" | "d" => TokenKind::Keyword(Keyword::Difference),
             "intersection" | "intr" => TokenKind::Keyword(Keyword::Intersection),
             "true" | "True" => TokenKind::Keyword(Keyword::True),
@@ -512,7 +512,10 @@ static WHITESPACE: &str = " \t\r\n";
 #[cfg(test)]
 mod test {
     use super::*;
-    use crate::lexer::Keyword::{Black, Box, Csg, Difference, False, Float, Gradient, Intersection, Material, Point, PtLightSource, SimpleMesh, SphLightSource, True, Union, White};
+    use crate::lexer::Keyword::{
+        Box, Csg, Difference, False, Float, Gradient, Intersection, Material, Point, PtLightSource,
+        SimpleMesh, SphLightSource, True, Union, White,
+    };
     use crate::lexer::TokenKind;
     use crate::lexer::TokenKind::Keyword;
     use std::io::Cursor;

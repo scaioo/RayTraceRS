@@ -301,6 +301,9 @@ impl<B: BufRead> InputStream<B> {
             "point" => TokenKind::Keyword(Keyword::Point),
             "point_light" => TokenKind::Keyword(Keyword::PtLightSource),
             "spherical_light" => TokenKind::Keyword(Keyword::SphLightSource),
+            "union" | "u"=> TokenKind::Keyword(Keyword::Union),
+            "difference" | "diff" | "d" => TokenKind::Keyword(Keyword::Difference),
+            "intersection" | "intr" => TokenKind::Keyword(Keyword::Intersection),
             "true" | "True" => TokenKind::Keyword(Keyword::True),
             "false" | "False" => TokenKind::Keyword(Keyword::False),
             "black" | "Black" | "BLACK" => TokenKind::Keyword(Keyword::Black),
@@ -498,6 +501,9 @@ pub enum Keyword {
     False,
     Black,
     White,
+    Union,
+    Difference,
+    Intersection,
 }
 
 static SYMBOLS: &str = "()<>[],*";
@@ -506,10 +512,7 @@ static WHITESPACE: &str = " \t\r\n";
 #[cfg(test)]
 mod test {
     use super::*;
-    use crate::lexer::Keyword::{
-        Box, Csg, False, Float, Gradient, Material, Point, PtLightSource, SimpleMesh,
-        SphLightSource, True,
-    };
+    use crate::lexer::Keyword::{Black, Box, Csg, Difference, False, Float, Gradient, Intersection, Material, Point, PtLightSource, SimpleMesh, SphLightSource, True, Union, White};
     use crate::lexer::TokenKind;
     use crate::lexer::TokenKind::Keyword;
     use std::io::Cursor;
@@ -1152,6 +1155,30 @@ translation([-1, 0, 1]),
             TokenKind::Keyword(Csg),
             token.kind
         )
+    }
+
+    #[test]
+    fn test_csg_ops() {
+        let cases = [
+            ("u", TokenKind::Keyword(Union)),
+            ("union", TokenKind::Keyword(Union)),
+            ("d", TokenKind::Keyword(Difference)),
+            ("diff", TokenKind::Keyword(Difference)),
+            ("difference", TokenKind::Keyword(Difference)),
+            ("intersection", TokenKind::Keyword(Intersection)),
+            ("intr", TokenKind::Keyword(Intersection)),
+        ];
+
+        for (input, expected) in cases {
+            let cursor = Cursor::new(input);
+            let mut stream = InputStream::new(cursor, 0, 4);
+            let token = stream.read_token().unwrap();
+            assert_eq!(
+                token.kind, expected,
+                "input '{}': token.kind = {:?}",
+                input, token.kind
+            );
+        }
     }
 
     #[test]

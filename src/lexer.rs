@@ -280,6 +280,7 @@ impl<B: BufRead> InputStream<B> {
             "plane" => TokenKind::Keyword(Keyword::Plane),
             "sphere" => TokenKind::Keyword(Keyword::Sphere),
             "box" => TokenKind::Keyword(Keyword::Box),
+            "csg" => TokenKind::Keyword(Keyword::Csg),
             "simple_mesh" => TokenKind::Keyword(Keyword::SimpleMesh),
             "diffuse" => TokenKind::Keyword(Keyword::Diffuse),
             "specular" => TokenKind::Keyword(Keyword::Specular),
@@ -300,6 +301,9 @@ impl<B: BufRead> InputStream<B> {
             "point" => TokenKind::Keyword(Keyword::Point),
             "point_light" => TokenKind::Keyword(Keyword::PtLightSource),
             "spherical_light" => TokenKind::Keyword(Keyword::SphLightSource),
+            "union" | "u" => TokenKind::Keyword(Keyword::Union),
+            "difference" | "diff" | "d" => TokenKind::Keyword(Keyword::Difference),
+            "intersection" | "intr" => TokenKind::Keyword(Keyword::Intersection),
             "true" | "True" => TokenKind::Keyword(Keyword::True),
             "false" | "False" => TokenKind::Keyword(Keyword::False),
             "black" | "Black" | "BLACK" => TokenKind::Keyword(Keyword::Black),
@@ -472,6 +476,7 @@ pub enum Keyword {
     Plane,
     Sphere,
     Box,
+    Csg,
     SimpleMesh,
     Diffuse,
     Specular,
@@ -496,6 +501,9 @@ pub enum Keyword {
     False,
     Black,
     White,
+    Union,
+    Difference,
+    Intersection,
 }
 
 static SYMBOLS: &str = "()<>[],*";
@@ -505,8 +513,8 @@ static WHITESPACE: &str = " \t\r\n";
 mod test {
     use super::*;
     use crate::lexer::Keyword::{
-        Box, False, Float, Gradient, Material, Point, PtLightSource, SimpleMesh, SphLightSource,
-        True,
+        Box, Csg, Difference, False, Float, Gradient, Intersection, Material, Point, PtLightSource,
+        SimpleMesh, SphLightSource, True, Union, White,
     };
     use crate::lexer::TokenKind;
     use crate::lexer::TokenKind::Keyword;
@@ -1135,6 +1143,45 @@ translation([-1, 0, 1]),
             "token.kind = {:?}",
             token.kind
         );
+    }
+
+    #[test]
+    fn test_csg_keyword_reader() {
+        let text = r#"csg("#;
+        let cursor = std::io::Cursor::new(text);
+        let mut stream = InputStream::new(cursor, 0, 4);
+        let token = stream.read_token().unwrap();
+        assert_eq!(
+            token.kind,
+            TokenKind::Keyword(Csg),
+            "expected '{:?}': found '{:?}'",
+            TokenKind::Keyword(Csg),
+            token.kind
+        )
+    }
+
+    #[test]
+    fn test_csg_ops() {
+        let cases = [
+            ("u", TokenKind::Keyword(Union)),
+            ("union", TokenKind::Keyword(Union)),
+            ("d", TokenKind::Keyword(Difference)),
+            ("diff", TokenKind::Keyword(Difference)),
+            ("difference", TokenKind::Keyword(Difference)),
+            ("intersection", TokenKind::Keyword(Intersection)),
+            ("intr", TokenKind::Keyword(Intersection)),
+        ];
+
+        for (input, expected) in cases {
+            let cursor = Cursor::new(input);
+            let mut stream = InputStream::new(cursor, 0, 4);
+            let token = stream.read_token().unwrap();
+            assert_eq!(
+                token.kind, expected,
+                "input '{}': token.kind = {:?}",
+                input, token.kind
+            );
+        }
     }
 
     #[test]

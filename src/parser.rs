@@ -83,6 +83,7 @@
 use crate::brdf::{BRDF, DiffusiveBrdf, SpecularBrdf};
 use crate::camera::{Camera, OrthogonalCamera, PerspectiveCamera};
 use crate::color::{BLACK, Color, WHITE};
+use crate::csg::{CSG, OperationsCSGType};
 use crate::geometry::{Point, Vector};
 use crate::hdr_image::HDR;
 use crate::lexer::{InputStream, Keyword, TokenKind};
@@ -91,7 +92,7 @@ use crate::materials::{ClampPigment, Material};
 use crate::mesh::SimpleMesh;
 use crate::pfm_func::read_pfm_file;
 use crate::pigments::{CheckeredPigment, GradientPigment, ImagePigment, Pigment, UniformPigment};
-use crate::shapes::{AABB, Plane, Sphere};
+use crate::shapes::{AABB, Plane, Sphere, Volumetric};
 use crate::transformations::{
     Scaling, Transformation, Translation, XRotation, YRotation, ZRotation,
 };
@@ -724,6 +725,37 @@ pub fn parse_box<B: BufRead>(stream: &mut InputStream<B>, scene: &Scene) -> Resu
     Ok(aabb)
 }
 
+pub fn parse_csg<B: BufRead>(stream: &mut InputStream<B>, scene: &Scene) -> Result<CSG> {
+    expect_symbol(stream, '(')?;
+    let op = match expect_keywords(
+        stream,
+        &[Keyword::Intersection, Keyword::Difference, Keyword::Union],
+    )? {
+        Keyword::Intersection => OperationsCSGType::Intersection,
+        Keyword::Difference => OperationsCSGType::Difference,
+        Keyword::Union => OperationsCSGType::Union,
+        _ => unreachable!(),
+    };
+    expect_symbol(stream, ',')?;
+    let object1: Box<dyn Volumetric> =
+        match expect_keywords(stream, &[Keyword::Csg, Keyword::Box, Keyword::Sphere])? {
+            Keyword::Csg => Box::new(parse_csg(stream, scene)?),
+            Keyword::Box => Box::new(parse_box(stream, scene)?),
+            Keyword::Sphere => Box::new(parse_sphere(stream, scene)?),
+            _ => unreachable!(),
+        };
+    expect_symbol(stream, ',')?;
+    let object2: Box<dyn Volumetric> =
+        match expect_keywords(stream, &[Keyword::Csg, Keyword::Box, Keyword::Sphere])? {
+            Keyword::Csg => Box::new(parse_csg(stream, scene)?),
+            Keyword::Box => Box::new(parse_box(stream, scene)?),
+            Keyword::Sphere => Box::new(parse_sphere(stream, scene)?),
+            _ => unreachable!(),
+        };
+    expect_symbol(stream, ')')?;
+    Ok(CSG::new(object1, object2, op))
+}
+
 /// Parses a simple mesh loaded from an OBJ file.
 ///
 /// Expected syntax:
@@ -881,6 +913,10 @@ pub fn parse_scene_with_policy<B: BufRead>(
             TokenKind::Keyword(Keyword::Box) => {
                 let box_shape = parse_box(stream, &scene)?;
                 scene.world.objects.push(Box::new(box_shape));
+            }
+            TokenKind::Keyword(Keyword::Csg) => {
+                let csg = parse_csg(stream, &scene)?;
+                scene.world.objects.push(Box::new(csg));
             }
             TokenKind::Keyword(Keyword::SimpleMesh) => {
                 let simple_mesh = parse_simple_mesh(stream, &scene)?;
@@ -1728,6 +1764,65 @@ plane(floor_material, identity{})"#,
                 color
             );
         }
+        Ok(())
+    }
+
+    #[test]
+    fn test_parse_csg_operators_compiles() -> Result<()> {
+        let mut scene = Scene::new();
+        scene
+            .materials
+            .insert("mat".to_string(), Material::default());
+
+        // Lambda function
+        let parse = |src: &str| {
+            let cursor = std::io::Cursor::new(src.to_string());
+            let mut stream = InputStream::new(cursor, 0, 4);
+            parse_csg(&mut stream, &scene)
+        };
+
+        let text = "(union, sphere(mat, identity), sphere(mat, translation([1, 0, 0])))";
+        let csg = parse(text)?;
+        assert_eq!(
+            csg.operation,
+            OperationsCSGType::Union,
+            "Assert 1: Expected: {:?}\nFound: {:?}",
+            OperationsCSGType::Union,
+            csg.operation
+        );
+
+        let text = "(d, box(mat, point([0, 0, 0]), point([1, 1, 1])), sphere(mat, identity))";
+        let csg = parse(text)?;
+        assert_eq!(
+            csg.operation,
+            OperationsCSGType::Difference,
+            "Assert 2: Expected: {:?}\nFound: {:?}",
+            OperationsCSGType::Difference,
+            csg.operation
+        );
+
+        let text = "(intersection, \
+                 csg(union, sphere(mat, identity), sphere(mat, identity)), \
+                 box(mat, point([-1, -1, -1]), point([1, 1, 1])))";
+        let csg = parse(text)?;
+        assert_eq!(
+            csg.operation,
+            OperationsCSGType::Intersection,
+            "Assert 3: Expected: {:?}\nFound: {:?}",
+            OperationsCSGType::Intersection,
+            csg.operation
+        );
+
+        assert!(
+            parse("(union, plane(mat, identity), sphere(mat, identity))").is_err(),
+            "Assert 4: Plane cannot be used to build a csg object!"
+        );
+
+        assert!(
+            parse("(scaling, sphere(mat, identity), sphere(mat, identity))").is_err(),
+            "Assert 5: Operators can be 'difference', 'union' or 'intersection'"
+        );
+
         Ok(())
     }
 }

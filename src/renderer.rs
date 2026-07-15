@@ -13,6 +13,7 @@
 //! | [`OnOffRenderer`] | Binary hit/miss colouring | Scene debugging, silhouettes |
 //! | [`FlatRenderer`] | Surface colour, no lighting | Material and UV debugging |
 //! | [`PathTracer`] | Full Monte Carlo path tracing | Final physically-based renders |
+//! | [`PointLightRenderer`] | Direct illumination, explicit lights | Whitted-style lit scene previews   |
 //!
 
 use crate::color::{BLACK, Color, WHITE};
@@ -132,7 +133,7 @@ impl Renderer for FlatRenderer {
             Some(hit) => {
                 // The ray hit an object!
                 // We ask the material's pigment for the color at the specific (u, v) coordinates.
-                let color = hit.material.pigment.get_color(&hit.uv)?;
+                let color = hit.material.pigment.get_color(&hit.uv.orient())?;
                 Ok(color)
             }
             None => {
@@ -207,8 +208,10 @@ impl Renderer for PathTracer {
         };
 
         let material = &hit_record.material;
-        let mut hit_color = material.pigment.get_color(&hit_record.uv)?;
-        let emitted_radiance = material.emitted_radiance.get_color(&hit_record.uv)?;
+        let mut hit_color = material.pigment.get_color(&(hit_record.uv.orient()))?;
+        let emitted_radiance = material
+            .emitted_radiance
+            .get_color(&(hit_record.uv.orient()))?;
 
         let hit_color_lum = hit_color.r.max(hit_color.g).max(hit_color.b);
 
@@ -253,6 +256,56 @@ impl Renderer for PathTracer {
         Ok(final_color)
     }
 }
+
+// =================================================================
+// Whitted Algorithm
+// =================================================================
+
+/// A direct-illumination renderer based on the Whitted point-light model.
+///
+/// For each ray–surface intersection it queries every [`LightSource`] in the
+/// scene and accumulates their contributions, which already handle shadow
+/// testing and the Lambert cosine factor internally. No indirect bounces are
+/// computed: the result is an approximation suitable for scenes lit by explicit
+/// point or spherical lights without global illumination.
+///
+/// # Use case
+///
+/// Useful for previewing scenes with explicit light sources where the full cost
+/// of path tracing is not needed.
+pub struct PointLightRenderer {
+    /// Color returned when a ray does not hit any object.
+    pub background_color: Color,
+}
+
+impl PointLightRenderer {}
+
+impl Renderer for PointLightRenderer {
+    /// Computes the direct-illumination color for `ray` in `world`.
+    ///
+    /// Iterates over all [`LightSource`]s in `world.light_sources` and sums
+    /// their contributions at the hit point. Returns `background_color` on a
+    /// miss.
+    ///
+    /// # Errors
+    ///
+    /// Propagates errors from [`LightSource::source_contribution`] (e.g. a
+    /// pigment evaluation failure).
+    fn render(&self, ray: &Ray, world: &World, pcg: &mut PCG) -> Result<Color> {
+        let hit_record = match world.ray_intersection(ray) {
+            Some(hit) => hit,
+            None => return Ok(self.background_color),
+        };
+
+        let mut color: Color = BLACK;
+
+        for light_source in world.light_sources.iter() {
+            color += light_source.source_contribution(&hit_record, world, pcg)?;
+        }
+        Ok(color)
+    }
+}
+
 // =================================================================================
 //                                    TESTS
 // =================================================================================
@@ -262,10 +315,11 @@ mod tests {
     use crate::brdf::DiffusiveBrdf;
     use crate::camera::OrthogonalCamera;
     use crate::color::{BLACK, Color, WHITE};
-    use crate::functions::IDENTITY_4X4;
-    use crate::geometry::{Point, Vector};
+    use crate::functions::{IDENTITY_4X4, are_close};
+    use crate::geometry::{Point, Vector, X_AXIS, Y_AXIS};
     use crate::hdr_image::HDR;
     use crate::image_tracer::ImageTracer;
+    use crate::light_source::{PointLightSource, SphericalLightSource};
     use crate::materials::Material;
     use crate::pcg::PCG;
     use crate::pigments::UniformPigment;
@@ -273,15 +327,16 @@ mod tests {
     use crate::transformations::{Scaling, Transformation, Translation};
     use anyhow::Result;
     use approx::assert_relative_eq;
+
     #[test]
     fn test_on_off_renderer() -> Result<()> {
         // Define variables
-        let scaling = Scaling::new([0.2, 0.2, 0.2]);
+        let scaling: Scaling = 0.2.into();
         let translation = Translation::new(Vector::new(2., 0., 0.));
         let pigment = UniformPigment::new(WHITE);
         let emitted_radiance = UniformPigment::new(BLACK);
         let brdf = DiffusiveBrdf {};
-        let material = Material::new(pigment, brdf, emitted_radiance);
+        let material = Material::new(pigment, brdf, emitted_radiance)?;
         let sphere = Sphere::new(translation * scaling, material);
 
         let image = HDR::new(3, 3);
@@ -289,13 +344,15 @@ mod tests {
         let mut tracer = ImageTracer::new(image, camera, 0);
         let world = World {
             objects: vec![Box::new(sphere)],
+            light_sources: vec![],
         };
 
-        let mut pcg = PCG::default();
+        let pcg = PCG::default();
         let renderer = OnOffRenderer::default();
 
-        let _ =
-            tracer.fire_all_rays(&world, |ray, world| renderer.render(&ray, world, &mut pcg))?;
+        let _ = tracer.fire_all_rays(&world, pcg, |ray, world, pcg| {
+            renderer.render(&ray, world, pcg)
+        })?;
 
         assert!(
             tracer
@@ -375,28 +432,30 @@ mod tests {
     }
     #[test]
     fn test_flat_renderer() -> Result<()> {
-        let sphere_color = Color::new(1.0, 2.0, 3.0);
+        let sphere_color = Color::new(0.1, 0.2, 0.3);
         // Setup sphere and color specified
-        let scaling = Scaling::new([0.2, 0.2, 0.2]);
+        let scaling: Scaling = 0.2.into();
         let translation = Translation::new(Vector::new(2., 0., 0.));
         let pigment = UniformPigment::new(sphere_color);
         let brdf = DiffusiveBrdf {};
         let emitted_radiance = UniformPigment::new(BLACK);
-        let material = Material::new(pigment, brdf, emitted_radiance);
+        let material = Material::new(pigment, brdf, emitted_radiance)?;
         let sphere = Sphere::new(translation * scaling, material);
-        let mut pcg = PCG::default();
+        let pcg = PCG::default();
         // Setup scene & raytracer
         let image = HDR::new(3, 3);
         let camera = OrthogonalCamera::new(Transformation::new(IDENTITY_4X4));
         let mut tracer = ImageTracer::new(image, camera, 0);
         let world = World {
             objects: vec![Box::new(sphere)],
+            light_sources: vec![],
         };
 
         let renderer = FlatRenderer::default();
 
-        let _ =
-            tracer.fire_all_rays(&world, |ray, world| renderer.render(&ray, world, &mut pcg))?;
+        let _ = tracer.fire_all_rays(&world, pcg, |ray, world, pcg| {
+            renderer.render(&ray, world, pcg)
+        })?;
 
         assert!(
             tracer
@@ -431,7 +490,9 @@ mod tests {
                 .is_close(&BLACK),
             "Mismatch at (0,1)"
         );
-        // Verify that flat_renderer return the color of the sphere
+        // Verify that flat_renderer returns the color of the sphere.
+        // `Material::new` no longer wraps the pigment in `ClampPigment`, so a
+        // pigment that's already within [0,1] is returned unchanged.
         assert!(
             tracer
                 .image
@@ -488,10 +549,11 @@ mod tests {
                 UniformPigment::new(WHITE * reflectance),
                 DiffusiveBrdf {},
                 UniformPigment::new(WHITE * emitted_radiance),
-            );
+            )?;
             let sphere = Sphere::new(Transformation::new(IDENTITY_4X4), enclosure_material);
             let world = World {
                 objects: vec![Box::new(sphere)],
+                light_sources: vec![],
             };
             let path_tracer = PathTracer::new(WHITE, 1, 100, 101);
             let ray = Ray::new(Point::new(0.0, 0.0, 0.0), Vector::new(1., 0., 0.));
@@ -503,5 +565,138 @@ mod tests {
             assert_relative_eq!(color.b, expected, epsilon = 1e-3);
         }
         Ok(())
+    }
+
+    fn give_sphere(point: Point, color: Color) -> Sphere<Translation> {
+        let material = Material {
+            pigment: Box::new(UniformPigment::new(color)),
+            brdf: Box::new(DiffusiveBrdf {}),
+            emitted_radiance: Box::new(UniformPigment::new(BLACK)),
+        };
+        Sphere {
+            transformation: Translation::new(point - Point::new(0.0, 0.0, 0.0)),
+            material,
+        }
+    }
+
+    #[test]
+    fn test_point_light_renderer_two_lights_no_overlap() {
+        let material = Material::new(
+            UniformPigment::new(WHITE),
+            DiffusiveBrdf {},
+            UniformPigment::new(BLACK),
+        )
+        .unwrap();
+
+        // Sphere centered at origin
+        let sphere = Sphere::new(Transformation::new(IDENTITY_4X4), material);
+
+        // Two lights on opposite sides, different colors
+        let red_light =
+            PointLightSource::new(Point::new(-10.0, 0.0, 0.0), Color::new(1.0, 0.0, 0.0));
+        let blue_light = SphericalLightSource {
+            center: Point::new(10.0, 0.0, 0.0),
+            radius: 1.0,
+            color: Color::new(0.0, 0.0, 1.0),
+            n_points: 1000,
+        };
+
+        let world = World {
+            objects: vec![Box::new(sphere)],
+            light_sources: vec![Box::new(red_light), Box::new(blue_light)],
+        };
+
+        let renderer = PointLightRenderer {
+            background_color: BLACK,
+        };
+        let mut pcg = PCG::default();
+
+        // Ray hits the sphere on the LEFT face (-X): facing red light, back to blue
+        let ray_left = Ray::new(Point::new(-5.0, 0.0, 0.0), X_AXIS);
+        let color_left = renderer.render(&ray_left, &world, &mut pcg).unwrap();
+
+        // Ray hits the sphere on the RIGHT face (+X): facing blue light, back to red
+        let ray_right = Ray::new(Point::new(5.0, 0.0, 0.0), -X_AXIS);
+        let color_right = renderer.render(&ray_right, &world, &mut pcg).unwrap();
+
+        // Ray misses: should return background
+        let ray_miss = Ray::new(Point::new(0.0, 5.0, 0.0), Y_AXIS);
+        let color_miss = renderer.render(&ray_miss, &world, &mut pcg).unwrap();
+
+        println!("color_left:  {:?}", color_left);
+        println!("color_right: {:?}", color_right);
+        println!("color_miss:  {:?}", color_miss);
+
+        // Left hit: only red contributes (n_dot_l = 1.0), blue is occluded by the sphere itself
+        assert!(
+            color_left.is_close(&Color::new(1.0, 0.0, 0.0)),
+            "left face: {:?}",
+            color_left
+        );
+        // Right hit: only blue contributes (n_dot_l = 1.0), red is occluded
+        assert!(
+            are_close(color_right.r, 0.0),
+            "right face red: {:?}",
+            color_right.r
+        );
+        assert!(
+            are_close(color_right.g, 0.0),
+            "right face green: {:?}",
+            color_right.g
+        );
+        assert!(
+            color_right.b > 0.0,
+            "right face blue should be positive: {:?}",
+            color_right.b
+        );
+        // Miss: background color
+        assert!(color_miss.is_close(&BLACK), "miss: {:?}", color_miss);
+    }
+
+    #[test]
+    fn test_point_light_renderer_two_lights_overlap() {
+        let material = Material::new(
+            UniformPigment::new(WHITE),
+            DiffusiveBrdf {},
+            UniformPigment::new(BLACK),
+        )
+        .unwrap();
+
+        let sphere = Sphere::new(Transformation::new(IDENTITY_4X4), material);
+
+        let red_light =
+            PointLightSource::new(Point::new(-10.0, 10.0, 0.0), Color::new(1.0, 0.0, 0.0));
+        let blue_light =
+            PointLightSource::new(Point::new(-10.0, -10.0, 0.0), Color::new(0.0, 1.0, 0.0));
+
+        let world = World {
+            objects: vec![Box::new(sphere)],
+            light_sources: vec![Box::new(red_light), Box::new(blue_light)],
+        };
+
+        let renderer = PointLightRenderer {
+            background_color: BLACK,
+        };
+        let mut pcg = PCG::default();
+
+        let ray = Ray::new(Point::new(-5.0, 0.0, 0.0), X_AXIS);
+        let color = renderer.render(&ray, &world, &mut pcg).unwrap();
+
+        // dir_to_red  = (-10,+10,0) - (-1,0,0) = (-9, +10, 0)
+        // dir_to_blue = (-10,-10,0) - (-1,0,0) = (-9, -10, 0)
+        // distance = sqrt(81 + 100) = sqrt(181)
+        // normalized_dir_red  = (-9, +10, 0) / sqrt(181)
+        // normalized_dir_blue = (-9, -10, 0) / sqrt(181)
+
+        // normal    = (-1, 0, 0)   (outward normal at left pole)
+
+        // normal • normalized_dir = (-1,0,0) · (-9,±10,0) / sqrt(181)
+        //     = 9 / sqrt(181)
+
+        let n_dot_l = 9.0 / 181.0_f32.sqrt();
+        let expected_color = Color::new(1.0, 1.0, 0.0) * n_dot_l;
+        println!("expected_color: {:?}", expected_color);
+        println!("color: {:?}", color);
+        assert!(color.is_close(&expected_color), "{:?}", color);
     }
 }

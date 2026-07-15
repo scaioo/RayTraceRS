@@ -36,6 +36,18 @@ impl Vec2D {
     pub fn is_close(&self, other: &Vec2D) -> bool {
         are_close(self.x, other.x) && are_close(self.y, other.y)
     }
+
+    /// Returns this vector rotated 90° clockwise: `(x, y) → (y, -x)`.
+    ///
+    /// Used to reconcile the coordinate convention mismatch between UV space
+    /// (Y-axis forward) and the renderer (X-axis forward), so that texture
+    /// lookups via `get_color` receive correctly oriented coordinates.
+    pub fn orient(&self) -> Vec2D {
+        Vec2D {
+            x: self.y,
+            y: -self.x,
+        }
+    }
 }
 
 // =======================================================================

@@ -24,7 +24,10 @@ use std::ops::Mul;
 // =======================================================================
 
 /// Common interface for all camera types.
-pub trait Camera {
+///
+/// `Send + Sync` are required so the camera can be shared by the rendering
+/// threads in [`fire_all_rays`](crate::image_tracer::ImageTracer::fire_all_rays).
+pub trait Camera: Send + Sync {
     /// Sets the aspect ratio of the camera (width / height).
     ///
     /// # Errors
@@ -38,6 +41,19 @@ pub trait Camera {
     fn fire_ray(&self, u: f32, v: f32) -> Ray;
 }
 
+/// Enable to render a generic Camera from a file.txt
+impl Camera for Box<dyn Camera> {
+    fn set_aspect_ratio(&mut self, aspect_ratio: f32) -> Result<()> {
+        // The double asterisk (**self) is used to:
+        // 1. Dereference the borrowed reference (&mut)
+        // 2. Dereference the Box to access the actual object inside it
+        (**self).set_aspect_ratio(aspect_ratio)
+    }
+
+    fn fire_ray(&self, u: f32, v: f32) -> Ray {
+        (**self).fire_ray(u, v)
+    }
+}
 // =======================================================================
 // ORTHOGONAL CAMERA
 // =======================================================================

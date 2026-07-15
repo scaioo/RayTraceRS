@@ -61,6 +61,8 @@ pub struct InputStream<B: BufRead> {
     pub saved_location: Option<SourceLocation>,
     /// The `\t` spaces.
     pub tabulation: usize,
+    /// The token to look ahead
+    pub saved_token: Option<Token>,
 }
 
 impl<B: BufRead> InputStream<B> {
@@ -75,6 +77,7 @@ impl<B: BufRead> InputStream<B> {
             },
             saved_char: None,
             saved_location: None,
+            saved_token: None,
             tabulation,
         }
     }
@@ -272,26 +275,39 @@ impl<B: BufRead> InputStream<B> {
         loc: SourceLocation,
     ) -> anyhow::Result<Token> {
         let kind = match self.read_identifier(ch)?.as_str() {
-            "new" => TokenKind::Keyword(Keyword::NEW),
-            "material" => TokenKind::Keyword(Keyword::MATERIAL),
-            "plane" => TokenKind::Keyword(Keyword::PLANE),
-            "sphere" => TokenKind::Keyword(Keyword::SPHERE),
-            "diffuse" => TokenKind::Keyword(Keyword::DIFFUSE),
-            "specular" => TokenKind::Keyword(Keyword::SPECULAR),
-            "uniform" => TokenKind::Keyword(Keyword::UNIFORM),
-            "checkered" => TokenKind::Keyword(Keyword::CHECKERED),
-            "image" => TokenKind::Keyword(Keyword::IMAGE),
-            "identity" => TokenKind::Keyword(Keyword::IDENTITY),
-            "translation" => TokenKind::Keyword(Keyword::TRANSLATION),
+            "new" => TokenKind::Keyword(Keyword::New),
+            "material" => TokenKind::Keyword(Keyword::Material),
+            "plane" => TokenKind::Keyword(Keyword::Plane),
+            "sphere" => TokenKind::Keyword(Keyword::Sphere),
+            "box" => TokenKind::Keyword(Keyword::Box),
+            "csg" => TokenKind::Keyword(Keyword::Csg),
+            "simple_mesh" => TokenKind::Keyword(Keyword::SimpleMesh),
+            "diffuse" => TokenKind::Keyword(Keyword::Diffuse),
+            "specular" => TokenKind::Keyword(Keyword::Specular),
+            "uniform" => TokenKind::Keyword(Keyword::Uniform),
+            "checkered" => TokenKind::Keyword(Keyword::Checkered),
+            "image" => TokenKind::Keyword(Keyword::Image),
+            "gradient" => TokenKind::Keyword(Keyword::Gradient),
+            "identity" => TokenKind::Keyword(Keyword::Identity),
+            "translation" => TokenKind::Keyword(Keyword::Translation),
             "rotation_x" => TokenKind::Keyword(Keyword::RotationX),
             "rotation_y" => TokenKind::Keyword(Keyword::RotationY),
             "rotation_z" => TokenKind::Keyword(Keyword::RotationZ),
-            "scaling" => TokenKind::Keyword(Keyword::SCALING),
-            "camera" => TokenKind::Keyword(Keyword::CAMERA),
-            "orthogonal" => TokenKind::Keyword(Keyword::ORTHOGONAL),
-            "perspective" => TokenKind::Keyword(Keyword::PERSPECTIVE),
-            "float" => TokenKind::Keyword(Keyword::FLOAT),
-            "point_light" => TokenKind::Keyword(Keyword::PointLight),
+            "scaling" => TokenKind::Keyword(Keyword::Scaling),
+            "camera" => TokenKind::Keyword(Keyword::Camera),
+            "orthogonal" => TokenKind::Keyword(Keyword::Orthogonal),
+            "perspective" => TokenKind::Keyword(Keyword::Perspective),
+            "float" => TokenKind::Keyword(Keyword::Float),
+            "point" => TokenKind::Keyword(Keyword::Point),
+            "point_light" => TokenKind::Keyword(Keyword::PtLightSource),
+            "spherical_light" => TokenKind::Keyword(Keyword::SphLightSource),
+            "union" | "u" => TokenKind::Keyword(Keyword::Union),
+            "difference" | "diff" | "d" => TokenKind::Keyword(Keyword::Difference),
+            "intersection" | "intr" => TokenKind::Keyword(Keyword::Intersection),
+            "true" | "True" => TokenKind::Keyword(Keyword::True),
+            "false" | "False" => TokenKind::Keyword(Keyword::False),
+            "black" | "Black" | "BLACK" => TokenKind::Keyword(Keyword::Black),
+            "white" | "White" | "WHITE" => TokenKind::Keyword(Keyword::White),
             s => TokenKind::Identifier(s.to_string()),
         };
         Ok(Token { kind, loc })
@@ -355,6 +371,18 @@ impl<B: BufRead> InputStream<B> {
         }
     }
 
+    /// Saves a token that has just been read so that it can be returned on the next call
+    pub fn unread_token(&mut self, token: Token) -> anyhow::Result<()> {
+        if self.saved_token.is_none() {
+            self.saved_token = Some(token);
+            Ok(())
+        } else {
+            Err(anyhow::anyhow!(
+                "I can't mark more than one token as unread!"
+            ))
+        }
+    }
+
     /// Reads the next token from the stream.
     ///
     /// Skips whitespace and comments, then classifies the current character:
@@ -368,6 +396,9 @@ impl<B: BufRead> InputStream<B> {
     /// Returns an error if the character does not belong to any of the
     /// categories above, or if an internal read fails.
     pub fn read_token(&mut self) -> anyhow::Result<Token> {
+        if let Some(token) = self.saved_token.take() {
+            return Ok(token);
+        }
         let ch: char;
         match self.skip_whitespace() {
             Ok(true) => Ok(Token {
@@ -408,7 +439,7 @@ impl<B: BufRead> InputStream<B> {
 // Token and TokenKind
 // ==========================================
 
-/// The type of token recognised by the lexer.
+/// The type of token recognized by the lexer.
 #[derive(Debug, PartialEq)]
 pub enum TokenKind {
     /// A reserved keyword of the scene language (e.g. `new`, `sphere`, `camera`).
@@ -438,28 +469,41 @@ pub struct Token {
 ///
 /// Identify the constructs of a scene file:
 /// object types, materials, transformations, and cameras.
-#[derive(Debug, PartialEq)]
+#[derive(Debug, PartialEq, Copy, Clone)]
 pub enum Keyword {
-    NEW,
-    MATERIAL,
-    PLANE,
-    SPHERE,
-    DIFFUSE,
-    SPECULAR,
-    UNIFORM,
-    CHECKERED,
-    IMAGE,
-    IDENTITY,
-    TRANSLATION,
+    New,
+    Material,
+    Plane,
+    Sphere,
+    Box,
+    Csg,
+    SimpleMesh,
+    Diffuse,
+    Specular,
+    Uniform,
+    Checkered,
+    Image,
+    Gradient,
+    Identity,
+    Translation,
     RotationX,
     RotationY,
     RotationZ,
-    SCALING,
-    CAMERA,
-    ORTHOGONAL,
-    PERSPECTIVE,
-    FLOAT,
-    PointLight,
+    Scaling,
+    Camera,
+    Orthogonal,
+    Perspective,
+    Float,
+    Point,
+    PtLightSource,
+    SphLightSource,
+    True,
+    False,
+    Black,
+    White,
+    Union,
+    Difference,
+    Intersection,
 }
 
 static SYMBOLS: &str = "()<>[],*";
@@ -468,41 +512,86 @@ static WHITESPACE: &str = " \t\r\n";
 #[cfg(test)]
 mod test {
     use super::*;
-    use crate::lexer::Keyword::{FLOAT, MATERIAL};
+    use crate::lexer::Keyword::{
+        Box, Csg, Difference, False, Float, Gradient, Intersection, Material, Point, PtLightSource,
+        SimpleMesh, SphLightSource, True, Union, White,
+    };
     use crate::lexer::TokenKind;
+    use crate::lexer::TokenKind::Keyword;
     use std::io::Cursor;
 
     static TEST_FILE: &str = "float clock(150)
 
+# This is the demo image from v0.3.0 - polish this file before merging PR
+
+# Sky dome
+
 material sky_material(
-    diffuse(uniform(<0, 0, 0>)),
-    uniform(<0.7, 0.5, 1>)
+uniform(<0.5, 0.9, 1.0>),
+diffuse(),
+uniform(<0.5, 0.9, 1.0>)
 )
 
-# Here is a comment
-
-material ground_material(
-    diffuse(checkered(<0.3, 0.5, 0.1>,
-                      <0.1, 0.2, 0.5>, 4)),
-    uniform(<0, 0, 0>)
+sphere(
+sky_material,
+scaling([200, 200, 200]) * translation([0, 0, 0.4])
 )
 
-material sphere_material(
-    specular(uniform(<0.5, 0.5, 0.5>)),
-    uniform(<0, 0, 0>)
+# Checkered floor
+
+material floor_material(
+checkered(
+<0.3, 0.5, 0.1>,
+<0.1, 0.2, 0.5>,
+5
+),
+diffuse(),
+uniform(<0, 0, 0>)
 )
 
-point_light([10, 10, 10], <1, 1, 1>, 1)
+plane(
+floor_material,
+identity, True
+)
 
-plane (sky_material, translation([0, 0, 100]) * rotation_y(clock))
-plane (ground_material, identity)
+# Diffuse sphere
 
-sphere(sphere_material, translation([0, 0, 1]))
+material diffusive_sphere_material(
+uniform(<0.3, 0.4, 0.8>),
+diffuse(),
+uniform(<0.0, 0.0, 0.0>)
+)
 
-camera(perspective, rotation_z(30) * translation([-4, 0, 1]), 1.0, 1.0)";
+sphere(
+diffusive_sphere_material,
+translation([0.0, 0.0, 1.0])
+)
+
+# Mirror sphere
+
+material mirror_material(
+uniform(<0.6, 0.2, 0.3>),
+specular(),
+uniform(<0, 0, 0>)
+)
+
+sphere(
+mirror_material,
+translation([1.0, 2.5, 0.0])
+)
+
+# Camera
+
+camera(
+perspective,
+translation([-1, 0, 1]),
+1.0
+)
+
+# End of world description!";
 
     fn setup1() -> InputStream<Cursor<&'static str>> {
-        let stream = std::io::Cursor::new(TEST_FILE);
+        let stream = Cursor::new(TEST_FILE);
         InputStream::new(stream, 0, 8)
     }
 
@@ -803,7 +892,7 @@ camera(perspective, rotation_z(30) * translation([-4, 0, 1]), 1.0, 1.0)";
         let token = stream.read_token().unwrap();
         assert_eq!(
             token.kind,
-            TokenKind::Keyword(FLOAT),
+            TokenKind::Keyword(Float),
             "token.kind = {:?}",
             token.kind
         );
@@ -873,18 +962,18 @@ camera(perspective, rotation_z(30) * translation([-4, 0, 1]), 1.0, 1.0)";
         let token = stream.read_token().unwrap();
         assert_eq!(
             token.kind,
-            TokenKind::Keyword(MATERIAL),
+            TokenKind::Keyword(Material),
             "token.kind = {:?}",
             token.kind
         );
         assert_eq!(
             token.loc,
-            SourceLocation::new(0, 3, 1),
+            SourceLocation::new(0, 7, 1),
             "token.loc = {:?}",
             token.loc
         );
 
-        for _ in 0..6 {
+        for _ in 0..4 {
             let _ = stream.read_token();
         }
 
@@ -897,7 +986,7 @@ camera(perspective, rotation_z(30) * translation([-4, 0, 1]), 1.0, 1.0)";
         );
         assert_eq!(
             token.loc,
-            SourceLocation::new(0, 4, 21),
+            SourceLocation::new(0, 8, 9),
             "token.loc = {:?}",
             token.loc
         );
@@ -939,5 +1028,184 @@ camera(perspective, rotation_z(30) * translation([-4, 0, 1]), 1.0, 1.0)";
             "token.loc = {:?}",
             token.loc
         );
+    }
+
+    #[test]
+    fn test_gradient_reader() {
+        let text = r#"
+        gradient("#;
+        let cursor = std::io::Cursor::new(text);
+        let mut stream = InputStream::new(cursor, 0, 4);
+        let token = stream.read_token().unwrap();
+        assert_eq!(
+            token.kind,
+            Keyword(Gradient),
+            "token.kind = {:?}",
+            token.kind
+        );
+    }
+
+    #[test]
+    fn test_box_reader() {
+        let text = r#"
+        box( #things...
+        "#;
+        let cursor = std::io::Cursor::new(text);
+        let mut stream = InputStream::new(cursor, 0, 4);
+        let token = stream.read_token().unwrap();
+        assert_eq!(token.kind, Keyword(Box), "token.kind = {:?}", token.kind);
+    }
+
+    #[test]
+    fn test_point_reader() {
+        let text = r#"point([0.0, 0.0, 1.0])"#;
+        let cursor = std::io::Cursor::new(text);
+        let mut stream = InputStream::new(cursor, 0, 4);
+        let token = stream.read_token().unwrap();
+        assert_eq!(token.kind, Keyword(Point), "token.kind = {:?}", token.kind);
+    }
+
+    #[test]
+    fn test_mesh_reader() {
+        let text = r#"simple_mesh("#;
+        let cursor = std::io::Cursor::new(text);
+        let mut stream = InputStream::new(cursor, 0, 4);
+        let token = stream.read_token().unwrap();
+        assert_eq!(
+            token.kind,
+            TokenKind::Keyword(SimpleMesh),
+            "token.kind = {:?}",
+            token.kind
+        );
+    }
+
+    #[test]
+    fn test_point_light_source_reader() {
+        let text = r#"point_light("#;
+        let cursor = std::io::Cursor::new(text);
+        let mut stream = InputStream::new(cursor, 0, 4);
+        let token = stream.read_token().unwrap();
+        assert_eq!(
+            token.kind,
+            TokenKind::Keyword(PtLightSource),
+            "token.kind = {:?}",
+            token.kind
+        );
+    }
+
+    #[test]
+    fn test_spherical_light_source_reader() {
+        let text = r#"spherical_light("#;
+        let cursor = std::io::Cursor::new(text);
+        let mut stream = InputStream::new(cursor, 0, 4);
+        let token = stream.read_token().unwrap();
+        assert_eq!(
+            token.kind,
+            TokenKind::Keyword(SphLightSource),
+            "token.kind = {:?}",
+            token.kind
+        );
+    }
+
+    #[test]
+    fn test_boolean_reader() {
+        let text = r#"true,True,false,False,"#;
+        let cursor = std::io::Cursor::new(text);
+        let mut stream = InputStream::new(cursor, 0, 4);
+        let token = stream.read_token().unwrap();
+        assert_eq!(
+            token.kind,
+            TokenKind::Keyword(True),
+            "token.kind = {:?}",
+            token.kind
+        );
+        stream.read_token().unwrap();
+        let token = stream.read_token().unwrap();
+        assert_eq!(
+            token.kind,
+            TokenKind::Keyword(True),
+            "token.kind = {:?}",
+            token.kind
+        );
+        stream.read_token().unwrap();
+        let token = stream.read_token().unwrap();
+        assert_eq!(
+            token.kind,
+            TokenKind::Keyword(False),
+            "token.kind = {:?}",
+            token.kind
+        );
+        stream.read_token().unwrap();
+        let token = stream.read_token().unwrap();
+        assert_eq!(
+            token.kind,
+            TokenKind::Keyword(False),
+            "token.kind = {:?}",
+            token.kind
+        );
+    }
+
+    #[test]
+    fn test_csg_keyword_reader() {
+        let text = r#"csg("#;
+        let cursor = std::io::Cursor::new(text);
+        let mut stream = InputStream::new(cursor, 0, 4);
+        let token = stream.read_token().unwrap();
+        assert_eq!(
+            token.kind,
+            TokenKind::Keyword(Csg),
+            "expected '{:?}': found '{:?}'",
+            TokenKind::Keyword(Csg),
+            token.kind
+        )
+    }
+
+    #[test]
+    fn test_csg_ops() {
+        let cases = [
+            ("u", TokenKind::Keyword(Union)),
+            ("union", TokenKind::Keyword(Union)),
+            ("d", TokenKind::Keyword(Difference)),
+            ("diff", TokenKind::Keyword(Difference)),
+            ("difference", TokenKind::Keyword(Difference)),
+            ("intersection", TokenKind::Keyword(Intersection)),
+            ("intr", TokenKind::Keyword(Intersection)),
+        ];
+
+        for (input, expected) in cases {
+            let cursor = Cursor::new(input);
+            let mut stream = InputStream::new(cursor, 0, 4);
+            let token = stream.read_token().unwrap();
+            assert_eq!(
+                token.kind, expected,
+                "input '{}': token.kind = {:?}",
+                input, token.kind
+            );
+        }
+    }
+
+    #[test]
+    fn test_color_keyword_reader() {
+        use crate::lexer::Keyword::{Black, White};
+
+        let cases = [
+            ("black", TokenKind::Keyword(Black)),
+            ("Black", TokenKind::Keyword(Black)),
+            ("BLACK", TokenKind::Keyword(Black)),
+            ("white", TokenKind::Keyword(White)),
+            ("White", TokenKind::Keyword(White)),
+            ("WHITE", TokenKind::Keyword(White)),
+        ];
+
+        for (input, expected) in cases {
+            let cursor = Cursor::new(input);
+            let mut stream = InputStream::new(cursor, 0, 4);
+            let token = stream.read_token().unwrap();
+            assert_eq!(
+                token.kind, expected,
+                "input '{}': token.kind = {:?}",
+                input, token.kind
+            );
+        }
     }
 }

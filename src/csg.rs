@@ -11,7 +11,7 @@ use crate::shapes::{Shape, Volumetric};
 use crate::transformations::Transformation;
 use std::cmp::min;
 
-#[derive(Clone)]
+#[derive(Clone, PartialEq, Debug)]
 pub enum OperationsCSGType {
     Intersection,
     Union,
@@ -77,6 +77,7 @@ impl CSG {
             operation,
         }
     }
+}
 
     pub fn logic_for_csg(
         &self,
@@ -274,7 +275,7 @@ impl Shape for CSG {
     }
 
     fn point_to_uv(&self, point: &Point) -> anyhow::Result<Vec2D> {
-       
+       unreachable!("there is still no implementation for this function")
     }
 
     // Might be useful to change it in Shape definition
@@ -704,6 +705,7 @@ mod tests {
             Some(int) => {
                 let point = Point::new(0.0, 1.0, 0.0);
                 assert_eq!(point, int.world_point)
+
             }
             None => {
                 panic!("should intersect object 1 in t2 (exit)")
@@ -768,5 +770,7 @@ mod tests {
         let int = csg.ray_intersection(&ray).unwrap();
         assert_eq!(9.0, int.t);
         assert_eq!(Point::new(-1.0, 0.0, 0.0), int.world_point);
+
+
     }
 }

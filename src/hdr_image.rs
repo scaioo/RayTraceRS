@@ -33,7 +33,7 @@
 //!
 
 use crate::color::Color;
-use crate::functions::endianness_number;
+use crate::functions::{are_close, endianness_number};
 use anyhow::{Result, anyhow};
 use byteorder::{BigEndian, LittleEndian, WriteBytesExt};
 use std::fs::File;
@@ -333,10 +333,6 @@ impl HDR {
     ///
     /// The interpolation is performed using the four neighboring texels.
     ///
-    /// # Warning
-    ///
-    /// UV coordinate are assumed to be positive. No validation is implemented.
-    ///
     /// # Errors
     ///
     /// Returns an error if the image contains no pixels.
@@ -358,13 +354,18 @@ impl HDR {
             let x = u_wrapped * self.width as f32;
             let y = v_wrapped * self.height as f32;
 
-            let i0 = x.floor() as usize;
-            let j0 = y.floor() as usize;
+            // For uv barely below 0, `uv - uv.floor()` rounds up to exactly 1.0
+            // in f32, so x/y can reach width/height: keep the unwrapped floor
+            // for tx/ty, then wrap the indices back into range.
+            let x_floor = x.floor();
+            let y_floor = y.floor();
+            let tx = x - x_floor;
+            let ty = y - y_floor;
+
+            let i0 = (x_floor as usize) % self.width;
+            let j0 = (y_floor as usize) % self.height;
             let i1 = (i0 + 1) % self.width;
             let j1 = (j0 + 1) % self.height;
-
-            let tx = x - i0 as f32;
-            let ty = y - j0 as f32;
 
             let top = (1.0 - tx) * self.pixels[i0 + j0 * self.width]
                 + tx * self.pixels[i1 + j0 * self.width];
@@ -465,6 +466,110 @@ pub fn hdr_to_ldr(argv: &mut Parameter) -> Result<()> {
     Ok(())
 }
 
+// ==========================================
+// HDR from LDR
+// ==========================================
+
+impl HDR {
+    /// Converts a flat byte buffer of raw RGB pixel data into a [`Vec<Color>`].
+    ///
+    /// Each pixel is expected to occupy exactly 3 consecutive bytes in RGB order,
+    /// with each channel value in the range `[0, 255]`. The values are cast to
+    /// `f32` without any normalization — downstream callers are responsible for
+    /// applying gamma correction and tone mapping.
+    ///
+    /// # Arguments
+    /// * `vec` — Raw byte buffer, as returned by [`image::ImageBuffer::into_raw`].
+    /// * `width` — Image width in pixels.
+    /// * `height` — Image height in pixels.
+    ///
+    /// # Errors
+    /// Returns an error if `vec.len() != width * height * 3` or if `vec` is empty.
+    pub fn get_pixels_vector(vec: &[u8], width: usize, height: usize) -> Result<Vec<Color>> {
+        let num_pixels = width * height;
+        // Avoids creating the vector and mid-operation breaks, not essential
+        if vec.len() != num_pixels * 3 || vec.is_empty() {
+            return Err(anyhow!(
+                "get_pixels_vector(): vector length does not match! \
+             expected: {}, got: {}",
+                num_pixels * 3,
+                vec.len()
+            ));
+        }
+
+        let pixels = vec
+            .chunks_exact(3)
+            .map(|chunk| Color::new(chunk[0] as f32, chunk[1] as f32, chunk[2] as f32))
+            .collect();
+
+        Ok(pixels)
+    }
+
+    /// Loads a PNG or JPEG image from disk and converts it into an [`HDR`] image
+    /// by inverting the LDR pipeline.
+    ///
+    /// The conversion applies two successive per-pixel operations:
+    /// 1. **Inverse gamma correction** — decodes the gamma-encoded LDR values back
+    ///    to a linear light space (see [`Color::inverse_gamma_correction`]).
+    /// 2. **Inverse tone mapping** — recovers approximate HDR luminances by
+    ///    inverting the Reinhard operator (see [`Color::inverse_tone_mapping`]).
+    ///
+    /// # Arguments
+    /// * `path` — Path to the input LDR image (PNG or JPEG).
+    /// * `factor_a` — The exposure normalization factor assumed to have been used in the
+    ///   forward tone mapping. Must be strictly positive and greater than `1e-5`.
+    /// * `avr_lum` — The log-average luminance of the original HDR scene, used to
+    ///   undo the normalization step. Must be strictly positive and greater than `1e-5`.
+    /// * `gamma` — The gamma exponent assumed to have been used during LDR encoding.
+    ///   Must be strictly positive and greater than `1e-5`.
+    ///
+    /// # Errors
+    /// Returns an error if:
+    /// - `factor_a`, `avr_lum`, or `gamma` are negative or smaller than `1e-5`
+    /// - The file at `path` cannot be opened or decoded
+    /// - The decoded pixel buffer has an unexpected size
+    ///
+    /// # Notes
+    /// - The recovered HDR values are **approximate**: the inverse pipeline can only
+    ///   reconstruct the HDR image up to the precision of the LDR quantization.
+    /// - Very dark images (luminance near `0`) will not be recovered accurately, as
+    ///   the `1e-5` validation threshold may reject physically valid but extremely
+    ///   small parameter values.
+    /// - The function accepts any image format supported by the [`image`] crate.
+    pub fn load_from_ldr(path: &str, factor_a: f32, avr_lum: f32, gamma: f32) -> Result<Self> {
+        if factor_a < 0.0 || are_close(factor_a, 0.0) {
+            return Err(anyhow!(
+                "load_from_ldr: invalid `a` factor: {factor_a}\na must be positive"
+            ));
+        }
+        if avr_lum < 0.0 || are_close(avr_lum, 0.0) {
+            return Err(anyhow!(
+                "load_from_ldr: invalid `avr_lum` factor: {avr_lum}\navr_lum must be positive"
+            ));
+        }
+        if gamma < 0.0 || are_close(gamma, 0.0) {
+            return Err(anyhow!(
+                "load_from_ldr: invalid `gamma` parameter: {gamma}\ngamma must be positive"
+            ));
+        }
+
+        let img = image::open(path)?.into_rgb8();
+        let (width, height) = img.dimensions();
+        let (width, height) = (width as usize, height as usize);
+        let rgb: Vec<u8> = img.into_raw();
+        let mut pixels: Vec<Color> = HDR::get_pixels_vector(&rgb, width, height)?;
+        for pixel in &mut pixels {
+            pixel.inverse_gamma_correction(gamma);
+            pixel.inverse_tone_mapping(factor_a, avr_lum);
+        }
+
+        Ok(HDR {
+            width,
+            height,
+            pixels,
+        })
+    }
+}
 // =================================================================
 // Tests
 // =================================================================
@@ -617,7 +722,6 @@ mod test {
         let mut img1 = HDR::new(0, 0);
         assert!(img1.normalization(Some(&1.0)).is_err());
 
-        // MODIFICATO: Rimossi i match prolissi. Ora testiamo il risultato direttamente.
         let mut img = HDR::new(1, 4);
         let mut img1 = HDR::new(1, 4);
         let mut img2 = HDR::new(1, 4);
@@ -734,6 +838,44 @@ mod test {
     }
 
     #[test]
+    fn test_bilinear_interpolation_small_negative_v() {
+        let hdr_image = setup_test_rainbow();
+
+        let result = hdr_image
+            .bilinear_interpolation(&Vec2D::new(0.2, -1e-9))
+            .unwrap();
+        let expected = hdr_image
+            .bilinear_interpolation(&Vec2D::new(0.2, 0.0))
+            .unwrap();
+
+        assert!(
+            expected.is_close(&result),
+            "expected {:?}, got {:?}",
+            expected,
+            result
+        );
+    }
+
+    #[test]
+    fn test_bilinear_interpolation_small_negative_u() {
+        let hdr_image = setup_test_rainbow();
+
+        let result = hdr_image
+            .bilinear_interpolation(&Vec2D::new(-1e-9, 0.6))
+            .unwrap();
+        let expected = hdr_image
+            .bilinear_interpolation(&Vec2D::new(0.0, 0.6))
+            .unwrap();
+
+        assert!(
+            expected.is_close(&result),
+            "expected {:?}, got {:?}",
+            expected,
+            result
+        );
+    }
+
+    #[test]
     #[should_panic(expected = "bilinear_interpolation(): cannot interpolate an empty image")]
     fn test_bilinear_interpolation_fail() {
         let hdr_image = HDR::new(0, 0);
@@ -754,5 +896,86 @@ mod test {
         hdr_image
             .bilinear_interpolation(&Vec2D::new(0.3, 1.5))
             .unwrap();
+    }
+
+    #[test]
+    fn test_get_pixels_vector_success() {
+        let vec: Vec<u8> = vec![100, 0, 20, 32, 3, 9, 10, 11, 255];
+        let expected_vec = vec![
+            Color::new(100.0, 0.0, 20.0),
+            Color::new(32.0, 3.0, 9.0),
+            Color::new(10.0, 11.0, 255.0),
+        ];
+        let result_vec = HDR::get_pixels_vector(&vec, 3, 1).unwrap();
+        assert_eq!(
+            result_vec.len(),
+            3,
+            "Expected vec len: 3, vec len: {}",
+            result_vec.len()
+        );
+        for i in 0..3 {
+            assert!(
+                result_vec[i].is_close(&expected_vec[i]),
+                "index: {i}, result_color[i] = {:?}",
+                result_vec[i]
+            );
+        }
+    }
+
+    #[test]
+    #[should_panic(expected = "get_pixels_vector(): vector length does not match!")]
+    fn test_get_pixels_vector_fail1() {
+        let vec: Vec<u8> = vec![100, 0, 20, 32, 3, 9, 10, 11];
+        let _ = HDR::get_pixels_vector(&vec, 3, 1).unwrap();
+    }
+
+    #[test]
+    #[should_panic(expected = "get_pixels_vector(): vector length does not match!")]
+    fn test_get_pixels_vector_fail2() {
+        let vec: Vec<u8> = vec![];
+        let _ = HDR::get_pixels_vector(&vec, 3000, 10).unwrap();
+    }
+
+    #[test]
+    #[should_panic(expected = "get_pixels_vector(): vector length does not match!")]
+    fn test_get_pixels_vector_fail3() {
+        let vec: Vec<u8> = vec![1, 0, 1];
+        let _ = HDR::get_pixels_vector(&vec, 3000, 10).unwrap();
+    }
+
+    #[test]
+    #[should_panic(expected = "load_from_ldr: invalid `a` factor:")]
+    fn test_load_from_ldr_invalid_factor_a() {
+        let _ = HDR::load_from_ldr("tests/assets/pixar_ball.png", -10.0, 1.0, 1.0).unwrap();
+    }
+
+    #[test]
+    #[should_panic(expected = "load_from_ldr: invalid `a` factor:")]
+    fn test_load_from_ldr_invalid_factor_a_null() {
+        let _ = HDR::load_from_ldr("tests/assets/pixar_ball.png", 0.0000001, 1.0, 1.0).unwrap();
+    }
+
+    #[test]
+    #[should_panic(expected = "load_from_ldr: invalid `avr_lum` factor:")]
+    fn test_load_from_ldr_invalid_factor_lum() {
+        let _ = HDR::load_from_ldr("tests/assets/pixar_ball.png", 10.0, -1.0, 1.0).unwrap();
+    }
+
+    #[test]
+    #[should_panic(expected = "load_from_ldr: invalid `avr_lum` factor:")]
+    fn test_load_from_ldr_invalid_factor_lum_null() {
+        let _ = HDR::load_from_ldr("tests/assets/pixar_ball.png", 10.0, 0.0000001, 1.0).unwrap();
+    }
+
+    #[test]
+    #[should_panic(expected = "load_from_ldr: invalid `gamma` parameter:")]
+    fn test_load_from_ldr_invalid_factor_gamma_null() {
+        let _ = HDR::load_from_ldr("tests/assets/pixar_ball.png", 10.0, 0.1, 0.0).unwrap();
+    }
+
+    #[test]
+    #[should_panic(expected = "load_from_ldr: invalid `gamma` parameter:")]
+    fn test_load_from_ldr_invalid_factor_gamma() {
+        let _ = HDR::load_from_ldr("tests/assets/pixar_ball.png", 10.0, 0.1, -1.0).unwrap();
     }
 }

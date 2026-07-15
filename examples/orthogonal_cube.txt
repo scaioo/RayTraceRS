@@ -1,0 +1,27 @@
+# This picture wants to test a cube on a plane using whitted algorithm.
+material box_material(
+uniform(<0.5, 0.1, 0.0>),
+diffuse(),
+uniform(black)
+)
+
+box( box_material, point([1.0, -0.5, 0.0]), point([1.5, 0.5, 1.0]) )
+
+material floor_material(
+checkered(
+<0.3, 0.5, 0.1>,
+<0.1, 0.2, 0.5>,
+5
+),
+diffuse(),
+uniform(<0, 0, 0>)
+)
+
+plane(
+floor_material,
+scaling(2.2), True
+)
+
+point_light(point([-10, 10, 10]), white)
+
+camera(orthogonal, translation([0,0,-0.25]) * rotation_z(-15.0) * translation([0.5, 0, 1]) * rotation_y(15) , 0)

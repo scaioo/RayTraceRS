@@ -35,7 +35,7 @@ use std::io::{BufRead, BufReader, Read};
 use std::string::ToString;
 
 /// Byte order used in the PFM file.
-#[derive(Debug, PartialEq)]
+#[derive(Debug, PartialEq, Clone)]
 pub enum Endianness {
     /// Least significant byte first
     LittleEndian,
@@ -441,16 +441,9 @@ pub fn pfm_to_ldr(
     ];
 
     let mut params = Parameter::new(&args)?;
-
-    let file = File::open(&args[0]);
-    let mut reader: BufReader<File> = BufReader::new(file?);
-    let mut img = read_pfm(&mut reader)?;
-    img.normalization(Some(&factor_a))?;
-    img.sem_clamp_image()?;
     hdr_to_ldr(&mut params)?;
     Ok(())
 }
-
 #[cfg(test)]
 mod test {
     use crate::color::Color;

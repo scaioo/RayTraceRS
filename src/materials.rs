@@ -18,8 +18,53 @@
 //! `Material` itself generic.
 
 use crate::brdf::{BRDF, DiffusiveBrdf};
-use crate::color::BLACK;
+use crate::color::{BLACK, Color};
+use crate::geometry::Vec2D;
 use crate::pigments::{Pigment, UniformPigment};
+
+// ======================================================================
+// ClampPigment struct
+// ======================================================================
+
+/// A pigment wrapper that rescales out-of-range colors instead of rejecting them.
+///
+/// `get_color` divides each channel by the highest of the three whenever it
+/// exceeds `1.0` (see [`Color::rescale`](crate::color::Color::rescale)), so the
+/// wrapped pigment's hue is preserved but its reflectance is brought back
+/// into `[0,1]`.
+///
+/// Not used by [`Material::new`] or by the parser's default behavior — both
+/// reject out-of-range reflectance instead of silently altering it. This
+/// type exists for
+/// [`ReflectancePolicy::Rescale`](crate::parser::ReflectancePolicy::Rescale),
+/// which wraps the parsed pigment in a `ClampPigment` when the scene file's
+/// author has explicitly opted into rescaling.
+#[derive(Clone)]
+pub struct ClampPigment {
+    pub pigment: Box<dyn Pigment>,
+}
+
+impl ClampPigment {
+    /// Wraps `pigment` so its colors are rescaled into `[0,1]` on read.
+    pub fn new(pigment: Box<dyn Pigment>) -> Self {
+        Self { pigment }
+    }
+}
+
+impl Pigment for ClampPigment {
+    fn get_color(&self, uv: &Vec2D) -> anyhow::Result<Color> {
+        let mut color = self.pigment.get_color(uv)?;
+        color.rescale()?;
+        Ok(color)
+    }
+
+    /// Always `Ok`: `get_color` unconditionally rescales into `[0,1]`, so
+    /// the wrapped pigment's colors are always valid by construction,
+    /// regardless of what the wrapped pigment itself would report.
+    fn validate_reflectance(&self) -> anyhow::Result<()> {
+        Ok(())
+    }
+}
 
 // ======================================================================
 // Material struct
@@ -45,7 +90,7 @@ use crate::pigments::{Pigment, UniformPigment};
 
 #[derive(Clone)]
 pub struct Material {
-    /// Colour or texture of the surface, evaluated at UV coordinates.
+    /// Color or texture of the surface, evaluated at UV coordinates.
     pub pigment: Box<dyn Pigment>,
     /// Reflectance model: determines how incoming light scatters off the surface.
     pub brdf: Box<dyn BRDF>,
@@ -80,12 +125,13 @@ impl Material {
         pigment: impl Pigment + 'static,
         brdf: impl BRDF + 'static,
         emitted_radiance: impl Pigment + 'static,
-    ) -> Self {
-        Material {
+    ) -> anyhow::Result<Self> {
+        pigment.validate_reflectance()?;
+        Ok(Material {
             pigment: Box::new(pigment),
             brdf: Box::new(brdf),
             emitted_radiance: Box::new(emitted_radiance),
-        }
+        })
     }
 }
 impl Default for Material {
@@ -110,5 +156,92 @@ impl Default for Material {
             brdf: Box::new(DiffusiveBrdf::default()),
             emitted_radiance: Box::new(UniformPigment::new(BLACK)),
         }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::color::WHITE;
+    use crate::pigments::CheckeredPigment;
+
+    #[test]
+    fn test_material_clamped() {
+        let pigment =
+            CheckeredPigment::new(Color::new(1.0, 2.0, 3.0), Color::new(4.0, 5.0, 6.0), 2);
+        let brdf = DiffusiveBrdf {};
+        let emitted_radiance = UniformPigment::new(Color::new(1000.0, 2.0, 1.0));
+
+        let material = Material {
+            pigment: Box::new(ClampPigment::new(Box::new(pigment))),
+            brdf: Box::new(brdf),
+            emitted_radiance: Box::new(emitted_radiance),
+        };
+
+        let color = material.pigment.get_color(&Vec2D::new(0.25, 0.25)).unwrap();
+        let expected = Color::new(1.0 / 3.0, 2.0 / 3.0, 1.0);
+        assert!(
+            color.is_close(&expected),
+            "Pigment clamping assert failed:\ncolor: {:?}, expected: {:?}",
+            color,
+            expected
+        );
+
+        let color = material
+            .emitted_radiance
+            .get_color(&Vec2D::new(0.25, 0.25))
+            .unwrap();
+        let expected = Color::new(1000.0, 2.0, 1.0);
+        assert!(
+            color.is_close(&expected),
+            "Emissive assert failed:\ncolor: {:?}, expected: {:?}",
+            color,
+            expected
+        );
+    }
+
+    #[test]
+    fn test_clamp_pigment_ok() {
+        let pigment = Box::new(UniformPigment::default());
+        let clamp_pigment = ClampPigment::new(pigment);
+
+        let color = clamp_pigment.get_color(&Vec2D::new(0.0, 0.0)).unwrap();
+        assert!(
+            color.is_close(&WHITE),
+            "color: {:?}\n expected: {:?}",
+            color,
+            WHITE
+        );
+    }
+
+    #[test]
+    fn test_clamp_pigment_clamped() {
+        let pigment = UniformPigment::new(Color::new(10.0, 100.0, 1.0));
+        let clamp_pigment = ClampPigment::new(Box::new(pigment));
+
+        let color = clamp_pigment.get_color(&Vec2D::new(0.0, 0.0)).unwrap();
+        let expected = Color::new(10.0 / 100.0, 100.0 / 100.0, 1.0 / 100.0);
+        assert!(
+            color.is_close(&expected),
+            "color: {:?}\n expected: {:?}",
+            color,
+            expected
+        );
+    }
+
+    #[test]
+    fn test_material_constructor() {
+        let pigment = CheckeredPigment::new(Color::new(0.9, 0.01, 0.30), WHITE, 2);
+        let brdf = DiffusiveBrdf {};
+        let emitted_radiance = UniformPigment::new(Color::new(1000.0, 10.0, 0.0));
+        assert!(Material::new(pigment, brdf, emitted_radiance).is_ok());
+    }
+
+    #[test]
+    fn test_material_constructor_fail() {
+        let emitted_radiance = CheckeredPigment::new(Color::new(0.9, 0.01, 0.30), WHITE, 2);
+        let brdf = DiffusiveBrdf {};
+        let pigment = UniformPigment::new(Color::new(1000.0, 10.0, 0.0));
+        assert!(Material::new(pigment, brdf, emitted_radiance).is_err());
     }
 }

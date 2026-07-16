@@ -596,9 +596,6 @@ impl Shape for AABB {
 
 impl Volumetric for AABB {
     fn entry_exit_t(&self, ray: &Ray, is_subtracted: bool) -> Option<(f32, f32)> {
-    /// Computes the ray parameters at which the ray enters
-    /// and exits the box using the slab method.
-
         let tx1 = (self.p_min.x - ray.origin.x) / ray.dir.x;
         let tx2 = (self.p_max.x - ray.origin.x) / ray.dir.x;
         let ty1 = (self.p_min.y - ray.origin.y) / ray.dir.y;

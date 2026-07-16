@@ -95,16 +95,16 @@ pub fn ensure_image_extension(name: &str, format: &str) -> String {
 /// Returns an error if the parent directory cannot be created (e.g. a
 /// permission error or a path component that is an existing file).
 pub fn create_parent_dir(path: &str) -> Result<()> {
-    if let Some(parent) = std::path::Path::new(path).parent() {
-        if !parent.as_os_str().is_empty() {
-            std::fs::create_dir_all(parent).map_err(|e| {
-                anyhow!(
-                    "Could not create output directory {}: {}",
-                    parent.display(),
-                    e
-                )
-            })?;
-        }
+    if let Some(parent) = std::path::Path::new(path).parent()
+        && !parent.as_os_str().is_empty()
+    {
+        std::fs::create_dir_all(parent).map_err(|e| {
+            anyhow!(
+                "Could not create output directory {}: {}",
+                parent.display(),
+                e
+            )
+        })?;
     }
     Ok(())
 }

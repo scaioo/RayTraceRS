@@ -15,7 +15,7 @@ material ground_material(
 )
 
 material ball_material(
-    image("tests/assets/pixar_ball.png", 0.18, 1.0, 2.2),
+    image("assets/pixar_ball.png", 0.18, 1.0, 2.2),
     diffuse(),
     uniform(black)
 )

@@ -16,7 +16,7 @@ fn hdr_to_ldr_with_reference_be_pfm() -> anyhow::Result<()> {
     let output_path = dir.path().join("output.png");
 
     // 3. Copy the real PFM file into the temp directory
-    fs::copy("tests/assets/reference_be.pfm", &input_path)?;
+    fs::copy("assets/reference_be.pfm", &input_path)?;
 
     // 4. Build parameters
     let mut params = Parameter {

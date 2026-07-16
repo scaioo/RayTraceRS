@@ -1336,7 +1336,7 @@ mod test {
     fn test_parse_image_pigment_unknown_extension() {
         let text = r#"
         material ball(
-            image("tests/assets/texture.bmp"),
+            image("assets/texture.bmp"),
             diffuse(),
             uniform(<0, 0, 0>)
         )

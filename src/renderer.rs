@@ -567,18 +567,6 @@ mod tests {
         Ok(())
     }
 
-    fn give_sphere(point: Point, color: Color) -> Sphere<Translation> {
-        let material = Material {
-            pigment: Box::new(UniformPigment::new(color)),
-            brdf: Box::new(DiffusiveBrdf {}),
-            emitted_radiance: Box::new(UniformPigment::new(BLACK)),
-        };
-        Sphere {
-            transformation: Translation::new(point - Point::new(0.0, 0.0, 0.0)),
-            material,
-        }
-    }
-
     #[test]
     fn test_point_light_renderer_two_lights_no_overlap() {
         let material = Material::new(

@@ -553,7 +553,17 @@ impl HDR {
             ));
         }
 
-        let img = image::open(path)?.into_rgb8();
+        let img = match image::open(path) {
+            Ok(img) => img,
+            Err(e) => {
+                return Err(anyhow!(
+                    "load_from_ldr: could not open image file '{}': {}",
+                    path,
+                    e
+                ));
+            }
+        };
+        let img = img.into_rgb8();
         let (width, height) = img.dimensions();
         let (width, height) = (width as usize, height as usize);
         let rgb: Vec<u8> = img.into_raw();

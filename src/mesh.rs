@@ -166,7 +166,10 @@ impl SimpleMesh {
     where
         T: IsHomogeneousMatrix + Mul<Point, Output = Point>,
     {
-        let (models, _) = tobj::load_obj(path, &tobj::OFFLINE_RENDERING_LOAD_OPTIONS)?;
+        let (models, _) = match tobj::load_obj(path, &tobj::OFFLINE_RENDERING_LOAD_OPTIONS) {
+            Ok((a, b)) => (a, b),
+            Err(e) => return Err(anyhow!("Error loading OBJ file {:?}: {}", path, e)),
+        };
 
         let mut points: Vec<Point> = Vec::new();
         let mut index_triangles: Vec<IndexTriangle> = Vec::new();

@@ -214,7 +214,14 @@ fn _read_hdr<R: Read>(
 /// The function expects a well-formed PFM file. Validation is performed
 /// during parsing, and any inconsistency results in an error.
 pub fn read_pfm_file(filename: &str) -> anyhow::Result<HDR> {
-    let file = File::open(filename)?;
+    let file = match File::open(filename) {
+        Ok(file) => file,
+        Err(e) => {
+            return Err(anyhow!(
+                "read_pfm_file: could not open file '{filename}': {e}"
+            ));
+        }
+    };
     let reader = BufReader::new(file);
     read_pfm(reader)
 }

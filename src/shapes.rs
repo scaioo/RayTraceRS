@@ -1945,4 +1945,69 @@ mod tests {
             }
         }
     }
+
+    #[test]
+    fn test_cylinder_normal_at_1() {
+        let transformation = IDENTITY_TRANSFORMATION * YRotation::new(PI / 2.0);
+        let cyl = Cylinder::new(4.2, 2.0, transformation, Material::default());
+        let origin = Point::new(-5.0, 0.0, 0.0);
+        let dir = Vector::new(1.0, 0.0, 0.0);
+
+        let ray = Ray::new(origin, dir);
+        match cyl.ray_intersection(&ray) {
+            Some(hit) => {
+                let normal = cyl.normal_at(hit.world_point, &ray);
+                assert_eq!(normal.x, -1.0);
+                assert_eq!(normal.y, 0.0);
+                assert_eq!(normal.z, 0.0);
+            }
+            None => {
+                panic!("should intersect");
+            }
+        }
+
+    }
+
+    #[test]
+    fn test_cylinder_normal_at_2() {
+        let transformation = IDENTITY_TRANSFORMATION;
+        let cyl = Cylinder::new(4.2, 2.0, transformation, Material::default());
+        let origin = Point::new(-5.0, 0.0, 0.0);
+        let dir = Vector::new(1.0, 0.0, 0.0);
+
+        let ray = Ray::new(origin, dir);
+        match cyl.ray_intersection(&ray) {
+            Some(hit) => {
+                let normal = cyl.normal_at(hit.world_point, &ray);
+                assert_eq!(normal.x, -1.0);
+                assert_eq!(normal.y, 0.0);
+                assert_eq!(normal.z, 0.0);
+            }
+            None => {
+                panic!("should intersect");
+            }
+        }
+
+    }
+    #[test]
+    fn test_cylinder_normal_at_3() {
+        let transformation = IDENTITY_TRANSFORMATION;
+        let cyl = Cylinder::new(4.2, 2.0, transformation, Material::default());
+        let origin = Point::new(-5.0, 1.0, 0.0);
+        let dir = Vector::new(1.0, 0.0, 0.0);
+
+        let ray = Ray::new(origin, dir);
+        match cyl.ray_intersection(&ray) {
+            Some(hit) => {
+                let normal = cyl.normal_at(hit.world_point, &ray);
+                assert_eq!(normal.x, 0.0);
+                assert_eq!(normal.y, 1.0);
+                assert_eq!(normal.z, 0.0);
+            }
+            None => {
+                panic!("should intersect");
+            }
+        }
+
+    }
 }

@@ -711,7 +711,7 @@ impl Shape for Triangle {
 pub struct Cylinder<T: IsHomogeneousMatrix> {
     pub height: f32,
     pub diameter: f32,
-    pub transformation: Transformation,
+    pub transformation: T,
     pub material: Material,
 }
 
@@ -719,7 +719,7 @@ impl<T: IsHomogeneousMatrix> Cylinder<T>  {
     pub fn new(
         height: f32,
         diameter: f32,
-        transformation: Transformation,
+        transformation: T,
         material: Material,
     ) -> Self {
         Self {
@@ -736,7 +736,15 @@ impl<T: IsHomogeneousMatrix> Cylinder<T>  {
     }
 }
 
-impl<T> Shape for Cylinder<T> {
+impl<T> Shape for Cylinder<T>
+where
+    T: IsHomogeneousMatrix
+    + Mul<Ray, Output = Ray>
+    + Mul<Point, Output = Point>
+    + Mul<Normal, Output = Normal>
+    + Mul<Vector, Output = Vector>
+    + Copy
+    + 'static,{
     fn ray_intersection(&self, ray: &Ray) -> Option<HitRecord<'_>> {
         let transformed_ray = self.transform_ray(ray);
 
@@ -834,7 +842,16 @@ impl<T> Shape for Cylinder<T> {
     }
 }
 
-impl Volumetric for Cylinder {
+impl<T> Volumetric for Cylinder<T>
+where
+    T: IsHomogeneousMatrix
+    + Mul<Ray, Output = Ray>
+    + Mul<Point, Output = Point>
+    + Mul<Normal, Output = Normal>
+    + Mul<Vector, Output = Vector>
+    + Copy
+    + 'static,
+{
     fn entry_exit_t(&self, ray: &Ray) -> Option<(f32, f32)> {
         let transformed_ray = self.transform_ray(ray);
         let origin = transformed_ray.origin - Point::new(0.0, 0.0, 0.0);
@@ -842,26 +859,21 @@ impl Volumetric for Cylinder {
         let r = self.diameter * 0.5;
         let half_h = self.height * 0.5;
 
-        let ox = ray.origin.x;
-        let oy = ray.origin.y;
-        let oz = ray.origin.z;
+        let ox = transformed_ray.origin.x;
+        let oy = transformed_ray.origin.y;
+        let oz = transformed_ray.origin.z;
 
-        let dx = ray.dir.x;
-        let dy = ray.dir.y;
-        let dz = ray.dir.z;
+        let dx = transformed_ray.dir.x;
+        let dy = transformed_ray.dir.y;
+        let dz = transformed_ray.dir.z;
 
         let a = dx * dx + dy * dy;
-
-        // raggio parallelo all'asse del cilindro
-        if are_close(a.abs(), 0.0) {
-            return None;
-        }
 
         let b = 2.0 * (ox * dx + oy * dy);
 
         let c = ox * ox + oy * oy - r * r;
 
-        let delta = b * b - 4.0 * a * c;
+        let delta: f32 = b * b - 4.0 * a * c;
 
         if delta < 0.0 {
             return None;
@@ -871,6 +883,13 @@ impl Volumetric for Cylinder {
 
         let mut t0 = (-b - sqrt_delta) / (2.0 * a);
         let mut t1 = (-b + sqrt_delta) / (2.0 * a);
+
+        // ray parallel to the cylinder ax
+        if are_close(a.abs(), 0.0) {
+            t0 = half_h - oz;
+            t1 = -half_h - oz
+        }
+
 
         if t0 > t1 {
             std::mem::swap(&mut t0, &mut t1);
@@ -884,7 +903,7 @@ impl Volumetric for Cylinder {
         let mut hit_out = false;
 
         let mut z0 = oz + t0 * dz;
-        if z0 >= -half_h && z0 <= half_h {
+        if z0 > -half_h && z0 < half_h && !are_close(z0.abs(), half_h) {
             hits.push(t0);
             hit_in = true
         }

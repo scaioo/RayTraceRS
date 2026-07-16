@@ -848,9 +848,8 @@ where
         + Copy
         + 'static,
 {
-    fn entry_exit_t(&self, ray: &Ray) -> Option<(f32, f32)> {
+     fn entry_exit_t(&self, ray: &Ray) -> Option<(f32, f32)> {
         let transformed_ray = self.transform_ray(ray);
-        let origin = transformed_ray.origin - Point::new(0.0, 0.0, 0.0);
 
         let r = self.diameter * 0.5;
         let half_h = self.height * 0.5;
@@ -879,11 +878,22 @@ where
 
         let mut t0 = (-b - sqrt_delta) / (2.0 * a);
         let mut t1 = (-b + sqrt_delta) / (2.0 * a);
+         let mut hits = Vec::new();
 
-        // ray parallel to the cylinder ax
+         let mut hit_in = false;
+         let mut hit_out = false;
+
+        // ray parallel to the cylinder axis
         if are_close(a.abs(), 0.0) {
-            t0 = half_h - oz;
-            t1 = -half_h - oz
+            t0 = half_h - oz ;
+            hit_in = true;
+            t1 = -half_h - oz;
+            hit_out = true;
+            if t0 > t1 {
+                std::mem::swap(&mut t0, &mut t1);
+            }
+            hits.push(t0);
+            hits.push(t1);
         }
 
         if t0 > t1 {
@@ -892,10 +902,7 @@ where
 
         // check height
 
-        let mut hits = Vec::new();
 
-        let mut hit_in = false;
-        let mut hit_out = false;
 
         let mut z0 = oz + t0 * dz;
         if z0 > -half_h && z0 < half_h && !are_close(z0.abs(), half_h) {
@@ -950,11 +957,12 @@ where
 
 #[cfg(test)]
 mod tests {
+    use std::convert::identity;
     use super::*;
     use crate::brdf::DiffusiveBrdf;
     use crate::color::{Color, WHITE};
     use crate::functions::IDENTITY_4X4;
-    use crate::geometry::{X_AXIS, is_close};
+    use crate::geometry::{X_AXIS, is_close, Point};
     use crate::pcg::PCG;
     use crate::pigments::UniformPigment;
     use crate::transformations::{Scaling, Transformation, Translation};
@@ -1200,7 +1208,7 @@ mod tests {
 
     #[test]
     fn test_sphere_transform_ray_translate() {
-        let translation = Translation::new(Vector::new(10.0, -4.0, 0.0));
+        let translation = crate::transformations::Translation::new(Vector::new(10.0, -4.0, 0.0));
         let sphere = Sphere::new(translation, Material::default());
         let ray = Ray::new(Point::new(1.0, 2.0, 3.0), Vector::new(4.0, 5.0, 6.0));
         let transformed_ray = sphere.transform_ray(&ray);
@@ -1372,7 +1380,7 @@ mod tests {
             Point::new(1.0, 2.0, 1.0),
             Material::default(),
         )
-        .unwrap();
+            .unwrap();
         let p_min = Point::new(-1.0, 0.0, 1.0 - 1e-4);
         let p_max = Point::new(1.0, 2.0, 1.0 + 1e-4);
 
@@ -1736,4 +1744,150 @@ mod tests {
 
         Ok(())
     }
+
+    #[test]
+    fn test_cylinder_entry_exit_t_parallel() {
+        let transformation = Translation::new(Vector::new(0.0, 0.0, 0.0));
+        let cyl = Cylinder::new(4.0, 1.0, transformation, Material::default());
+        let origin = Point::new(0.0, 0.0, -5.0);
+        let dir = Vector::new(0.0, 0.0, 1.0);
+
+        let ray = Ray::new(origin, dir);
+        match cyl.entry_exit_t(&ray) {
+            Some((entry, exit)) => {
+                assert_eq!(entry, 3.0);
+                assert_eq!(exit, 7.0);
+            }
+            None => {
+                panic!("should have found intersections");
+            }
+        }
+    }
+
+    #[test]
+    fn test_cylinder_entry_exit_t_2() {
+        let transformation = Translation::new(Vector::new(0.0, 0.0, 0.0));
+        let cyl = Cylinder::new(4.0, 2.0, transformation, Material::default());
+        let origin = Point::new(-2.0, 0.0, 0.0);
+        let dir = Vector::new(1.0, 0.0, 0.0);
+
+        let ray = Ray::new(origin, dir);
+        match cyl.entry_exit_t(&ray) {
+            Some((entry, exit)) => {
+                assert_eq!(entry, 1.0);
+                assert_eq!(exit, 3.0);
+            }
+            None => {
+                panic!("should have found intersections");
+            }
+        }
+    }
+
+    #[test]
+    fn test_cylinder_entry_exit_t_3() {
+        let transformation = Translation::new(Vector::new(0.0, 0.0, 1.0));
+        let cyl = Cylinder::new(4.0, 2.0, transformation, Material::default());
+        let origin = Point::new(-2.0, 0.0, 0.0);
+        let dir = Vector::new(1.0, 0.0, 0.0);
+
+        let ray = Ray::new(origin, dir);
+        match cyl.entry_exit_t(&ray) {
+            Some((entry, exit)) => {
+                assert_eq!(entry, 1.0);
+                assert_eq!(exit, 3.0);
+            }
+            None => {
+                panic!("should have found intersections");
+            }
+        }
+    }
+
+    #[test]
+    fn test_cylinder_entry_exit_t_4() {
+        let transformation = Translation::new(Vector::new(0.0, 0.0, 0.0));
+        let cyl = Cylinder::new(4.0, 2.0, transformation, Material::default());
+        let origin = Point::new(-2.0, 0.0, 10.0);
+        let dir = Vector::new(1.0, 0.0, 0.0);
+
+        let ray = Ray::new(origin, dir);
+        match cyl.entry_exit_t(&ray) {
+            Some((entry, exit)) => {
+                panic!("the ray should not be intersecting the cylinder (it should pass over it)");
+            }
+            None => {}
+        }
+    }
+    #[test]
+    fn test_cylinder_entry_exit_t_5() {
+        let transformation = Translation::new(Vector::new(10.0, 0.0, 0.0));
+        let cyl = Cylinder::new(4.0, 2.0, transformation, Material::default());
+        let origin = Point::new(-2.0, 0.0, 0.0);
+        let dir = Vector::new(1.0, 0.0, 0.0);
+
+        let ray = Ray::new(origin, dir);
+        match cyl.entry_exit_t(&ray) {
+            Some((entry, exit)) => {
+                assert_eq!(entry, 11.0);
+                assert_eq!(exit, 13.0);
+            }
+            None => {
+                panic!("should have found intersections");
+            }
+        }
+    }
+    #[test]
+    fn test_cylinder_entry_exit_t_6() {
+        let transformation = Translation::new(Vector::new(10.0, 5.0, 0.0));
+        let cyl = Cylinder::new(4.0, 2.0, transformation, Material::default());
+        let origin = Point::new(-2.0, 0.0, 0.0);
+        let dir = Vector::new(1.0, 0.0, 0.0);
+
+        let ray = Ray::new(origin, dir);
+        match cyl.entry_exit_t(&ray) {
+            Some((_entry, _exit)) => {
+                panic!("should not intersect (y translation)")
+            }
+            None => {}
+        }
+    }
+
+    #[test]
+    fn test_cylinder_entry_exit_t_7() {
+        let transformation = Translation::new(Vector::new(10.0, 1.0, 0.0));
+        let cyl = Cylinder::new(4.0, 2.0, transformation, Material::default());
+        let origin = Point::new(-2.0, 0.0, 0.0);
+        let dir = Vector::new(1.0, 0.0, 0.0);
+
+        let ray = Ray::new(origin, dir);
+        match cyl.entry_exit_t(&ray) {
+            Some((entry, exit)) => {
+                assert_eq!(entry, 12.0);
+                assert_eq!(exit, 12.0);
+            }
+            None => {
+                panic!("should have found intersections");
+            }
+        }
+    }
+
+    #[test]
+    fn test_cylinder_entry_exit_t_8() {
+        let transformation = Translation::new(Vector::new(0.0, 0.0, 0.0));
+        let cyl = Cylinder::new(4.0, 2.0, transformation, Material::default());
+        let origin = Point::new(0.0, 0.0, 0.0);
+        let dir = Vector::new(0.0, 0.0, 1.0);
+
+        let ray = Ray::new(origin, dir);
+        match cyl.entry_exit_t(&ray) {
+            Some((entry, exit)) => {
+                assert_eq!(entry, -2.0);
+                assert_eq!(exit, 2.0);
+            }
+            None => {
+                panic!("should have found intersections");
+            }
+        }
+    }
+
+
 }

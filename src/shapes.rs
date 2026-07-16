@@ -27,7 +27,7 @@ use crate::geometry::{Cross, Dot, Normal, Point, Vec2D, Vector, X_AXIS, Y_AXIS, 
 use crate::hit_record::HitRecord;
 use crate::materials::Material;
 use crate::ray::Ray;
-use crate::transformations::{IsHomogeneousMatrix, Transformation};
+use crate::transformations::IsHomogeneousMatrix;
 use anyhow::{Result, anyhow};
 use std::ops::Mul;
 // ========================================================
@@ -848,7 +848,7 @@ where
         + Copy
         + 'static,
 {
-     fn entry_exit_t(&self, ray: &Ray) -> Option<(f32, f32)> {
+    fn entry_exit_t(&self, ray: &Ray) -> Option<(f32, f32)> {
         let transformed_ray = self.transform_ray(ray);
 
         let r = self.diameter * 0.5;
@@ -878,14 +878,14 @@ where
 
         let mut t0 = (-b - sqrt_delta) / (2.0 * a);
         let mut t1 = (-b + sqrt_delta) / (2.0 * a);
-         let mut hits = Vec::new();
+        let mut hits = Vec::new();
 
-         let mut hit_in = false;
-         let mut hit_out = false;
+        let mut hit_in = false;
+        let mut hit_out = false;
 
         // ray parallel to the cylinder axis
         if are_close(a.abs(), 0.0) {
-            t0 = half_h - oz ;
+            t0 = half_h - oz;
             hit_in = true;
             t1 = -half_h - oz;
             hit_out = true;
@@ -902,9 +902,7 @@ where
 
         // check height
 
-
-
-        let mut z0 = oz + t0 * dz;
+        let z0 = oz + t0 * dz;
         if z0 > -half_h && z0 < half_h && !are_close(z0.abs(), half_h) {
             hits.push(t0);
             hit_in = true
@@ -957,15 +955,17 @@ where
 
 #[cfg(test)]
 mod tests {
-    use std::convert::identity;
     use super::*;
     use crate::brdf::DiffusiveBrdf;
     use crate::color::{Color, WHITE};
     use crate::functions::IDENTITY_4X4;
-    use crate::geometry::{X_AXIS, is_close, Point};
+    use crate::geometry::{Point, X_AXIS, is_close};
     use crate::pcg::PCG;
     use crate::pigments::UniformPigment;
-    use crate::transformations::{Scaling, Transformation, Translation};
+    use crate::transformations::{
+        IDENTITY_TRANSFORMATION, Scaling, Transformation, Translation, YRotation,
+    };
+    use std::f32::consts::PI;
 
     // ============================================================================
     // SPHERE TESTS
@@ -1380,7 +1380,7 @@ mod tests {
             Point::new(1.0, 2.0, 1.0),
             Material::default(),
         )
-            .unwrap();
+        .unwrap();
         let p_min = Point::new(-1.0, 0.0, 1.0 - 1e-4);
         let p_max = Point::new(1.0, 2.0, 1.0 + 1e-4);
 
@@ -1889,5 +1889,60 @@ mod tests {
         }
     }
 
+    #[test]
+    fn test_cylinder_ray_intersection_1() {
+        let transformation = Translation::new(Vector::new(10.0, 10.0, 0.0));
+        let cyl = Cylinder::new(4.0, 2.0, transformation, Material::default());
+        let origin = Point::new(-2.0, 0.0, 0.0);
+        let dir = Vector::new(1.0, 0.0, 0.0);
 
+        let ray = Ray::new(origin, dir);
+        match cyl.ray_intersection(&ray) {
+            Some(hit) => {
+                panic!("should not intersect");
+            }
+            None => {}
+        }
+    }
+    #[test]
+    fn test_cylinder_ray_intersection_2() {
+        let transformation = IDENTITY_TRANSFORMATION;
+        let cyl = Cylinder::new(4.2, 2.0, transformation, Material::default());
+        let origin = Point::new(0.5, 0.6, -5.0);
+        let dir = Vector::new(0.0, 0.0, 1.0);
+
+        let ray = Ray::new(origin, dir);
+        match cyl.ray_intersection(&ray) {
+            Some(hit) => {
+                assert_eq!(hit.t, 2.9);
+                assert_eq!(hit.world_point.x, 0.5);
+                assert_eq!(hit.world_point.y, 0.6);
+                assert_eq!(hit.world_point.z, -2.1);
+            }
+            None => {
+                panic!("should intersect");
+            }
+        }
+    }
+
+    #[test]
+    fn test_cylinder_ray_intersection_3() {
+        let transformation = IDENTITY_TRANSFORMATION * YRotation::new(PI / 2.0);
+        let cyl = Cylinder::new(4.2, 2.0, transformation, Material::default());
+        let origin = Point::new(-5.0, 0.6, 0.5);
+        let dir = Vector::new(1.0, 0.0, 0.0);
+
+        let ray = Ray::new(origin, dir);
+        match cyl.ray_intersection(&ray) {
+            Some(hit) => {
+                assert_eq!(hit.t, 2.9);
+                assert_eq!(hit.world_point.x, -2.1);
+                assert_eq!(hit.world_point.y, 0.6);
+                assert_eq!(hit.world_point.z, 0.5);
+            }
+            None => {
+                panic!("should intersect");
+            }
+        }
+    }
 }

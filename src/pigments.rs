@@ -52,6 +52,7 @@ use anyhow::{Result, anyhow};
 /// You never need to implement this manually. The blanket `impl` below
 /// provides it automatically for any type that implements `Pigment + Clone`.
 pub trait ClonePigment {
+    /// Clones `self` into a new boxed [`Pigment`] trait object.
     fn clone_pigment(&self) -> Box<dyn Pigment>;
 }
 
@@ -108,6 +109,7 @@ impl Clone for Box<dyn Pigment> {
 /// A pigment that returns the same color for every UV coordinate.
 #[derive(Clone, Debug, PartialEq)]
 pub struct UniformPigment {
+    /// The constant color returned for every UV coordinate.
     pub color: Color,
 }
 impl UniformPigment {
@@ -149,8 +151,11 @@ impl Pigment for UniformPigment {
 /// `steps × steps` cells alternating between two colors.
 #[derive(Clone, Debug, PartialEq)]
 pub struct CheckeredPigment {
+    /// Color of the even cells.
     pub color1: Color,
+    /// Color of the odd cells.
     pub color2: Color,
+    /// Number of cells per axis over the UV domain.
     pub steps: u32,
 }
 impl CheckeredPigment {
@@ -204,6 +209,7 @@ impl Pigment for CheckeredPigment {
 /// in normalized UV coordinates.
 #[derive(Clone, Debug, PartialEq)]
 pub struct ImagePigment {
+    /// The HDR texture sampled by this pigment.
     pub image: HDR,
 }
 impl ImagePigment {
@@ -256,7 +262,9 @@ impl Pigment for ImagePigment {
 /// saturate to the nearest endpoint (`color1` or `color2`).
 #[derive(Clone, Debug, PartialEq)]
 pub struct GradientPigment {
+    /// Color at the start of the gradient (smallest projection).
     pub color1: Color,
+    /// Color at the end of the gradient (largest projection).
     pub color2: Color,
     /// Rotation angle of the gradient axis, in radians.
     pub angle: f32,

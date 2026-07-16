@@ -90,6 +90,10 @@ pub fn ensure_image_extension(name: &str, format: &str) -> String {
 
 /// Creates the parent directory of `path` (and any missing ancestors).
 /// A bare filename with no parent is left untouched.
+///
+/// # Errors
+/// Returns an error if the parent directory cannot be created (e.g. a
+/// permission error or a path component that is an existing file).
 pub fn create_parent_dir(path: &str) -> Result<()> {
     if let Some(parent) = std::path::Path::new(path).parent() {
         if !parent.as_os_str().is_empty() {

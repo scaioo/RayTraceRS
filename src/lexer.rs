@@ -29,6 +29,7 @@ pub struct SourceLocation {
 }
 
 impl SourceLocation {
+    /// Creates a source location from a file index, line number, and column number.
     pub fn new(file_index: usize, line_number: usize, col_number: usize) -> Self {
         Self {
             file_index,
@@ -66,6 +67,10 @@ pub struct InputStream<B: BufRead> {
 }
 
 impl<B: BufRead> InputStream<B> {
+    /// Creates an input stream over `stream`, starting at line 1, column 0 of
+    /// the file identified by `file_index`.
+    ///
+    /// `tabulation` is the number of columns a `\t` character advances.
     pub fn new(stream: B, file_index: usize, tabulation: usize) -> Self {
         // Might change saved_location definition: it depends on the usage of this struct.
         Self {
@@ -111,7 +116,7 @@ impl<B: BufRead> InputStream<B> {
     ///
     /// If a character was pushed back via [`unread_char`](Self::unread_char),
     /// that character is returned without consuming the underlying stream.
-    /// Updates [`source_location`] after each read from the stream.
+    /// Updates [`source_location`](Self::source_location) after each read from the stream.
     ///
     /// Returns `Ok(None)` at end of file.
     ///
@@ -269,6 +274,10 @@ impl<B: BufRead> InputStream<B> {
     /// otherwise.
     ///
     /// `loc` is the position of the first character of the token.
+    ///
+    /// # Errors
+    /// Propagates I/O errors from reading the identifier off the stream (see
+    /// [`read_identifier`](Self::read_identifier)).
     pub fn parse_identifier_token(
         &mut self,
         ch: char,
@@ -368,6 +377,10 @@ impl<B: BufRead> InputStream<B> {
     }
 
     /// Saves a token that has just been read so that it can be returned on the next call
+    ///
+    /// # Errors
+    /// Returns an error if a token is already saved (only one token of lookahead
+    /// is supported).
     pub fn unread_token(&mut self, token: Token) -> anyhow::Result<()> {
         if self.saved_token.is_none() {
             self.saved_token = Some(token);
@@ -467,34 +480,64 @@ pub struct Token {
 /// object types, materials, transformations, and cameras.
 #[derive(Debug, PartialEq, Copy, Clone)]
 pub enum Keyword {
+    /// `new`: introduces the construction of an object.
     New,
+    /// `material`: declares a surface material.
     Material,
+    /// `plane`: an infinite plane shape.
     Plane,
+    /// `sphere`: a sphere shape (a unit sphere in object space, reshaped by its
+    /// transformation — e.g. a non-uniform `scaling` turns it into an ellipsoid).
     Sphere,
+    /// `box`: an axis-aligned parallelepiped shape.
     Box,
+    /// `simple_mesh`: a triangle mesh loaded from an external `.obj` file.
     SimpleMesh,
+    /// `diffuse`: a diffuse BRDF.
     Diffuse,
+    /// `specular`: a specular BRDF.
     Specular,
+    /// `uniform`: a single-color pigment.
     Uniform,
+    /// `checkered`: a two-color checkerboard pigment.
     Checkered,
+    /// `image`: a pigment sampled from an image texture.
     Image,
+    /// `gradient`: a pigment interpolating between two colors.
     Gradient,
+    /// `identity`: the identity transformation.
     Identity,
+    /// `translation`: a translation transformation.
     Translation,
+    /// `rotation_x`: a rotation about the X axis.
     RotationX,
+    /// `rotation_y`: a rotation about the Y axis.
     RotationY,
+    /// `rotation_z`: a rotation about the Z axis.
     RotationZ,
+    /// `scaling`: a scaling transformation.
     Scaling,
+    /// `camera`: declares the observer camera.
     Camera,
+    /// `orthogonal`: an orthographic projection camera.
     Orthogonal,
+    /// `perspective`: a perspective projection camera.
     Perspective,
+    /// `float`: declares a named floating-point variable.
     Float,
+    /// `point`: a point literal in 3D space.
     Point,
+    /// `point_light`: a point light source.
     PtLightSource,
+    /// `spherical_light`: a spherical area light source.
     SphLightSource,
+    /// `true`: the boolean literal true.
     True,
+    /// `false`: the boolean literal false.
     False,
+    /// `black`: the color constant black.
     Black,
+    /// `white`: the color constant white.
     White,
 }
 

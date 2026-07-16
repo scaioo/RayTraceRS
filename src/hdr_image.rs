@@ -62,8 +62,11 @@ use image::{Rgb, RgbImage};
 /// ```
 #[derive(Clone, Debug, PartialEq)]
 pub struct HDR {
+    /// Image width in pixels.
     pub width: usize,
+    /// Image height in pixels.
     pub height: usize,
+    /// Flat, row-major vector of RGB colors (`index = x + y * width`).
     pub pixels: Vec<Color>,
 }
 

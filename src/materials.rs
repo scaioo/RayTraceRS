@@ -41,6 +41,7 @@ use crate::pigments::{Pigment, UniformPigment};
 /// author has explicitly opted into rescaling.
 #[derive(Clone)]
 pub struct ClampPigment {
+    /// The wrapped pigment whose colors are rescaled into `[0,1]` on read.
     pub pigment: Box<dyn Pigment>,
 }
 
@@ -86,7 +87,7 @@ impl Pigment for ClampPigment {
 /// This field reuses the [`Pigment`] trait as a convenient UV-indexed colour
 /// source. It does not represent the same physical quantity as `pigment`:
 /// it is the spectral radiance emitted by the surface regardless of incoming
-/// illumination. Use [`UniformPigment::new(BLACK)`] for non-luminous surfaces.
+/// illumination. Use [`UniformPigment::new`]`(BLACK)` for non-luminous surfaces.
 
 #[derive(Clone)]
 pub struct Material {
@@ -121,6 +122,11 @@ impl Material {
     /// );
     /// ```
     ///
+    /// # Errors
+    /// Returns an error if `pigment`'s reflectance is not physically valid, i.e.
+    /// any channel falls outside `[0,1]` (see
+    /// [`validate_reflectance`](crate::pigments::Pigment::validate_reflectance)).
+    /// `emitted_radiance` is not checked.
     pub fn new(
         pigment: impl Pigment + 'static,
         brdf: impl BRDF + 'static,

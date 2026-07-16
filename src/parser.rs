@@ -3,14 +3,14 @@
 //! Parser for the raytracer scene description language.
 //!
 //! Consumes the [`Token`](crate::lexer::Token)s produced by
-//! [`InputStream`](crate::lexer::InputStream) and builds a [`Scene`]: a fully
+//! [`InputStream`] and builds a [`Scene`]: a fully
 //! resolved description of the 3D world (shapes, materials, light sources) and
 //! the camera, ready to be handed to a [`Renderer`](crate::renderer::Renderer).
 //!
 //! # Grammar overview
 //!
 //! A scene file is a sequence of zero or more top-level statements, read until
-//! [`TokenKind::StopToken`](crate::lexer::TokenKind::StopToken):
+//! [`TokenKind::StopToken`]:
 //!
 //! ```text
 //! scene           ::= statement*
@@ -210,6 +210,10 @@ pub enum ReflectancePolicy {
 // ==========================================
 
 /// Expects to find a specific symbol  (ex. '[', '<', ',').
+///
+/// # Errors
+/// Returns an error if the next token is not the expected symbol, or if reading
+/// the token fails.
 pub fn expect_symbol<B: BufRead>(stream: &mut InputStream<B>, symbol: char) -> Result<()> {
     let token = stream.read_token()?;
     match token.kind {
@@ -226,6 +230,10 @@ pub fn expect_symbol<B: BufRead>(stream: &mut InputStream<B>, symbol: char) -> R
 
 /// Expects to find one of the keywords provided in the array.
 /// Returns the keyword that was actually found.
+///
+/// # Errors
+/// Returns an error if the next token is not a keyword, or is a keyword not
+/// listed in `keywords`, or if reading the token fails.
 pub fn expect_keywords<B: BufRead>(
     stream: &mut InputStream<B>,
     keywords: &[Keyword],
@@ -256,6 +264,10 @@ pub fn expect_keywords<B: BufRead>(
 
 /// Expects to find a number and extracts its f32 value.
 /// If it finds an identifier, it looks up its value in `scene.float_variables`.
+///
+/// # Errors
+/// Returns an error if the next token is neither a number literal nor an
+/// identifier bound in `scene.float_variables`, or if reading the token fails.
 pub fn expect_number<B: BufRead>(stream: &mut InputStream<B>, scene: &Scene) -> Result<f32> {
     let token = stream.read_token()?;
     match token.kind {
@@ -287,6 +299,10 @@ pub fn expect_number<B: BufRead>(stream: &mut InputStream<B>, scene: &Scene) -> 
 }
 
 /// It expects to find a string enclosed in quotation marks and extracts its content.
+///
+/// # Errors
+/// Returns an error if the next token is not a string literal, or if reading
+/// the token fails.
 pub fn expect_string<B: BufRead>(stream: &mut InputStream<B>) -> Result<String> {
     let token = stream.read_token()?;
     match token.kind {
@@ -301,6 +317,10 @@ pub fn expect_string<B: BufRead>(stream: &mut InputStream<B>) -> Result<String> 
 }
 
 /// It expects to find an identifier (e.g. a name given to a material) and extracts it.
+///
+/// # Errors
+/// Returns an error if the next token is not an identifier, or if reading the
+/// token fails.
 pub fn expect_identifier<B: BufRead>(stream: &mut InputStream<B>) -> Result<String> {
     let token = stream.read_token()?;
     match token.kind {
@@ -318,6 +338,10 @@ pub fn expect_identifier<B: BufRead>(stream: &mut InputStream<B>) -> Result<Stri
 // PARSER FUNCTIONS
 // ==========================================
 /// Parses a vector in the format `[x, y, z]`
+///
+/// # Errors
+/// Returns an error if the tokens do not match `[x, y, z]` with numeric
+/// components, or if a variable used as a component is undefined.
 pub fn parse_vector<B: BufRead>(stream: &mut InputStream<B>, scene: &Scene) -> Result<Vector> {
     expect_symbol(stream, '[')?;
     let x = expect_number(stream, scene)?;
@@ -336,6 +360,10 @@ pub fn parse_vector<B: BufRead>(stream: &mut InputStream<B>, scene: &Scene) -> R
 /// - `<r, g, b>`
 /// - `black`
 /// - `white`
+///
+/// # Errors
+/// Returns an error if the tokens do not match one of the supported color
+/// formats, or if a variable used as a component is undefined.
 pub fn parse_color<B: BufRead>(stream: &mut InputStream<B>, scene: &Scene) -> Result<Color> {
     let token = stream.read_token()?;
     match token.kind {
@@ -361,6 +389,10 @@ pub fn parse_color<B: BufRead>(stream: &mut InputStream<B>, scene: &Scene) -> Re
 }
 
 /// Parses a point in the format `point([x, y, z])`.
+///
+/// # Errors
+/// Returns an error if the tokens do not match `([x, y, z])`, or if a variable
+/// used as a component is undefined.
 pub fn parse_point<B: BufRead>(stream: &mut InputStream<B>, scene: &Scene) -> Result<Point> {
     expect_symbol(stream, '(')?;
     let v = parse_vector(stream, scene)?;
@@ -378,6 +410,11 @@ pub fn parse_point<B: BufRead>(stream: &mut InputStream<B>, scene: &Scene) -> Re
 ///   approximate HDR image from it via [`HDR::load_from_ldr`]. The file extension
 ///   determines which form is required.
 /// - gradient
+///
+/// # Errors
+/// Returns an error if the pigment keyword or its arguments are malformed, if an
+/// image's extension is unsupported or its argument form (bare vs. LDR
+/// parameters) is wrong, or if the referenced texture file cannot be read.
 pub fn parse_pigment<B: BufRead>(
     stream: &mut InputStream<B>,
     scene: &Scene,
@@ -473,6 +510,9 @@ pub fn parse_pigment<B: BufRead>(
 }
 
 /// Parses a BRDF. Supports diffuse and specular.
+///
+/// # Errors
+/// Returns an error if the BRDF keyword or its parentheses are malformed.
 pub fn parse_brdf<B: BufRead>(stream: &mut InputStream<B>) -> Result<Box<dyn BRDF>> {
     let keyword = expect_keywords(stream, &[Keyword::Diffuse, Keyword::Specular])?;
     expect_symbol(stream, '(')?;
@@ -495,6 +535,11 @@ pub fn parse_brdf<B: BufRead>(stream: &mut InputStream<B>) -> Result<Box<dyn BRD
 /// `policy` controls what happens if `base_pigment` has a reflectance
 /// channel outside `[0,1]`; see [`ReflectancePolicy`]. `emitted_radiance`
 /// is never checked, regardless of `policy`.
+///
+/// # Errors
+/// Returns an error if the syntax is malformed, or — under
+/// [`ReflectancePolicy::Reject`] — if `base_pigment` has a reflectance channel
+/// outside `[0,1]`.
 pub fn parse_material<B: BufRead>(
     stream: &mut InputStream<B>,
     scene: &Scene,
@@ -552,6 +597,10 @@ pub fn parse_material<B: BufRead>(
 /// Supported transformations include identity, translation,
 /// rotations about the principal axes, and uniform or non-uniform
 /// scaling.
+///
+/// # Errors
+/// Returns an error if a transformation keyword or its arguments are malformed,
+/// or if a variable used as an argument is undefined.
 pub fn parse_transformation<B: BufRead>(
     stream: &mut InputStream<B>,
     scene: &Scene,
@@ -639,6 +688,10 @@ pub fn parse_transformation<B: BufRead>(
 }
 
 /// Parses a sphere: `sphere(material_name, transformation)`
+///
+/// # Errors
+/// Returns an error if the syntax is malformed or `material_name` is not defined
+/// in the scene.
 pub fn parse_sphere<B: BufRead>(
     stream: &mut InputStream<B>,
     scene: &Scene,
@@ -664,6 +717,10 @@ pub fn parse_sphere<B: BufRead>(
 ///
 /// Expected syntax:
 /// `plane(material_name, transformation[, procedural_texture])`
+///
+/// # Errors
+/// Returns an error if the syntax is malformed or `material_name` is not defined
+/// in the scene.
 pub fn parse_plane<B: BufRead>(
     stream: &mut InputStream<B>,
     scene: &Scene,
@@ -705,6 +762,10 @@ pub fn parse_plane<B: BufRead>(
 ///
 /// Expected syntax:
 /// `box(material_name, point(min), point(max))`
+///
+/// # Errors
+/// Returns an error if the syntax is malformed, `material_name` is not defined,
+/// or the two corner points do not form a valid box (see [`AABB::new`]).
 pub fn parse_box<B: BufRead>(stream: &mut InputStream<B>, scene: &Scene) -> Result<AABB> {
     expect_symbol(stream, '(')?;
     let material_name = expect_identifier(stream)?;
@@ -728,6 +789,10 @@ pub fn parse_box<B: BufRead>(stream: &mut InputStream<B>, scene: &Scene) -> Resu
 ///
 /// Expected syntax:
 /// `simple_mesh(material_name, "path/to/file.obj", transformation)`
+///
+/// # Errors
+/// Returns an error if the syntax is malformed, `material_name` is not defined,
+/// or the OBJ file cannot be loaded (see [`SimpleMesh::from_obj`]).
 pub fn parse_simple_mesh<B: BufRead>(
     stream: &mut InputStream<B>,
     scene: &Scene,
@@ -751,6 +816,10 @@ pub fn parse_simple_mesh<B: BufRead>(
 ///
 /// Expected syntax:
 /// `point_light(point(position), color)`
+///
+/// # Errors
+/// Returns an error if the syntax is malformed or a variable used as an
+/// argument is undefined.
 pub fn parse_point_light<B: BufRead>(
     stream: &mut InputStream<B>,
     scene: &Scene,
@@ -768,6 +837,10 @@ pub fn parse_point_light<B: BufRead>(
 ///
 /// Expected syntax:
 /// `spherical_light(point(position), radius, color, samples)`
+///
+/// # Errors
+/// Returns an error if the syntax is malformed or a variable used as an
+/// argument is undefined.
 pub fn parse_spherical_light<B: BufRead>(
     stream: &mut InputStream<B>,
     scene: &Scene,
@@ -789,6 +862,10 @@ pub fn parse_spherical_light<B: BufRead>(
 ///
 /// Expected syntax:
 /// `camera(camera_type, transformation, distance)`
+///
+/// # Errors
+/// Returns an error if the syntax is malformed, `distance` is negative, or a
+/// variable used as an argument is undefined.
 pub fn parse_camera<B: BufRead>(
     stream: &mut InputStream<B>,
     scene: &Scene,
@@ -833,6 +910,11 @@ pub fn parse_camera<B: BufRead>(
 /// a material whose pigment has a reflectance channel outside `[0,1]` makes
 /// parsing fail. Use [`parse_scene_with_policy`] directly to accept or
 /// rescale such materials instead.
+///
+/// # Errors
+/// Returns an error if the input is not valid scene syntax, if a referenced
+/// asset (texture or mesh) cannot be loaded, or if a material's pigment
+/// reflectance falls outside `[0,1]` (see [`ReflectancePolicy::Reject`]).
 pub fn parse_scene<B: BufRead>(
     stream: &mut InputStream<B>,
     initial_variables: HashMap<String, f32>,
@@ -842,6 +924,12 @@ pub fn parse_scene<B: BufRead>(
 
 /// Like [`parse_scene`], but lets the caller choose how out-of-range pigment
 /// reflectance is handled via `policy` (see [`ReflectancePolicy`]).
+///
+/// # Errors
+/// Returns an error if the input is not valid scene syntax, if a referenced
+/// asset (texture or mesh) cannot be loaded, or if `policy` is
+/// [`ReflectancePolicy::Reject`] and a pigment's reflectance falls outside
+/// `[0,1]`.
 pub fn parse_scene_with_policy<B: BufRead>(
     stream: &mut InputStream<B>,
     initial_variables: HashMap<String, f32>,

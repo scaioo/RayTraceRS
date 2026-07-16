@@ -15,7 +15,9 @@ use std::ops::Add;
 /// A `World` is a collection of scene objects.
 #[derive(Clone)]
 pub struct World {
+    /// The renderable shapes composing the scene.
     pub objects: Vec<Box<dyn Shape>>,
+    /// The light sources used for direct illumination.
     pub light_sources: Vec<Box<dyn LightSource>>,
 }
 

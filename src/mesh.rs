@@ -71,7 +71,7 @@ impl IndexTriangle {
 ///
 /// ## Note on transformations
 ///
-/// Unlike [`Sphere`] and [`Plane`], `SimpleMesh` is not generic over a transformation.
+/// Unlike [`Sphere`](crate::shapes::Sphere) and [`Plane`](crate::shapes::Plane), `SimpleMesh` is not generic over a transformation.
 /// Pass a transformation to [`SimpleMesh::from_obj`]; it is applied to every vertex once
 /// during loading. For meshes constructed directly via [`SimpleMesh::new`], pre-transform
 /// the points before passing them in.

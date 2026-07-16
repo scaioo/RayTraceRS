@@ -127,8 +127,8 @@ impl Within for f32 {
 /// Converts an endianness value into a numeric representation.
 ///
 /// Returns:
-/// - `-1.0` for [`ByteOrder::LittleEndian`]
-/// - `+1.0` for [`ByteOrder::BigEndian`]
+/// - `-1.0` for [`Endianness::LittleEndian`]
+/// - `+1.0` for [`Endianness::BigEndian`]
 ///
 /// # Examples
 /// ```rust,no_run

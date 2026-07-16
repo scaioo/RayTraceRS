@@ -145,6 +145,7 @@ impl PCG {
         self.random() as f32 / (u32::MAX as f32 + 1.0)
     }
 
+    /// Returns a vector of `len` random floats in `[0, 1)`.
     pub fn n_random_floats(&mut self, len: usize) -> Vec<f32> {
         let mut v: Vec<f32> = vec![];
         for _ in 0..len {

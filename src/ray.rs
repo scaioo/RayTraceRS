@@ -40,10 +40,15 @@ use std::ops::Mul;
 /// - `depth`: number of recursive bounces already performed
 #[derive(Copy, Clone, Debug, PartialEq)]
 pub struct Ray {
+    /// The point where the light originates.
     pub origin: Point,
+    /// The direction of propagation.
     pub dir: Vector,
+    /// Maximum value of the distance parameter `t`.
     pub t_max: f32,
+    /// Minimum value of the distance parameter `t`.
     pub t_min: f32,
+    /// Number of recursive bounces already performed.
     pub depth: usize,
 }
 

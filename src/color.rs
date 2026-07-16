@@ -22,8 +22,11 @@ use std::ops::{Add, AddAssign, Div, Mul};
 /// may be outside the physically meaningful range.
 #[derive(Copy, Clone, Debug, PartialEq)]
 pub struct Color {
+    /// Red channel.
     pub r: f32,
+    /// Green channel.
     pub g: f32,
+    /// Blue channel.
     pub b: f32,
 }
 
@@ -199,14 +202,14 @@ impl Color {
     ///
     /// # Arguments
     /// * `gamma` — The gamma exponent used during the original encoding (typically `2.2`).
-    ///   Must be positive; validation is delegated to the caller ([`HDR::load_from_ldr`]).
+    ///   Must be positive; validation is delegated to the caller ([`HDR::load_from_ldr`](crate::hdr_image::HDR::load_from_ldr)).
     ///
     /// # Notes
     /// - The input channel values are assumed to be in the range `[0, 255]` (raw `u8`
     ///   cast to `f32`).
     /// - The divisor is `256.0` rather than `255.0`: this keeps pure white (`255`)
     ///   slightly below `1.0`, which avoids a division by zero in the subsequent
-    ///   [`inverse_tone_mapping`] step (where `1 - c` appears in the denominator).
+    ///   [`inverse_tone_mapping`](Self::inverse_tone_mapping) step (where `1 - c` appears in the denominator).
     ///   As a result, white is recovered as `≈ 0.996` rather than exactly `1.0`.
     pub fn inverse_gamma_correction(&mut self, gamma: f32) {
         // Validation must be done when application
@@ -235,7 +238,7 @@ impl Color {
     /// - Channel values must lie strictly in `(0, 1)` before this step. Values at
     ///   exactly `0` produce `0.0` (safe); values at exactly `1` produce a division
     ///   by zero (`inf`). In practice this is avoided by using `256.0` instead of
-    ///   `255.0` in [`inverse_gamma_correction`], which keeps `c_ldr < 1`.
+    ///   `255.0` in [`inverse_gamma_correction`](Self::inverse_gamma_correction), which keeps `c_ldr < 1`.
     /// - Validation of `factor_a` and `avr_lum` is the responsibility of the calling function.
     pub fn inverse_tone_mapping(&mut self, factor_a: f32, avr_lum: f32) {
         // validation of `a` and `avr_lum` must be done in ldr_to_hdr function.

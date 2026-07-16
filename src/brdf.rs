@@ -22,6 +22,7 @@ use crate::ray::Ray;
 /// You never need to implement this manually. The blanket `impl` below
 /// provides it automatically for any type that implements `BRDF + Clone`.
 pub trait CloneBrdf {
+    /// Clones `self` into a new boxed [`BRDF`] trait object.
     fn clone_brdf(&self) -> Box<dyn BRDF>;
 }
 

@@ -91,7 +91,7 @@ use crate::materials::{ClampPigment, Material};
 use crate::mesh::SimpleMesh;
 use crate::pfm_func::read_pfm_file;
 use crate::pigments::{CheckeredPigment, GradientPigment, ImagePigment, Pigment, UniformPigment};
-use crate::shapes::{AABB, Plane, Sphere};
+use crate::shapes::{AABB, Cylinder, Plane, Sphere};
 use crate::transformations::{
     Scaling, Transformation, Translation, XRotation, YRotation, ZRotation,
 };
@@ -724,6 +724,36 @@ pub fn parse_box<B: BufRead>(stream: &mut InputStream<B>, scene: &Scene) -> Resu
     Ok(aabb)
 }
 
+pub fn parse_cylinder<B: BufRead>(
+    stream: &mut InputStream<B>,
+    scene: &Scene,
+) -> Result<Cylinder<Transformation>> {
+    expect_symbol(stream, '(')?;
+    let material_name = expect_identifier(stream)?;
+    expect_symbol(stream, ',')?;
+    let transformation = parse_transformation(stream, scene)?;
+    expect_symbol(stream, ',')?;
+    let height = expect_number(stream, scene)?;
+    expect_symbol(stream, ',')?;
+    let diameter = expect_number(stream, scene)?;
+    expect_symbol(stream, ')')?;
+
+    let material = scene
+        .materials
+        .get(&material_name)
+        .ok_or_else(|| anyhow!("Unknown material '{}' for box", material_name))?
+        .clone();
+
+    let cyl = Cylinder {
+        transformation,
+        height,
+        diameter,
+        material,
+    };
+
+    Ok(cyl)
+}
+
 /// Parses a simple mesh loaded from an OBJ file.
 ///
 /// Expected syntax:
@@ -881,6 +911,10 @@ pub fn parse_scene_with_policy<B: BufRead>(
             TokenKind::Keyword(Keyword::Box) => {
                 let box_shape = parse_box(stream, &scene)?;
                 scene.world.objects.push(Box::new(box_shape));
+            }
+            TokenKind::Keyword(Keyword::Cylinder) => {
+                let cylinder = parse_cylinder(stream, &scene)?;
+                scene.world.objects.push(Box::new(cylinder));
             }
             TokenKind::Keyword(Keyword::SimpleMesh) => {
                 let simple_mesh = parse_simple_mesh(stream, &scene)?;
@@ -1728,6 +1762,43 @@ plane(floor_material, identity{})"#,
                 color
             );
         }
+        Ok(())
+    }
+
+    #[test]
+    fn test_parse_cylinder() -> Result<()> {
+        let text = r#"
+        float h(10)
+        material mat(
+        uniform(<0.1, 0.2, 0.3>), diffuse(), uniform(black)
+        )
+
+        cylinder(
+        mat, scaling(2), h, 2
+        )"#;
+        let cursor = std::io::Cursor::new(text);
+        let mut stream = InputStream::new(cursor, 0, 4);
+
+        let scene = parse_scene(&mut stream, HashMap::new())?;
+
+        assert_eq!(
+            scene.world.objects.len(),
+            1,
+            "Expected 1 object but found {}",
+            scene.world.objects.len()
+        );
+
+        let color = scene.world.objects[0]
+            .material()
+            .pigment
+            .get_color(&Vec2D::new(0.5, 0.5))?;
+
+        assert!(
+            color.is_close(&Color::new(0.1, 0.2, 0.3)),
+            "Expected <0.1, 0.2, 0.3> but got {:?}",
+            color
+        );
+
         Ok(())
     }
 }

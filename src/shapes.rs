@@ -715,13 +715,8 @@ pub struct Cylinder<T: IsHomogeneousMatrix> {
     pub material: Material,
 }
 
-impl<T: IsHomogeneousMatrix> Cylinder<T>  {
-    pub fn new(
-        height: f32,
-        diameter: f32,
-        transformation: T,
-        material: Material,
-    ) -> Self {
+impl<T: IsHomogeneousMatrix> Cylinder<T> {
+    pub fn new(height: f32, diameter: f32, transformation: T, material: Material) -> Self {
         Self {
             height,
             diameter,
@@ -739,12 +734,13 @@ impl<T: IsHomogeneousMatrix> Cylinder<T>  {
 impl<T> Shape for Cylinder<T>
 where
     T: IsHomogeneousMatrix
-    + Mul<Ray, Output = Ray>
-    + Mul<Point, Output = Point>
-    + Mul<Normal, Output = Normal>
-    + Mul<Vector, Output = Vector>
-    + Copy
-    + 'static,{
+        + Mul<Ray, Output = Ray>
+        + Mul<Point, Output = Point>
+        + Mul<Normal, Output = Normal>
+        + Mul<Vector, Output = Vector>
+        + Copy
+        + 'static,
+{
     fn ray_intersection(&self, ray: &Ray) -> Option<HitRecord<'_>> {
         let transformed_ray = self.transform_ray(ray);
 
@@ -845,12 +841,12 @@ where
 impl<T> Volumetric for Cylinder<T>
 where
     T: IsHomogeneousMatrix
-    + Mul<Ray, Output = Ray>
-    + Mul<Point, Output = Point>
-    + Mul<Normal, Output = Normal>
-    + Mul<Vector, Output = Vector>
-    + Copy
-    + 'static,
+        + Mul<Ray, Output = Ray>
+        + Mul<Point, Output = Point>
+        + Mul<Normal, Output = Normal>
+        + Mul<Vector, Output = Vector>
+        + Copy
+        + 'static,
 {
     fn entry_exit_t(&self, ray: &Ray) -> Option<(f32, f32)> {
         let transformed_ray = self.transform_ray(ray);
@@ -889,7 +885,6 @@ where
             t0 = half_h - oz;
             t1 = -half_h - oz
         }
-
 
         if t0 > t1 {
             std::mem::swap(&mut t0, &mut t1);

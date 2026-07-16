@@ -2,7 +2,10 @@ mod cli;
 
 use anyhow::{Result, anyhow};
 use clap::Parser;
-use cli::{CliReflectancePolicy, build_variable_table, ensure_extension, ensure_image_extension};
+use cli::{
+    CliReflectancePolicy, build_variable_table, create_parent_dir, ensure_extension,
+    ensure_image_extension,
+};
 use rstrace::camera::Camera;
 use rstrace::color::{BLACK, Color};
 use rstrace::hdr_image::HDR;
@@ -75,14 +78,18 @@ enum Commands {
         #[arg(long, default_value = "png")]
         format: String,
 
-        /// Name of the output PFM (raw HDR) file. The `.pfm` extension is
-        /// added automatically if not already present.
-        #[arg(long, default_value = "output.pfm")]
+        /// Path to the output PFM (raw HDR) file. Absolute paths and
+        /// subdirectories are honored; any missing parent directories are
+        /// created automatically. The `.pfm` extension is added if not already
+        /// present.
+        #[arg(long, default_value = "outputs/output.pfm")]
         pfm_output: String,
 
-        /// Name of the output raster image. The extension is derived
-        /// automatically from `--format` (png, jpg, jpeg) if not already present.
-        #[arg(long, default_value = "output")]
+        /// Path to the output raster image. Absolute paths and subdirectories
+        /// are honored; any missing parent directories are created
+        /// automatically. The extension is derived from `--format`
+        /// (png, jpg, jpeg) if not already present.
+        #[arg(long, default_value = "outputs/output")]
         image_output: String,
 
         /// Number of rays sampled per pixel (used by the path tracer).
@@ -247,19 +254,26 @@ fn main() -> Result<()> {
             imagetracer.fire_all_rays(&scene.world, pcg, render_closure)?;
             img = imagetracer.image;
 
-            // 6. Save outputs
-            std::fs::create_dir_all("outputs")?;
+            // 6. Save outputs (respecting the user-provided paths)
+            let pfm_filename = ensure_extension(&pfm_output, "pfm");
+            let ldr_filename = ensure_image_extension(&image_output, &format);
 
-            let pfm_filename = format!("outputs/{}", ensure_extension(&pfm_output, "pfm"));
-            let ldr_filename =
-                format!("outputs/{}", ensure_image_extension(&image_output, &format));
-
-            let file = File::create(&pfm_filename)?;
+            create_parent_dir(&pfm_filename)?;
+            let file = File::create(&pfm_filename)
+                .map_err(|e| anyhow!("Could not create output file {}: {}", pfm_filename, e))?;
             let disk_writer = BufWriter::new(&file);
             img.write_pfm(disk_writer, &Endianness::BigEndian)?;
             println!("HDR image written to {}", pfm_filename);
 
-            pfm_to_ldr(pfm_filename, 0.18, 2.2, ldr_filename.clone())?;
+            create_parent_dir(&ldr_filename)?;
+            pfm_to_ldr(pfm_filename, 0.18, 2.2, ldr_filename.clone()).map_err(|e| {
+                anyhow!(
+                    "Could not write {} image {}: {}",
+                    format.to_uppercase(),
+                    ldr_filename,
+                    e
+                )
+            })?;
             println!(
                 "{} image written to {}",
                 format.to_uppercase(),

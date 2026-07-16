@@ -4,6 +4,7 @@
 //! normalizing output filenames) rather than core ray tracing logic, so
 //! they live alongside the binary instead of in the library crate.
 
+use anyhow::{Result, anyhow};
 use rstrace::parser::ReflectancePolicy;
 use std::collections::HashMap;
 
@@ -87,6 +88,23 @@ pub fn ensure_image_extension(name: &str, format: &str) -> String {
     format!("{}.{}", base, format)
 }
 
+/// Creates the parent directory of `path` (and any missing ancestors).
+/// A bare filename with no parent is left untouched.
+pub fn create_parent_dir(path: &str) -> Result<()> {
+    if let Some(parent) = std::path::Path::new(path).parent() {
+        if !parent.as_os_str().is_empty() {
+            std::fs::create_dir_all(parent).map_err(|e| {
+                anyhow!(
+                    "Could not create output directory {}: {}",
+                    parent.display(),
+                    e
+                )
+            })?;
+        }
+    }
+    Ok(())
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -160,5 +178,25 @@ mod tests {
         let variables = build_variable_table(&[]);
 
         assert!(variables.is_empty());
+    }
+
+    #[test]
+    fn test_create_parent_dir_missing_ancestors() {
+        let base_dir = std::env::temp_dir();
+        let base = base_dir.join("dir_test");
+
+        let _ = std::fs::remove_dir_all(&base);
+        let target = base.join("nested/sub/render.pfm");
+
+        create_parent_dir(target.to_str().unwrap()).unwrap();
+
+        assert!(target.parent().unwrap().is_dir());
+        std::fs::remove_dir_all(&base).unwrap();
+    }
+
+    #[test]
+    fn test_create_parent_dir_bare_filename() {
+        create_parent_dir("output.pfm").unwrap();
+        assert!(!std::path::Path::new("output.pfm").exists());
     }
 }

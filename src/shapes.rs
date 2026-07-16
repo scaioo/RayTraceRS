@@ -27,7 +27,7 @@ use crate::geometry::{Cross, Dot, Normal, Point, Vec2D, Vector, X_AXIS, Y_AXIS, 
 use crate::hit_record::HitRecord;
 use crate::materials::Material;
 use crate::ray::Ray;
-use crate::transformations::IsHomogeneousMatrix;
+use crate::transformations::{IsHomogeneousMatrix, Transformation};
 use anyhow::{Result, anyhow};
 use std::ops::Mul;
 // ========================================================
@@ -704,6 +704,225 @@ impl Shape for Triangle {
     }
     fn material(&self) -> &Material {
         &self.material
+    }
+}
+#[derive(Clone)]
+
+pub struct Cylinder<T: IsHomogeneousMatrix> {
+    pub height: f32,
+    pub diameter: f32,
+    pub transformation: Transformation,
+    pub material: Material,
+}
+
+impl<T: IsHomogeneousMatrix> Cylinder<T>  {
+    pub fn new(
+        height: f32,
+        diameter: f32,
+        transformation: Transformation,
+        material: Material,
+    ) -> Self {
+        Self {
+            height,
+            diameter,
+            transformation,
+            material,
+        }
+    }
+
+    pub fn transform_ray(&self, ray: &Ray) -> Ray {
+        let inverse_transformation = self.transformation.inverse_transformation();
+        inverse_transformation * (*ray)
+    }
+}
+
+impl<T> Shape for Cylinder<T> {
+    fn ray_intersection(&self, ray: &Ray) -> Option<HitRecord<'_>> {
+        let transformed_ray = self.transform_ray(ray);
+
+        let (t1, t2) = match self.entry_exit_t(ray) {
+            Some((t1, t2)) => (t1, t2),
+            None => return None,
+        };
+
+        let condition = |t: f32| t > transformed_ray.t_min && t < transformed_ray.t_max;
+
+        let t = if condition(t1) {
+            t1
+        } else if condition(t2) {
+            t2
+        } else {
+            return None;
+        };
+
+        let hit_point = transformed_ray.at(t);
+        let uv = self.point_to_uv(&hit_point).ok()?;
+
+        Some(HitRecord {
+            world_point: self.transformation * hit_point,
+            normal: self.transformation * self.normal_at(hit_point, &transformed_ray),
+            uv,
+            t,
+            ray: *ray,
+            material: &self.material,
+        })
+    }
+    fn normal_at(&self, point: Point, ray: &Ray) -> Normal {
+        const EPS: f32 = 1.0e-5;
+
+        let half_height = self.height * 0.5;
+
+        let mut normal = if (point.z - half_height).abs() < EPS {
+            // Tappo superiore
+            Normal::new(0.0, 0.0, 1.0)
+        } else if (point.z + half_height).abs() < EPS {
+            // Tappo inferiore
+            Normal::new(0.0, 0.0, -1.0)
+        } else {
+            // Mantello
+            Normal::new(point.x, point.y, 0.0).normalize()
+        };
+
+        if normal.dot(&ray.dir) > 0.0 {
+            normal = -normal;
+        }
+
+        normal
+    }
+
+    fn point_to_uv(&self, point: &Point) -> Result<Vec2D> {
+        let pi = std::f32::consts::PI;
+
+        let radius = self.diameter * 0.5;
+        let half_height = self.height * 0.5;
+
+        const EPS: f32 = 1.0e-5;
+
+        // top lid
+
+        if are_close(point.z - half_height, 0.0) {
+            let u = point.x / (2.0 * radius) + 0.5;
+            let v = point.y / (2.0 * radius) + 0.5;
+
+            return Ok(Vec2D { x: u, y: v });
+        }
+
+        // bottom lid
+
+        if (point.z + half_height).abs() < EPS {
+            let u = point.x / (2.0 * radius) + 0.5;
+            let v = point.y / (2.0 * radius) + 0.5;
+
+            return Ok(Vec2D { x: u, y: v });
+        }
+
+        // cylinder side
+
+        let mut u = point.y.atan2(point.x) / (2.0 * pi);
+
+        if u < 0.0 {
+            u += 1.0;
+        }
+
+        let v = (point.z + half_height) / self.height;
+
+        Ok(Vec2D { x: u, y: v })
+    }
+
+    fn material(&self) -> &Material {
+        &self.material
+    }
+}
+
+impl Volumetric for Cylinder {
+    fn entry_exit_t(&self, ray: &Ray) -> Option<(f32, f32)> {
+        let transformed_ray = self.transform_ray(ray);
+        let origin = transformed_ray.origin - Point::new(0.0, 0.0, 0.0);
+
+        let r = self.diameter * 0.5;
+        let half_h = self.height * 0.5;
+
+        let ox = ray.origin.x;
+        let oy = ray.origin.y;
+        let oz = ray.origin.z;
+
+        let dx = ray.dir.x;
+        let dy = ray.dir.y;
+        let dz = ray.dir.z;
+
+        let a = dx * dx + dy * dy;
+
+        // raggio parallelo all'asse del cilindro
+        if are_close(a.abs(), 0.0) {
+            return None;
+        }
+
+        let b = 2.0 * (ox * dx + oy * dy);
+
+        let c = ox * ox + oy * oy - r * r;
+
+        let delta = b * b - 4.0 * a * c;
+
+        if delta < 0.0 {
+            return None;
+        }
+
+        let sqrt_delta = delta.sqrt();
+
+        let mut t0 = (-b - sqrt_delta) / (2.0 * a);
+        let mut t1 = (-b + sqrt_delta) / (2.0 * a);
+
+        if t0 > t1 {
+            std::mem::swap(&mut t0, &mut t1);
+        }
+
+        // check height
+
+        let mut hits = Vec::new();
+
+        let mut hit_in = false;
+        let mut hit_out = false;
+
+        let mut z0 = oz + t0 * dz;
+        if z0 >= -half_h && z0 <= half_h {
+            hits.push(t0);
+            hit_in = true
+        }
+
+        let z1 = oz + t1 * dz;
+        if z1 >= -half_h && z1 <= half_h {
+            hits.push(t1);
+            hit_out = true;
+        }
+
+        // if no intersections are found i should check whether the "lids" are intersected
+        if (!hit_in && !hit_out) {
+            if (z0 * z1).signum() > 0.0 {
+                return None;
+            }
+
+            t0 = t0 + ((t1 - t0) * (z0 - half_h).abs() / (z0 - z1).abs());
+            hits.push(t0);
+
+            t1 = t0 + ((t1 - t0) * (z0 + half_h).abs() / (z0 - z1).abs());
+            hits.push(t1);
+        }
+
+        if !hit_in {
+            t0 = t0 + ((t1 - t0) * (z0 - half_h) / (z0 - z1).abs());
+            hits.insert(0, t0);
+        }
+
+        if !hit_out {
+            t1 = t0 + ((t1 - t0) * (z0 + half_h) / (z0 - z1).abs());
+            hits.push(t1);
+        }
+
+        match hits.len() {
+            0 => None,
+            1 => Some((hits[0], hits[0])), // tangent
+            _ => Some((hits[0], hits[1])),
+        }
     }
 }
 

@@ -91,7 +91,7 @@ use crate::materials::{ClampPigment, Material};
 use crate::mesh::SimpleMesh;
 use crate::pfm_func::read_pfm_file;
 use crate::pigments::{CheckeredPigment, GradientPigment, ImagePigment, Pigment, UniformPigment};
-use crate::shapes::{AABB, Cylinder, Plane, Sphere, Cube};
+use crate::shapes::{AABB, Cube, Cylinder, Plane, Sphere};
 use crate::transformations::{
     Scaling, Transformation, Translation, XRotation, YRotation, ZRotation,
 };
@@ -1857,8 +1857,7 @@ plane(floor_material, identity{})"#,
         );
 
         let ray = Ray::new(Point::new(10.5, 0.75, 0.0), -X_AXIS);
-        let hit = scene.world.objects[0]
-            .ray_intersection(&ray).unwrap();
+        let hit = scene.world.objects[0].ray_intersection(&ray).unwrap();
 
         assert!(
             hit.normal.is_close(&Normal::from(X_AXIS)),

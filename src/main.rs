@@ -256,6 +256,7 @@ fn main() -> Result<()> {
 
             let file = File::create(&pfm_filename)?;
             let disk_writer = BufWriter::new(&file);
+
             img.write_pfm(disk_writer, &Endianness::BigEndian)?;
             println!("HDR image written to {}", pfm_filename);
 

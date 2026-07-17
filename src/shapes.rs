@@ -575,20 +575,49 @@ impl Volumetric for AABB {
     }
 }
 
-// ================================================================================
-///todo: documentation
+// ============================
+// CUBES
+// ============================
+
+/// A unit cube centered at the origin, subject to a homogeneous transformation.
+///
+/// In its local (object) space, the cube spans the interval
+/// `[-0.5, 0.5]` along each axis, resulting in an edge length of `1`.
+///
+/// Any translated, rotated, or scaled cuboid can be obtained by composing
+/// an appropriate [`IsHomogeneousMatrix`] transformation.
+///
+/// # UV mapping
+///
+/// Each face is parameterized independently using planar coordinates.
+/// The `(u, v)` coordinates are normalized to the range `[0, 1]` on
+/// each face, with the mapping depending on the face normal.
 #[derive(Clone)]
 pub struct Cube<T: IsHomogeneousMatrix> {
+    /// Surface material (pigment + BRDF + emitted radiance).
     material: Material,
+
+    /// The world-from-object transformation applied to the cube.
     transformation: T,
 }
 
 impl<T: IsHomogeneousMatrix> Cube<T> {
+    /// Creates a new cube with the given material and transformation.
     pub fn new(material: Material, transformation: T) -> Self {
         Self {
             material,
             transformation,
         }
+    }
+
+    /// Transforms a world-space ray into the cube's local space.
+    ///
+    /// This applies the inverse of the cube's transformation,
+    /// allowing intersection tests to be performed against the
+    /// canonical unit cube defined in object space.
+    pub fn transform_ray(&self, ray: &Ray) -> Ray {
+        let inverse_transformation = self.transformation.inverse_transformation();
+        inverse_transformation * (*ray)
     }
 }
 

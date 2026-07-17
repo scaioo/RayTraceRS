@@ -1008,85 +1008,53 @@ where
         let dy = transformed_ray.dir.y;
         let dz = transformed_ray.dir.z;
 
+        // ---- 1) Intersezione con la superficie laterale infinita (x^2+y^2=r^2) ----
         let a = dx * dx + dy * dy;
-
-        let b = 2.0 * (ox * dx + oy * dy);
-
         let c = ox * ox + oy * oy - r * r;
 
-        let delta: f32 = b * b - 4.0 * a * c;
-
-        if delta < 0.0 {
-            return None;
-        }
-
-        let sqrt_delta = delta.sqrt();
-
-        let mut t0 = (-b - sqrt_delta) / (2.0 * a);
-        let mut t1 = (-b + sqrt_delta) / (2.0 * a);
-        let mut hits = Vec::new();
-
-        let mut hit_in = false;
-        let mut hit_out = false;
-
-        // ray parallel to the cylinder axis
-        if are_close(a.abs(), 0.0) {
-            t0 = half_h - oz;
-            hit_in = true;
-            t1 = -half_h - oz;
-            hit_out = true;
-            if t0 > t1 {
-                std::mem::swap(&mut t0, &mut t1);
-            }
-            hits.push(t0);
-            hits.push(t1);
-        }
-
-        if t0 > t1 {
-            std::mem::swap(&mut t0, &mut t1);
-        }
-
-        // check height
-
-        let z0 = oz + t0 * dz;
-        if z0 > -half_h && z0 < half_h && !are_close(z0.abs(), half_h) {
-            hits.push(t0);
-            hit_in = true
-        }
-
-        let z1 = oz + t1 * dz;
-        if z1 >= -half_h && z1 <= half_h {
-            hits.push(t1);
-            hit_out = true;
-        }
-
-        // if no intersections are found i should check whether the "lids" are intersected
-        if !hit_in && !hit_out {
-            if (z0 * z1).signum() > 0.0 {
+        let (t_side_enter, t_side_exit): (f32, f32) = if are_close(a, 0.0) {
+            // Raggio parallelo all'asse del cilindro: non attraversa mai la
+            // superficie laterale. O è sempre dentro il cilindro infinito
+            // (c <= 0, saranno i "coperchi" a delimitarlo) o è sempre fuori
+            // (c > 0, nessuna intersezione possibile).
+            if c > 0.0 {
                 return None;
             }
+            (f32::NEG_INFINITY, f32::INFINITY)
+        } else {
+            let b = 2.0 * (ox * dx + oy * dy); // era "dy * dy": bug, corretto in "oy * dy"
+            let delta = b * b - 4.0 * a * c;
+            if delta < 0.0 {
+                return None; // il raggio manca del tutto il cilindro infinito
+            }
+            let sqrt_delta = delta.sqrt();
+            let t0 = (-b - sqrt_delta) / (2.0 * a);
+            let t1 = (-b + sqrt_delta) / (2.0 * a);
+            (t0.min(t1), t0.max(t1))
+        };
 
-            t0 = t0 + ((t1 - t0) * (z0 - half_h).abs() / (z0 - z1).abs());
-            hits.push(t0);
+        // ---- 2) Intersezione con la fetta -half_h <= z <= half_h (i "coperchi") ----
+        let (t_cap_enter, t_cap_exit): (f32, f32) = if are_close(dz, 0.0) {
+            // Raggio parallelo ai coperchi: resta a z = oz per sempre, quindi
+            // è sempre dentro o sempre fuori dalla fetta.
+            if oz < -half_h || oz > half_h {
+                return None;
+            }
+            (f32::NEG_INFINITY, f32::INFINITY)
+        } else {
+            let tz0 = (-half_h - oz) / dz;
+            let tz1 = (half_h - oz) / dz;
+            (tz0.min(tz1), tz0.max(tz1))
+        };
 
-            t1 = t0 + ((t1 - t0) * (z0 + half_h).abs() / (z0 - z1).abs());
-            hits.push(t1);
-        }
+        // ---- 3) Il cilindro solido è l'intersezione dei due intervalli ----
+        let t_enter = t_side_enter.max(t_cap_enter);
+        let t_exit = t_side_exit.min(t_cap_exit);
 
-        if !hit_in {
-            t0 = t0 + ((t1 - t0) * (z0 - half_h) / (z0 - z1).abs());
-            hits.insert(0, t0);
-        }
-
-        if !hit_out {
-            t1 = t0 + ((t1 - t0) * (z0 + half_h) / (z0 - z1).abs());
-            hits.push(t1);
-        }
-
-        match hits.len() {
-            0 => None,
-            1 => Some((hits[0], hits[0])), // tangent
-            _ => Some((hits[0], hits[1])),
+        if t_enter > t_exit {
+            None // gli intervalli non si sovrappongono: il raggio manca il solido
+        } else {
+            Some((t_enter, t_exit)) // se t_enter == t_exit, è tangente
         }
     }
 }

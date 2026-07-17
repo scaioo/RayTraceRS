@@ -19,10 +19,12 @@
 //! float_decl      ::= "float" IDENTIFIER "(" number ")"
 //! material_decl   ::= "material" IDENTIFIER "(" pigment "," brdf "," pigment ")"
 //!
-//! shape           ::= sphere | plane | box | simple_mesh
+//! shape           ::= sphere | plane | aabb | box | cylinder | simple_mesh
 //! sphere          ::= "sphere" "(" IDENTIFIER "," transformation ")"
 //! plane           ::= "plane" "(" IDENTIFIER "," transformation ["," bool] ")"
-//! box             ::= "box" "(" IDENTIFIER "," "point" "(" vector ")" "," "point" "(" vector ")" ")"
+//! aabb            ::= "aabb" "(" IDENTIFIER "," "point" "(" vector ")" "," "point" "(" vector ")" ")"
+//! box             ::= "box" "(" IDENTIFIER "," transformation ")"
+//! cylinder        ::= "cylinder" "(" IDENTIFIER "," transformation "," number "," number ")"
 //! simple_mesh     ::= "simple_mesh" "(" IDENTIFIER "," STRING "," transformation ")"
 //!
 //! light           ::= point_light | spherical_light
@@ -46,7 +48,16 @@
 //! color   ::= "<" number "," number "," number ">" | "black" | "white"
 //! vector  ::= "[" number "," number "," number "]"
 //! number  ::= LITERAL_NUMBER | IDENTIFIER   (identifiers are resolved via `Scene::float_variables`)
+//! bool    ::= "true" | "false"
 //! ```
+//!
+//! # Boxes: `aabb` vs `box`
+//!
+//! `aabb` describes an *axis-aligned* box by its two opposite corners, so it
+//! reads straight off the geometry but cannot be rotated. `box` describes the
+//! unit cube placed by a `transformation`, so it can be translated, scaled and
+//! **rotated**. Use `aabb` for axis-aligned blocks (walls, steps, ...) and
+//! `box` when the cube needs to be oriented.
 //!
 //! # Variables
 //!
@@ -91,7 +102,7 @@ use crate::materials::{ClampPigment, Material};
 use crate::mesh::SimpleMesh;
 use crate::pfm_func::read_pfm_file;
 use crate::pigments::{CheckeredPigment, GradientPigment, ImagePigment, Pigment, UniformPigment};
-use crate::shapes::{AABB, Plane, Sphere};
+use crate::shapes::{AABB, Cube, Cylinder, Plane, Sphere};
 use crate::transformations::{
     Scaling, Transformation, Translation, XRotation, YRotation, ZRotation,
 };
@@ -701,11 +712,14 @@ pub fn parse_plane<B: BufRead>(
     })
 }
 
-/// Parses an axis-aligned bounding box.
+/// Parses an `aabb`: an axis-aligned box given by two opposite corners.
+///
+/// The box cannot be rotated; for a cube oriented by a transformation use
+/// [`parse_cube`] (the `box` keyword) instead.
 ///
 /// Expected syntax:
-/// `box(material_name, point(min), point(max))`
-pub fn parse_box<B: BufRead>(stream: &mut InputStream<B>, scene: &Scene) -> Result<AABB> {
+/// `aabb(material_name, point(min), point(max))`
+pub fn parse_aabb<B: BufRead>(stream: &mut InputStream<B>, scene: &Scene) -> Result<AABB> {
     expect_symbol(stream, '(')?;
     let material_name = expect_identifier(stream)?;
     expect_symbol(stream, ',')?;
@@ -718,10 +732,74 @@ pub fn parse_box<B: BufRead>(stream: &mut InputStream<B>, scene: &Scene) -> Resu
     let material = scene
         .materials
         .get(&material_name)
-        .ok_or_else(|| anyhow!("Unknown material '{}' for box", material_name))?
+        .ok_or_else(|| anyhow!("Unknown material '{}' for aabb", material_name))?
         .clone();
     let aabb = AABB::new(point1, point2, material)?;
     Ok(aabb)
+}
+
+/// Parses a `box`: a unit cube placed by a transformation.
+///
+/// The base cube spans `[-0.5, 0.5]³` in object space; compose `translation`,
+/// `scaling` and/or `rotation_*` to size, position and orient it. For an
+/// axis-aligned box given by two opposite corners use [`parse_aabb`] (the
+/// `aabb` keyword) instead.
+///
+/// Expected syntax:
+/// `box(material_name, transformation)`
+pub fn parse_cube<B: BufRead>(
+    stream: &mut InputStream<B>,
+    scene: &Scene,
+) -> Result<Cube<Transformation>> {
+    expect_symbol(stream, '(')?;
+    let material_name = expect_identifier(stream)?;
+    expect_symbol(stream, ',')?;
+    let transformation = parse_transformation(stream, scene)?;
+    expect_symbol(stream, ')')?;
+    let material = scene
+        .materials
+        .get(&material_name)
+        .ok_or_else(|| anyhow!("Unknown material '{}' for box", material_name))?
+        .clone();
+    let cube = Cube::new(material, transformation);
+    Ok(cube)
+}
+
+/// Parses a `cylinder` placed by a transformation.
+///
+/// `height` and `diameter` are measured in the cylinder's local space, before
+/// the transformation is applied.
+///
+/// Expected syntax:
+/// `cylinder(material_name, transformation, height, diameter)`
+pub fn parse_cylinder<B: BufRead>(
+    stream: &mut InputStream<B>,
+    scene: &Scene,
+) -> Result<Cylinder<Transformation>> {
+    expect_symbol(stream, '(')?;
+    let material_name = expect_identifier(stream)?;
+    expect_symbol(stream, ',')?;
+    let transformation = parse_transformation(stream, scene)?;
+    expect_symbol(stream, ',')?;
+    let height = expect_number(stream, scene)?;
+    expect_symbol(stream, ',')?;
+    let diameter = expect_number(stream, scene)?;
+    expect_symbol(stream, ')')?;
+
+    let material = scene
+        .materials
+        .get(&material_name)
+        .ok_or_else(|| anyhow!("Unknown material '{}' for cylinder", material_name))?
+        .clone();
+
+    let cyl = Cylinder {
+        transformation,
+        height,
+        diameter,
+        material,
+    };
+
+    Ok(cyl)
 }
 
 /// Parses a simple mesh loaded from an OBJ file.
@@ -878,9 +956,17 @@ pub fn parse_scene_with_policy<B: BufRead>(
                 let plane = parse_plane(stream, &scene)?;
                 scene.world.objects.push(Box::new(plane));
             }
+            TokenKind::Keyword(Keyword::Aabb) => {
+                let aabb = parse_aabb(stream, &scene)?;
+                scene.world.objects.push(Box::new(aabb));
+            }
             TokenKind::Keyword(Keyword::Box) => {
-                let box_shape = parse_box(stream, &scene)?;
-                scene.world.objects.push(Box::new(box_shape));
+                let cube = parse_cube(stream, &scene)?;
+                scene.world.objects.push(Box::new(cube))
+            }
+            TokenKind::Keyword(Keyword::Cylinder) => {
+                let cylinder = parse_cylinder(stream, &scene)?;
+                scene.world.objects.push(Box::new(cylinder));
             }
             TokenKind::Keyword(Keyword::SimpleMesh) => {
                 let simple_mesh = parse_simple_mesh(stream, &scene)?;
@@ -1416,7 +1502,7 @@ mod test {
         ), diffuse(), uniform(<0, 0, 0>)
         )
 
-        box(
+        aabb(
         ball, point([0.0, -1.0, 0.0]),
 point([2.0, 1.0, 1.0])
         )"#;
@@ -1728,6 +1814,87 @@ plane(floor_material, identity{})"#,
                 color
             );
         }
+        Ok(())
+    }
+
+    #[test]
+    fn test_parse_cylinder() -> Result<()> {
+        let text = r#"
+        float h(10)
+        material mat(
+        uniform(<0.1, 0.2, 0.3>), diffuse(), uniform(black)
+        )
+
+        cylinder(
+        mat, scaling(2), h, 2
+        )"#;
+        let cursor = std::io::Cursor::new(text);
+        let mut stream = InputStream::new(cursor, 0, 4);
+
+        let scene = parse_scene(&mut stream, HashMap::new())?;
+
+        assert_eq!(
+            scene.world.objects.len(),
+            1,
+            "Expected 1 object but found {}",
+            scene.world.objects.len()
+        );
+
+        let color = scene.world.objects[0]
+            .material()
+            .pigment
+            .get_color(&Vec2D::new(0.5, 0.5))?;
+
+        assert!(
+            color.is_close(&Color::new(0.1, 0.2, 0.3)),
+            "Expected <0.1, 0.2, 0.3> but got {:?}",
+            color
+        );
+
+        Ok(())
+    }
+
+    #[test]
+    fn test_parse_cube() -> Result<()> {
+        let text = r#"
+        material mat(
+        uniform(<0.1, 0.2, 0.3>), diffuse(), uniform(white)
+        )
+
+        box(
+        mat, translation([1.5, 0, 0]) * scaling([1.0, 2.0, 1.0])
+        )"#;
+        let cursor = std::io::Cursor::new(text);
+        let mut stream = InputStream::new(cursor, 0, 4);
+        let scene = parse_scene(&mut stream, HashMap::new())?;
+
+        assert_eq!(
+            scene.world.objects.len(),
+            1,
+            "Expected 1 object but found {}",
+            scene.world.objects.len()
+        );
+
+        let color = scene.world.objects[0]
+            .material()
+            .pigment
+            .get_color(&Vec2D::new(0.5, 0.5))?;
+
+        assert!(
+            color.is_close(&Color::new(0.1, 0.2, 0.3)),
+            "Expected <0.1, 0.2, 0.3> but got {:?}",
+            color
+        );
+
+        let ray = Ray::new(Point::new(10.5, 0.75, 0.0), -X_AXIS);
+        let hit = scene.world.objects[0].ray_intersection(&ray).unwrap();
+
+        assert!(
+            hit.normal.is_close(&Normal::from(X_AXIS)),
+            "Expected normal <1, 0, 0> but got {}",
+            hit.normal
+        );
+
         Ok(())
     }
 }

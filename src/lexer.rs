@@ -279,7 +279,9 @@ impl<B: BufRead> InputStream<B> {
             "material" => TokenKind::Keyword(Keyword::Material),
             "plane" => TokenKind::Keyword(Keyword::Plane),
             "sphere" => TokenKind::Keyword(Keyword::Sphere),
+            "aabb" => TokenKind::Keyword(Keyword::Aabb),
             "box" => TokenKind::Keyword(Keyword::Box),
+            "cylinder" => TokenKind::Keyword(Keyword::Cylinder),
             "simple_mesh" => TokenKind::Keyword(Keyword::SimpleMesh),
             "diffuse" => TokenKind::Keyword(Keyword::Diffuse),
             "specular" => TokenKind::Keyword(Keyword::Specular),
@@ -473,6 +475,7 @@ pub enum Keyword {
     Sphere,
     Box,
     SimpleMesh,
+    Cylinder,
     Diffuse,
     Specular,
     Uniform,
@@ -496,6 +499,7 @@ pub enum Keyword {
     False,
     Black,
     White,
+    Aabb,
 }
 
 static SYMBOLS: &str = "()<>[],*";
@@ -505,8 +509,8 @@ static WHITESPACE: &str = " \t\r\n";
 mod test {
     use super::*;
     use crate::lexer::Keyword::{
-        Box, False, Float, Gradient, Material, Point, PtLightSource, SimpleMesh, SphLightSource,
-        True,
+        Aabb, Box, Cylinder, False, Float, Gradient, Material, Point, PtLightSource, SimpleMesh,
+        SphLightSource, True,
     };
     use crate::lexer::TokenKind;
     use crate::lexer::TokenKind::Keyword;
@@ -1160,5 +1164,33 @@ translation([-1, 0, 1]),
                 input, token.kind
             );
         }
+    }
+
+    #[test]
+    fn test_cylinder_keyword_reader() {
+        let text = r#"cylinder("#;
+        let cursor = std::io::Cursor::new(text);
+        let mut stream = InputStream::new(cursor, 0, 4);
+        let token = stream.read_token().unwrap();
+        assert_eq!(
+            token.kind,
+            TokenKind::Keyword(Cylinder),
+            "token.kind = {:?}",
+            token.kind
+        );
+    }
+
+    #[test]
+    fn test_aabb_keyword_reader() {
+        let text = r#"aabb("#;
+        let cursor = std::io::Cursor::new(text);
+        let mut stream = InputStream::new(cursor, 0, 4);
+        let token = stream.read_token().unwrap();
+        assert_eq!(
+            token.kind,
+            TokenKind::Keyword(Aabb),
+            "token.kind = {:?}",
+            token.kind
+        )
     }
 }

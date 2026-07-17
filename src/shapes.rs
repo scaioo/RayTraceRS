@@ -996,7 +996,7 @@ where
         }
 
         // if no intersections are found i should check whether the "lids" are intersected
-        if (!hit_in && !hit_out) {
+        if !hit_in && !hit_out {
             if (z0 * z1).signum() > 0.0 {
                 return None;
             }
@@ -1042,7 +1042,7 @@ mod tests {
     use crate::functions::IDENTITY_4X4;
     use crate::geometry::{Point, X_AXIS, is_close};
     use crate::pcg::PCG;
-    use crate::pigments::{CheckeredPigment, UniformPigment};
+    use crate::pigments::UniformPigment;
     use crate::transformations::{
         IDENTITY_TRANSFORMATION, Scaling, Transformation, Translation, XRotation, YRotation,
     };
@@ -1891,7 +1891,7 @@ mod tests {
 
         let ray = Ray::new(origin, dir);
         match cyl.entry_exit_t(&ray) {
-            Some((entry, exit)) => {
+            Some(_) => {
                 panic!("the ray should not be intersecting the cylinder (it should pass over it)");
             }
             None => {}
@@ -1978,7 +1978,7 @@ mod tests {
 
         let ray = Ray::new(origin, dir);
         match cyl.ray_intersection(&ray) {
-            Some(hit) => {
+            Some(_) => {
                 panic!("should not intersect");
             }
             None => {}

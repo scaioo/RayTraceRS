@@ -1,3 +1,5 @@
+// This file is licensed under the EUPL-1.2. See LICENSE.md.
+
 //! Helper functions for the `rstrace` command-line binary.
 //!
 //! These are CLI-specific concerns (parsing `--declare-float` entries,
@@ -86,6 +88,10 @@ pub fn ensure_image_extension(name: &str, format: &str) -> String {
         .unwrap_or(name);
     format!("{}.{}", base, format)
 }
+
+// ==============================================
+// TESTS
+// ==============================================
 
 #[cfg(test)]
 mod tests {

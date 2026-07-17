@@ -1,0 +1,46 @@
+# Per marta
+# cargo run --release -- render --width 1000 --height 800 --algorithm point-light \
+# --image-output marta2 --reflectance-policy rescale examples/per_marta.txt
+
+# ---- materials -------------
+
+material red(
+uniform(<0.7, 0.0, 0.0>), diffuse(), uniform(black)
+)
+
+material purple(
+uniform(<0.7, 0.0, 0.7>), diffuse(), uniform(black)
+)
+
+material floor(
+image("tests/assets/img.png", 0.18, 0.5, 1.8),
+diffuse(),
+uniform(black)
+)
+
+plane(floor, identity, true)
+
+# ---- Palla scavata ----------
+
+csg(
+difference,
+sphere(red, translation([0,-2.5,5]) * scaling(2)), sphere(red, translation([-1.414,-2.5,4]))
+)
+
+# ---- Palla Unita (destra) ----------
+
+csg(
+u,
+sphere(purple, translation([0,2.5,5]) * scaling(2)), sphere(red, translation([0,3.914,4]))
+)
+
+
+# ---- Lights and camera ------------------------------------------------------
+
+point_light(point([-4, 0, 1]), white)
+
+camera(
+    perspective,
+    translation([-7.5, 0, 2.1]),
+    1.0
+)

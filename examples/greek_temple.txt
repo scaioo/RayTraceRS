@@ -1,23 +1,26 @@
 # =====================================================================
-#  Greek temple at sunset  --  generated for the `cylinder` branch.
-#  Temple:  elongated 6 x 12 peristyle (hexastyle facade, 12 deep).
-#  Columns: stacked tapering cylinders (drums) + echinus + abacus box.
-#  Base:    stepped crepidoma made of axis-aligned boxes.
-#  Roof:    triangle mesh (assets/greek_temple_roof.obj).
-#  Sky:     emissive gradient dome, vivid red/orange sunset, which also
-#           lights the scene.
+#  Greek temple on a sea cliff at sunset.
+#
+#  Temple:  elongated 6 x 12 peristyle on a stepped crepidoma (unchanged).
+#  Hill:    the temple crowns a big rounded hill (a broad sphere) rising
+#           from the sea, with a flat `box` terrace at its top.
+#  Islands: three spheres emerging from the sea, framing the temple.
+#  Sea:     a mirror-like plane below the hill that reflects the sky.
+#  Sky:     emissive gradient dome, vivid red/orange sunset, that also
+#           lights the whole scene.
+#
+#  Why a box terrace and not the bare sphere UNDER the temple: a sphere
+#  top is a dome, so a flat base either sinks into it (steps eaten) or
+#  floats over it (gap). The thin box gives a flat top at z = 0 to stand
+#  on; spheres are perfect for the rounded hill and islands around it.
 #
 #  Use the path tracer so the emissive sky acts as soft area light.
 #
-#  Quick preview (~10 s):
-#    cargo run --release -- render examples/greek_temple.txt \
-#      --width 480 --height 320 --num-of-rays 3 --antialiasing 3
-#
-#  Quality render (~1.5 min; ~280 objects x a branching path tracer,
-#  so keep max-depth low -- depth 4 gets very slow):
-#    cargo run --release -- render examples/greek_temple.txt \
-#      --width 900 --height 600 --num-of-rays 3 --max-depth 3 \
-#      --antialiasing 6
+#  Quality render (~2 min; branching path tracer, keep max-depth low):
+#   cargo run --release -- render examples/greek_temple.txt \
+#   --num-of-rays 4 --max-depth 3 --antialiasing 10 \
+#   --image-output docs/images/greek_temple
+
 # =====================================================================
 
 # ------------------------------- materials -------------------------------
@@ -39,9 +42,42 @@ material roof_material(
     uniform(black)
 )
 
-material ground_material(
-    uniform(<0.27, 0.25, 0.21>),
+# Rock of the promontory and its cliff faces.
+material rock_material(
+    uniform(<0.30, 0.25, 0.20>),
     diffuse(),
+    uniform(black)
+)
+
+# Dry Mediterranean scrub on the steep hills.
+material hill_material(
+    uniform(<0.30, 0.30, 0.17>),
+    diffuse(),
+    uniform(black)
+)
+
+# Low Mediterranean bushes: a dark, desaturated olive so they stay muted in
+# the warm sunset light instead of clashing with the orange sky.
+material bush_material(
+    uniform(<0.13, 0.15, 0.08>),
+    diffuse(),
+    uniform(black)
+)
+
+# Distant seagull: near-black so it reads as a pure silhouette against the
+# bright sky. Its "bird" shape comes entirely from two thin angled wings.
+material gull_material(
+    uniform(<0.05, 0.04, 0.04>),
+    diffuse(),
+    uniform(black)
+)
+
+# Sea: a darker, cooler tinted mirror. Dimming the reflectance means the
+# mirrored orange sky comes back muted and bluish, so the water reads as a
+# distinct sea band with a visible horizon instead of blending into the sky.
+material sea_material(
+    uniform(<0.30, 0.40, 0.52>),
+    specular(),
     uniform(black)
 )
 
@@ -64,26 +100,58 @@ material sun_material(
     uniform(<13.0, 9.0, 4.5>)
 )
 
-# ------------------------------- sky & ground ----------------------------
+# ------------------------------- sky, sun, sea ---------------------------
+# Sky dome and sun: huge emissive spheres centred on the world (unchanged).
 sphere(sky_material, scaling([100, 100, 100]))
-sphere(sun_material, translation([-3.0, -22.0, 3.5]) * scaling(5.0))
-plane(ground_material, identity)
+sphere(sun_material, translation([-6.0, -32.0, 5.0]) * scaling(5.0))
 
-# --- Realistic textured floor (optional) ---------------------------------
-# The plane tiles a texture once per world unit, so scale the plane to set
-# the tile size. Drop a *seamless* albedo map in assets/ and swap the two
-# lines above for something like:
-#
-#   material ground_material(
-#       image("assets/ground.jpg", 0.18, 1.0, 2.2),   # png/jpg: a, lum, gamma
-#       diffuse(),
-#       uniform(black)
-#   )
-#   plane(ground_material, scaling([3, 3, 1]))         # 1 tile every 3 units
-#
-# A .pfm (HDR) texture instead needs no extra args: image("assets/ground.pfm").
-# No download? A stone pavement can be faked procedurally with:
-#   checkered(<0.42, 0.40, 0.35>, <0.34, 0.32, 0.28>, 40)   # + plane(..., true)
+# Sea: an infinite mirror plane 7 units below the temple floor.
+plane(sea_material, translation([0.0, 0.0, -7.0]))
+
+# ------------------------------- the great hill --------------------------
+# The temple crowns a big rounded hill rising from the sea. A sphere is a
+# dome, so its bare crown would poke up through the flat steps at the centre
+# and leave gaps at the corners. Two-part fix, both in hill_material so it
+# reads as a single landform:
+#   1) the hill sphere sits with its crown just BELOW z = 0 (-0.12), so it
+#      never pushes up through the steps anywhere under the footprint;
+#   2) a thin flat cap (box) whose top is exactly at z = 0 fills the little
+#      gap under the base, so every step rests flush on level ground.
+# Because the cap is the same colour as the hill, the join is invisible and
+# no separate gap-filler is needed.
+sphere(hill_material, translation([13.45, 0.0, -30.12]) * scaling([100.0, 52.0, 30.0]))
+box(hill_material, translation([13.45, 0.0, -2.0]) * scaling([26.0, 13.0, 4.0]))
+
+# ------------------------------- two islands (left) ----------------------
+# Two small, distant islands out on the open sea to the camera's left,
+# emerging from the mirror plane. Kept tiny and far so they read as remote
+# specks on the horizon. translation(centre) * scaling([rx, ry, rz]).
+# (+y is to the camera's left, -y to its right)
+sphere(hill_material, translation([35.0, 81.0, -6.9]) * scaling([3.4, 2.9, 3.2]))     # left, near
+sphere(hill_material, translation([44.0, 77.0, -6.9]) * scaling([3.8, 3.2, 3.4]))     # left, far
+
+# ------------------------------- rocks (cubes only) ----------------------
+# Fallen stone blocks: plain cubes turned only about the vertical axis, so
+# each keeps a flat base resting on the ground (no tilted, "flying" corners).
+# Each centre z is set from the hill surface at that spot minus ~0.3, so the
+# block is embedded in the slope with no gap underneath. Grouped irregularly.
+# right-front clump (beside the temple, right side) -- surface z ~ -0.65..-0.90
+box(rock_material, translation([ 1.0, -8.5, -0.21]) * rotation_z( 25) * scaling(1.7))
+box(rock_material, translation([ 2.8,-10.6, -0.57]) * rotation_z(-40) * scaling(1.3))
+box(rock_material, translation([-0.4, -9.4, -0.46]) * rotation_z( 10) * scaling(1.5))
+
+# ------------------------------- seagulls (no mesh) ----------------------
+# Each gull = two thin boxes tilted into a shallow "V" (wing dihedral). Tiny
+# and high in the sky, they read as birds purely from the silhouette.
+# gull 1 (right of the temple)
+box(gull_material, translation([45.0, -12.0, 16.0]) * rotation_x( 20) * translation([0.0,  0.80, 0.0]) * scaling([0.06, 1.6, 0.05]))
+box(gull_material, translation([45.0, -12.0, 16.0]) * rotation_x(-20) * translation([0.0, -0.80, 0.0]) * scaling([0.06, 1.6, 0.05]))
+# gull 2 (smaller, higher, centre)
+box(gull_material, translation([30.0, 20.0, 19.0]) * rotation_x( 20) * translation([0.0,  0.50, 0.0]) * scaling([0.05, 1.0, 0.045]))
+box(gull_material, translation([30.0, 20.0, 19.0]) * rotation_x(-20) * translation([0.0, -0.50, 0.0]) * scaling([0.05, 1.0, 0.045]))
+# gull 3 (lower, to the left)
+box(gull_material, translation([22.0, 30.0, 13.5]) * rotation_x( 22) * translation([0.0,  0.66, 0.0]) * scaling([0.055, 1.3, 0.05]))
+box(gull_material, translation([22.0, 30.0, 13.5]) * rotation_x(-22) * translation([0.0, -0.66, 0.0]) * scaling([0.055, 1.3, 0.05]))
 
 # ------------------------------- crepidoma (steps) -----------------------
 aabb(stone, point([2.0, -5.2, 0.6]), point([24.9, 5.2, 0.9]))
@@ -421,7 +489,7 @@ simple_mesh(roof_material, "assets/greek_temple_roof.obj", identity)
 # ------------------------------- camera ----------------------------------
 camera(
     perspective,
-    translation([-8.5, -11.5, 3.2]) * rotation_z(31) * rotation_y(-3),
-    1.15
+    translation([-10.0, -13.0, 3.2]) * rotation_z(32) * rotation_y(2),
+    1.8
 )
 

@@ -19,10 +19,12 @@
 //! float_decl      ::= "float" IDENTIFIER "(" number ")"
 //! material_decl   ::= "material" IDENTIFIER "(" pigment "," brdf "," pigment ")"
 //!
-//! shape           ::= sphere | plane | box | simple_mesh
+//! shape           ::= sphere | plane | aabb | box | cylinder | simple_mesh
 //! sphere          ::= "sphere" "(" IDENTIFIER "," transformation ")"
 //! plane           ::= "plane" "(" IDENTIFIER "," transformation ["," bool] ")"
-//! box             ::= "box" "(" IDENTIFIER "," "point" "(" vector ")" "," "point" "(" vector ")" ")"
+//! aabb            ::= "aabb" "(" IDENTIFIER "," "point" "(" vector ")" "," "point" "(" vector ")" ")"
+//! box             ::= "box" "(" IDENTIFIER "," transformation ")"
+//! cylinder        ::= "cylinder" "(" IDENTIFIER "," transformation "," number "," number ")"
 //! simple_mesh     ::= "simple_mesh" "(" IDENTIFIER "," STRING "," transformation ")"
 //!
 //! light           ::= point_light | spherical_light
@@ -46,7 +48,16 @@
 //! color   ::= "<" number "," number "," number ">" | "black" | "white"
 //! vector  ::= "[" number "," number "," number "]"
 //! number  ::= LITERAL_NUMBER | IDENTIFIER   (identifiers are resolved via `Scene::float_variables`)
+//! bool    ::= "true" | "false"
 //! ```
+//!
+//! # Boxes: `aabb` vs `box`
+//!
+//! `aabb` describes an *axis-aligned* box by its two opposite corners, so it
+//! reads straight off the geometry but cannot be rotated. `box` describes the
+//! unit cube placed by a `transformation`, so it can be translated, scaled and
+//! **rotated**. Use `aabb` for axis-aligned blocks (walls, steps, ...) and
+//! `box` when the cube needs to be oriented.
 //!
 //! # Variables
 //!
@@ -701,7 +712,10 @@ pub fn parse_plane<B: BufRead>(
     })
 }
 
-/// Parses an axis-aligned bounding box.
+/// Parses an `aabb`: an axis-aligned box given by two opposite corners.
+///
+/// The box cannot be rotated; for a cube oriented by a transformation use
+/// [`parse_cube`] (the `box` keyword) instead.
 ///
 /// Expected syntax:
 /// `aabb(material_name, point(min), point(max))`
@@ -724,6 +738,15 @@ pub fn parse_aabb<B: BufRead>(stream: &mut InputStream<B>, scene: &Scene) -> Res
     Ok(aabb)
 }
 
+/// Parses a `box`: a unit cube placed by a transformation.
+///
+/// The base cube spans `[-0.5, 0.5]³` in object space; compose `translation`,
+/// `scaling` and/or `rotation_*` to size, position and orient it. For an
+/// axis-aligned box given by two opposite corners use [`parse_aabb`] (the
+/// `aabb` keyword) instead.
+///
+/// Expected syntax:
+/// `box(material_name, transformation)`
 pub fn parse_cube<B: BufRead>(
     stream: &mut InputStream<B>,
     scene: &Scene,
@@ -742,6 +765,13 @@ pub fn parse_cube<B: BufRead>(
     Ok(cube)
 }
 
+/// Parses a `cylinder` placed by a transformation.
+///
+/// `height` and `diameter` are measured in the cylinder's local space, before
+/// the transformation is applied.
+///
+/// Expected syntax:
+/// `cylinder(material_name, transformation, height, diameter)`
 pub fn parse_cylinder<B: BufRead>(
     stream: &mut InputStream<B>,
     scene: &Scene,
@@ -759,7 +789,7 @@ pub fn parse_cylinder<B: BufRead>(
     let material = scene
         .materials
         .get(&material_name)
-        .ok_or_else(|| anyhow!("Unknown material '{}' for box", material_name))?
+        .ok_or_else(|| anyhow!("Unknown material '{}' for cylinder", material_name))?
         .clone();
 
     let cyl = Cylinder {

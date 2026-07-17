@@ -1,3 +1,5 @@
+// This file is licensed under the EUPL-1.2. See LICENSE.md.
+
 mod cli;
 
 use anyhow::{Result, anyhow};
@@ -6,7 +8,9 @@ use cli::{CliReflectancePolicy, build_variable_table, ensure_extension, ensure_i
 use rstrace::camera::Camera;
 use rstrace::color::{BLACK, Color};
 use rstrace::hdr_image::HDR;
-use rstrace::image_tracer::ImageTracer;
+use rstrace::image_tracer::{ImageTracer};
+use rstrace::lexer;
+use rstrace::parser;
 use rstrace::pcg::PCG;
 use rstrace::pfm_func::{Endianness, pfm_to_ldr};
 use rstrace::ray::Ray;
@@ -193,11 +197,11 @@ fn main() -> Result<()> {
             let reader = BufReader::new(file);
 
             // Initialize the InputStream with the user-configured tab size
-            let mut stream = rstrace::lexer::InputStream::new(reader, 0, tab_size);
+            let mut stream = lexer::InputStream::new(reader, 0, tab_size);
 
             println!("Parsing scene '{}'...", input_scene_name);
 
-            let scene = rstrace::parser::parse_scene_with_policy(
+            let scene = parser::parse_scene_with_policy(
                 &mut stream,
                 variables,
                 reflectance_policy.into(),

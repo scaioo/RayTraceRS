@@ -10,8 +10,8 @@
 # pixels whose LDR-to-HDR inverse tone-mapping lands above 1.0, which the
 # default `reject` policy would otherwise refuse to render. Add --release, the
 # pawn mesh makes it matter:
-#   cargo run --release -- render examples/ball_pawn.txt --num-of-rays 8 --max-depth 5 --antialiasing 8 \
-# --reflectance-policy rescale --pfm-output ball_pawn --image-output ball_pawn
+#   cargo run --release -- render examples/cornell_ball_pawn.txt --num-of-rays 8 --max-depth 5 --antialiasing 8 \
+# --reflectance-policy rescale --pfm-output cornell_ball_pawn --image-output cornell_ball_pawn
 
 material white_material(
     uniform(<0.73, 0.73, 0.73>),
@@ -72,7 +72,7 @@ sphere(ball_material, translation([1.45, -0.2, 0.35]) * scaling(0.35) * rotation
 simple_mesh(pawn_material, "assets/pawn.obj", translation([2.6, 0.4, 0.0]) * scaling(0.4))
 
 # Ceiling light panel, just below the ceiling
-box(light_material, point([1.5, -0.4, 1.97]), point([2.5, 0.4, 1.999]))
+aabb(light_material, point([1.5, -0.4, 1.97]), point([2.5, 0.4, 1.999]))
 
 camera(
     perspective,

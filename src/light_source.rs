@@ -1,3 +1,5 @@
+// This file is licensed under the EUPL-1.2. See LICENSE.md.
+
 //! Light source types for direct illumination.
 //!
 //! Defines the [`LightSource`] trait and two implementations:
@@ -178,9 +180,9 @@ impl LightSource for SphericalLightSource {
     }
 }
 
-// =================================================================
-// Tests
-// =================================================================
+// ==============================================
+// TESTS
+// ==============================================
 #[cfg(test)]
 
 mod tests {

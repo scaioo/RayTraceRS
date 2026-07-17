@@ -548,6 +548,9 @@ pub enum Keyword {
 static SYMBOLS: &str = "()<>[],*";
 static WHITESPACE: &str = " \t\r\n";
 
+// ==============================================
+// TESTS
+// ==============================================
 #[cfg(test)]
 mod test {
     use super::*;

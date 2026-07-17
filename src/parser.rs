@@ -1091,6 +1091,9 @@ pub fn parse_scene_with_policy<B: BufRead>(
     Ok(scene)
 }
 
+// ==============================================
+// TESTS
+// ==============================================
 #[cfg(test)]
 mod test {
     use super::*;

@@ -1,3 +1,5 @@
+// This file is licensed under the EUPL-1.2. See LICENSE.md.
+
 //! Helper functions for the `rstrace` command-line binary.
 //!
 //! These are CLI-specific concerns (parsing `--declare-float` entries,
@@ -108,6 +110,10 @@ pub fn create_parent_dir(path: &str) -> Result<()> {
     }
     Ok(())
 }
+
+// ==============================================
+// TESTS
+// ==============================================
 
 #[cfg(test)]
 mod tests {

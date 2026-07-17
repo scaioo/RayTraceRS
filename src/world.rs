@@ -65,6 +65,10 @@ impl Add for World {
         self
     }
 }
+
+// ==============================================
+// TESTS
+// ==============================================
 #[cfg(test)]
 mod tests {
     use crate::functions::{IDENTITY_4X4, are_close};

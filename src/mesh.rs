@@ -303,7 +303,8 @@ impl Shape for SimpleMesh {
     /// [`Triangle`] directly. This method is provided only to satisfy the [`Shape`]
     /// trait and will panic if called.
     fn normal_at(&self, _point: Point, _ray: &Ray) -> Normal {
-        todo!()
+        panic!("Normals for SimpleMesh are computed inside [`SimpleMesh::ray_intersection`] via the struck
+     [`Triangle`] directly.")
     }
 
     /// Not implemented for `SimpleMesh`.
@@ -312,7 +313,10 @@ impl Shape for SimpleMesh {
     /// [`SimpleMesh::ray_intersection`]. This method is provided only to satisfy the
     /// [`Shape`] trait and will panic if called.
     fn point_to_uv(&self, _point: &Point) -> Result<Vec2D> {
-        todo!()
+        panic!(
+            "UV coordinates for SimpleMesh are returned as barycentric pairs `(β, γ)` directly from
+    /// [`SimpleMesh::ray_intersection`]."
+        )
     }
 
     fn material(&self) -> &Material {
@@ -320,15 +324,16 @@ impl Shape for SimpleMesh {
     }
 }
 
-// **********************************************
-// Tests
-// **********************************************
+// ==============================================
+// TESTS
+// ==============================================
 
 #[cfg(test)]
 mod tests {
     use super::*;
     use crate::functions::are_close;
-    use crate::geometry::{Y_AXIS, Z_AXIS};
+    use crate::geometry::{Vector, Y_AXIS, Z_AXIS};
+    use crate::mesh::Point;
     use crate::transformations::{IDENTITY_TRANSFORMATION, Translation};
     use std::fs::File;
     use std::io::Write;
@@ -906,6 +911,28 @@ f 6 3 7
         SimpleMesh::new(points, triangles, Material::default()).unwrap()
     }
 
+    #[test]
+    #[should_panic(
+        expected = "Normals for SimpleMesh are computed inside [`SimpleMesh::ray_intersection`] via the struck
+     [`Triangle`] directly."
+    )]
+    fn test_simplemesh_normal_at() {
+        let (_, _, mesh) = setup_parallelepiped();
+        let ray = Ray::new(Point::new(0.0, 0.0, 0.0), Vector::new(0.0, 1.0, 0.0));
+        let _normal = mesh.normal_at(Point::new(0.0, 0.0, 0.0), &ray);
+    }
+
+    #[test]
+    #[should_panic(
+        expected = "UV coordinates for SimpleMesh are returned as barycentric pairs `(β, γ)` directly from
+    /// [`SimpleMesh::ray_intersection`]."
+    )]
+    fn test_simplemesh_point_to_uv() {
+        let (_, _, mesh) = setup_parallelepiped();
+        match mesh.point_to_uv(&Point::new(0.0, 0.0, 0.0)) {
+            _ => {}
+        }
+    }
     #[test]
     fn test_flat_case_aabb_construction() {
         let object = setup_flat();

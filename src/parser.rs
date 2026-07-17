@@ -91,7 +91,7 @@ use crate::materials::{ClampPigment, Material};
 use crate::mesh::SimpleMesh;
 use crate::pfm_func::read_pfm_file;
 use crate::pigments::{CheckeredPigment, GradientPigment, ImagePigment, Pigment, UniformPigment};
-use crate::shapes::{AABB, Cylinder, Plane, Sphere};
+use crate::shapes::{AABB, Cylinder, Plane, Sphere, Cube};
 use crate::transformations::{
     Scaling, Transformation, Translation, XRotation, YRotation, ZRotation,
 };
@@ -704,8 +704,8 @@ pub fn parse_plane<B: BufRead>(
 /// Parses an axis-aligned bounding box.
 ///
 /// Expected syntax:
-/// `box(material_name, point(min), point(max))`
-pub fn parse_box<B: BufRead>(stream: &mut InputStream<B>, scene: &Scene) -> Result<AABB> {
+/// `aabb(material_name, point(min), point(max))`
+pub fn parse_aabb<B: BufRead>(stream: &mut InputStream<B>, scene: &Scene) -> Result<AABB> {
     expect_symbol(stream, '(')?;
     let material_name = expect_identifier(stream)?;
     expect_symbol(stream, ',')?;
@@ -718,10 +718,28 @@ pub fn parse_box<B: BufRead>(stream: &mut InputStream<B>, scene: &Scene) -> Resu
     let material = scene
         .materials
         .get(&material_name)
-        .ok_or_else(|| anyhow!("Unknown material '{}' for box", material_name))?
+        .ok_or_else(|| anyhow!("Unknown material '{}' for aabb", material_name))?
         .clone();
     let aabb = AABB::new(point1, point2, material)?;
     Ok(aabb)
+}
+
+pub fn parse_cube<B: BufRead>(
+    stream: &mut InputStream<B>,
+    scene: &Scene,
+) -> Result<Cube<Transformation>> {
+    expect_symbol(stream, '(')?;
+    let material_name = expect_identifier(stream)?;
+    expect_symbol(stream, ',')?;
+    let transformation = parse_transformation(stream, scene)?;
+    expect_symbol(stream, ')')?;
+    let material = scene
+        .materials
+        .get(&material_name)
+        .ok_or_else(|| anyhow!("Unknown material '{}' for box", material_name))?
+        .clone();
+    let cube = Cube::new(material, transformation);
+    Ok(cube)
 }
 
 pub fn parse_cylinder<B: BufRead>(
@@ -908,9 +926,13 @@ pub fn parse_scene_with_policy<B: BufRead>(
                 let plane = parse_plane(stream, &scene)?;
                 scene.world.objects.push(Box::new(plane));
             }
+            TokenKind::Keyword(Keyword::Aabb) => {
+                let aabb = parse_aabb(stream, &scene)?;
+                scene.world.objects.push(Box::new(aabb));
+            }
             TokenKind::Keyword(Keyword::Box) => {
-                let box_shape = parse_box(stream, &scene)?;
-                scene.world.objects.push(Box::new(box_shape));
+                let cube = parse_cube(stream, &scene)?;
+                scene.world.objects.push(Box::new(cube))
             }
             TokenKind::Keyword(Keyword::Cylinder) => {
                 let cylinder = parse_cylinder(stream, &scene)?;
@@ -1797,6 +1819,51 @@ plane(floor_material, identity{})"#,
             color.is_close(&Color::new(0.1, 0.2, 0.3)),
             "Expected <0.1, 0.2, 0.3> but got {:?}",
             color
+        );
+
+        Ok(())
+    }
+
+    #[test]
+    fn test_parse_cube() -> Result<()> {
+        let text = r#"
+        material mat(
+        uniform(<0.1, 0.2, 0.3>), diffuse(), uniform(white)
+        )
+
+        box(
+        mat, translation([1.5, 0, 0]) * scaling([1.0, 2.0, 1.0])
+        )"#;
+        let cursor = std::io::Cursor::new(text);
+        let mut stream = InputStream::new(cursor, 0, 4);
+        let scene = parse_scene(&mut stream, HashMap::new())?;
+
+        assert_eq!(
+            scene.world.objects.len(),
+            1,
+            "Expected 1 object but found {}",
+            scene.world.objects.len()
+        );
+
+        let color = scene.world.objects[0]
+            .material()
+            .pigment
+            .get_color(&Vec2D::new(0.5, 0.5))?;
+
+        assert!(
+            color.is_close(&Color::new(0.1, 0.2, 0.3)),
+            "Expected <0.1, 0.2, 0.3> but got {:?}",
+            color
+        );
+
+        let ray = Ray::new(Point::new(10.5, 0.75, 0.0), -X_AXIS);
+        let hit = scene.world.objects[0]
+            .ray_intersection(&ray).unwrap();
+
+        assert!(
+            hit.normal.is_close(&Normal::from(X_AXIS)),
+            "Expected normal <1, 0, 0> but got {}",
+            hit.normal
         );
 
         Ok(())

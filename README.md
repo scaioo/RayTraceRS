@@ -110,22 +110,22 @@ rstrace render <SCENE.txt> [OPTIONS]
 
 It produces both a raw HDR `.pfm` file and a tone-mapped raster image.
 
-| Option | Default | Description |
-| --- | --- | --- |
-| `--width <N>` | `1000` | Output image width, in pixels. |
-| `--height <N>` | `750` | Output image height, in pixels. |
-| `--algorithm <ALG>` | `pathtracing` | `pathtracing`, `point-light`, `flat`, or `onoff`. |
-| `--num-of-rays <N>` | `10` | Rays sampled per bounce (path tracer). |
-| `--max-depth <N>` | `3` | Maximum ray recursion depth. |
-| `--antialiasing <N>` | `5` | Samples per pixel side (total = N²). |
-| `--reflectance-policy <P>` | `reject` | Handling of out-of-range reflectance: `reject`, `rescale`, `ignore`. |
-| `--format <FMT>` | `png` | Raster output format: `png`, `jpg`, `jpeg`. |
+| Option | Default              | Description |
+| --- |----------------------| --- |
+| `--width <N>` | `1000`               | Output image width, in pixels. |
+| `--height <N>` | `750`                | Output image height, in pixels. |
+| `--algorithm <ALG>` | `pathtracing`        | `pathtracing`, `point-light`, `flat`, or `onoff`. |
+| `--num-of-rays <N>` | `5`                  | Rays sampled per bounce (path tracer). |
+| `--max-depth <N>` | `3`                  | Maximum ray recursion depth. |
+| `--antialiasing <N>` | `5`                  | Samples per pixel side (total = N²). |
+| `--reflectance-policy <P>` | `reject`             | Handling of out-of-range reflectance: `reject`, `rescale`, `ignore`. |
+| `--format <FMT>` | `png`                | Raster output format: `png`, `jpg`, `jpeg`. |
 | `--pfm-output <PATH>` | `outputs/output.pfm` | Path for the HDR `.pfm` output. |
-| `--image-output <PATH>` | `outputs/output` | Path for the tone-mapped raster output. |
-| `--threads <N>` | `0` | Rendering threads; `0` uses all cores, `1` disables threading. |
-| `--declare-float <VAR:VALUE>` | — | Define/override a scene variable (repeatable, `-d` for short). |
-| `--init-state <N>` / `--init-seq <N>` | `45` / `54` | Seed the PCG random number generator. |
-| `--tab-size <N>` | `4` | Tab width used when reporting parser error columns. |
+| `--image-output <PATH>` | `outputs/output`     | Path for the tone-mapped raster output. |
+| `--threads <N>` | `0`                  | Rendering threads; `0` uses all cores, `1` disables threading. |
+| `--declare-float <VAR:VALUE>` | —                    | Define/override a scene variable (repeatable, `-d` for short). |
+| `--init-state <N>` / `--init-seq <N>` | `45` / `54`          | Seed the PCG random number generator. |
+| `--tab-size <N>` | `4`                  | Tab width used when reporting parser error columns. |
 
 > **Note on `--reflectance-policy`.** The path tracer has no direct-light sampling,
 > so scenes rely on indirect bounces and often want higher `--num-of-rays` /

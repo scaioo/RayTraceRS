@@ -93,7 +93,7 @@ enum Commands {
         image_output: String,
 
         /// Number of rays sampled per pixel (used by the path tracer).
-        #[arg(long, default_value_t = 10)]
+        #[arg(long, default_value_t = 5)]
         num_of_rays: usize,
 
         /// Maximum recursion depth for ray bounces (used by the path tracer).

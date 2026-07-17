@@ -1,0 +1,427 @@
+# =====================================================================
+#  Greek temple at sunset  --  generated for the `cylinder` branch.
+#  Temple:  elongated 6 x 12 peristyle (hexastyle facade, 12 deep).
+#  Columns: stacked tapering cylinders (drums) + echinus + abacus box.
+#  Base:    stepped crepidoma made of axis-aligned boxes.
+#  Roof:    triangle mesh (assets/greek_temple_roof.obj).
+#  Sky:     emissive gradient dome, vivid red/orange sunset, which also
+#           lights the scene.
+#
+#  Use the path tracer so the emissive sky acts as soft area light.
+#
+#  Quick preview (~10 s):
+#    cargo run --release -- render examples/greek_temple.txt \
+#      --width 480 --height 320 --num-of-rays 3 --antialiasing 3
+#
+#  Quality render (~1.5 min; ~280 objects x a branching path tracer,
+#  so keep max-depth low -- depth 4 gets very slow):
+#    cargo run --release -- render examples/greek_temple.txt \
+#      --width 900 --height 600 --num-of-rays 3 --max-depth 3 \
+#      --antialiasing 6
+# =====================================================================
+
+# ------------------------------- materials -------------------------------
+material marble(
+    uniform(<0.86, 0.82, 0.73>),
+    diffuse(),
+    uniform(black)
+)
+
+material stone(
+    uniform(<0.58, 0.56, 0.50>),
+    diffuse(),
+    uniform(black)
+)
+
+material roof_material(
+    uniform(<0.60, 0.40, 0.30>),
+    diffuse(),
+    uniform(black)
+)
+
+material ground_material(
+    uniform(<0.27, 0.25, 0.21>),
+    diffuse(),
+    uniform(black)
+)
+
+# Sky dome: no reflectance, radiance comes from a vertical gradient.
+# NOTE: the renderer feeds get_color the *oriented* uv (u,v)->(v,-u), so
+# a gradient that varies with elevation must use angle 0 (which then reads
+# the sphere's polar coordinate v).  color1 = zenith (deep magenta-violet),
+# color2 = nadir (fiery orange-red); the visible sky (v~0.26..0.5) burns
+# from a dark red top down to an intense orange glow at the horizon.
+material sky_material(
+    uniform(black),
+    diffuse(),
+    gradient(<0.16, 0.03, 0.28>, <3.80, 0.90, 0.12>, 0)
+)
+
+# Setting sun: a bright warm emitter acting as a soft area light.
+material sun_material(
+    uniform(black),
+    diffuse(),
+    uniform(<13.0, 9.0, 4.5>)
+)
+
+# ------------------------------- sky & ground ----------------------------
+sphere(sky_material, scaling([100, 100, 100]))
+sphere(sun_material, translation([-3.0, -22.0, 3.5]) * scaling(5.0))
+plane(ground_material, identity)
+
+# --- Realistic textured floor (optional) ---------------------------------
+# The plane tiles a texture once per world unit, so scale the plane to set
+# the tile size. Drop a *seamless* albedo map in assets/ and swap the two
+# lines above for something like:
+#
+#   material ground_material(
+#       image("assets/ground.jpg", 0.18, 1.0, 2.2),   # png/jpg: a, lum, gamma
+#       diffuse(),
+#       uniform(black)
+#   )
+#   plane(ground_material, scaling([3, 3, 1]))         # 1 tile every 3 units
+#
+# A .pfm (HDR) texture instead needs no extra args: image("assets/ground.pfm").
+# No download? A stone pavement can be faked procedurally with:
+#   checkered(<0.42, 0.40, 0.35>, <0.34, 0.32, 0.28>, 40)   # + plane(..., true)
+
+# ------------------------------- crepidoma (steps) -----------------------
+aabb(stone, point([2.0, -5.2, 0.6]), point([24.9, 5.2, 0.9]))
+aabb(stone, point([1.7, -5.5, 0.3]), point([25.2, 5.5, 0.6]))
+aabb(stone, point([1.4, -5.8, 0.0]), point([25.5, 5.8, 0.3]))
+
+# ------------------------------- 32 columns (6 drums + capital each) ------
+# column @ x=3.00 y=-4.25
+cylinder(marble, translation([3.00, -4.25, 1.250]), 0.7, 0.760)
+cylinder(marble, translation([3.00, -4.25, 1.950]), 0.7, 0.728)
+cylinder(marble, translation([3.00, -4.25, 2.650]), 0.7, 0.696)
+cylinder(marble, translation([3.00, -4.25, 3.350]), 0.7, 0.664)
+cylinder(marble, translation([3.00, -4.25, 4.050]), 0.7, 0.632)
+cylinder(marble, translation([3.00, -4.25, 4.750]), 0.7, 0.600)
+cylinder(marble, translation([3.00, -4.25, 5.210]), 0.22, 0.86)
+aabb(marble, point([2.52, -4.73, 5.319999999999999]), point([3.48, -3.77, 5.499999999999999]))
+
+# column @ x=3.00 y=-2.55
+cylinder(marble, translation([3.00, -2.55, 1.250]), 0.7, 0.760)
+cylinder(marble, translation([3.00, -2.55, 1.950]), 0.7, 0.728)
+cylinder(marble, translation([3.00, -2.55, 2.650]), 0.7, 0.696)
+cylinder(marble, translation([3.00, -2.55, 3.350]), 0.7, 0.664)
+cylinder(marble, translation([3.00, -2.55, 4.050]), 0.7, 0.632)
+cylinder(marble, translation([3.00, -2.55, 4.750]), 0.7, 0.600)
+cylinder(marble, translation([3.00, -2.55, 5.210]), 0.22, 0.86)
+aabb(marble, point([2.52, -3.03, 5.319999999999999]), point([3.48, -2.07, 5.499999999999999]))
+
+# column @ x=3.00 y=-0.85
+cylinder(marble, translation([3.00, -0.85, 1.250]), 0.7, 0.760)
+cylinder(marble, translation([3.00, -0.85, 1.950]), 0.7, 0.728)
+cylinder(marble, translation([3.00, -0.85, 2.650]), 0.7, 0.696)
+cylinder(marble, translation([3.00, -0.85, 3.350]), 0.7, 0.664)
+cylinder(marble, translation([3.00, -0.85, 4.050]), 0.7, 0.632)
+cylinder(marble, translation([3.00, -0.85, 4.750]), 0.7, 0.600)
+cylinder(marble, translation([3.00, -0.85, 5.210]), 0.22, 0.86)
+aabb(marble, point([2.52, -1.33, 5.319999999999999]), point([3.48, -0.37, 5.499999999999999]))
+
+# column @ x=3.00 y=0.85
+cylinder(marble, translation([3.00, 0.85, 1.250]), 0.7, 0.760)
+cylinder(marble, translation([3.00, 0.85, 1.950]), 0.7, 0.728)
+cylinder(marble, translation([3.00, 0.85, 2.650]), 0.7, 0.696)
+cylinder(marble, translation([3.00, 0.85, 3.350]), 0.7, 0.664)
+cylinder(marble, translation([3.00, 0.85, 4.050]), 0.7, 0.632)
+cylinder(marble, translation([3.00, 0.85, 4.750]), 0.7, 0.600)
+cylinder(marble, translation([3.00, 0.85, 5.210]), 0.22, 0.86)
+aabb(marble, point([2.52, 0.37, 5.319999999999999]), point([3.48, 1.33, 5.499999999999999]))
+
+# column @ x=3.00 y=2.55
+cylinder(marble, translation([3.00, 2.55, 1.250]), 0.7, 0.760)
+cylinder(marble, translation([3.00, 2.55, 1.950]), 0.7, 0.728)
+cylinder(marble, translation([3.00, 2.55, 2.650]), 0.7, 0.696)
+cylinder(marble, translation([3.00, 2.55, 3.350]), 0.7, 0.664)
+cylinder(marble, translation([3.00, 2.55, 4.050]), 0.7, 0.632)
+cylinder(marble, translation([3.00, 2.55, 4.750]), 0.7, 0.600)
+cylinder(marble, translation([3.00, 2.55, 5.210]), 0.22, 0.86)
+aabb(marble, point([2.52, 2.07, 5.319999999999999]), point([3.48, 3.03, 5.499999999999999]))
+
+# column @ x=3.00 y=4.25
+cylinder(marble, translation([3.00, 4.25, 1.250]), 0.7, 0.760)
+cylinder(marble, translation([3.00, 4.25, 1.950]), 0.7, 0.728)
+cylinder(marble, translation([3.00, 4.25, 2.650]), 0.7, 0.696)
+cylinder(marble, translation([3.00, 4.25, 3.350]), 0.7, 0.664)
+cylinder(marble, translation([3.00, 4.25, 4.050]), 0.7, 0.632)
+cylinder(marble, translation([3.00, 4.25, 4.750]), 0.7, 0.600)
+cylinder(marble, translation([3.00, 4.25, 5.210]), 0.22, 0.86)
+aabb(marble, point([2.52, 3.77, 5.319999999999999]), point([3.48, 4.73, 5.499999999999999]))
+
+# column @ x=4.90 y=-4.25
+cylinder(marble, translation([4.90, -4.25, 1.250]), 0.7, 0.760)
+cylinder(marble, translation([4.90, -4.25, 1.950]), 0.7, 0.728)
+cylinder(marble, translation([4.90, -4.25, 2.650]), 0.7, 0.696)
+cylinder(marble, translation([4.90, -4.25, 3.350]), 0.7, 0.664)
+cylinder(marble, translation([4.90, -4.25, 4.050]), 0.7, 0.632)
+cylinder(marble, translation([4.90, -4.25, 4.750]), 0.7, 0.600)
+cylinder(marble, translation([4.90, -4.25, 5.210]), 0.22, 0.86)
+aabb(marble, point([4.42, -4.73, 5.319999999999999]), point([5.38, -3.77, 5.499999999999999]))
+
+# column @ x=4.90 y=4.25
+cylinder(marble, translation([4.90, 4.25, 1.250]), 0.7, 0.760)
+cylinder(marble, translation([4.90, 4.25, 1.950]), 0.7, 0.728)
+cylinder(marble, translation([4.90, 4.25, 2.650]), 0.7, 0.696)
+cylinder(marble, translation([4.90, 4.25, 3.350]), 0.7, 0.664)
+cylinder(marble, translation([4.90, 4.25, 4.050]), 0.7, 0.632)
+cylinder(marble, translation([4.90, 4.25, 4.750]), 0.7, 0.600)
+cylinder(marble, translation([4.90, 4.25, 5.210]), 0.22, 0.86)
+aabb(marble, point([4.42, 3.77, 5.319999999999999]), point([5.38, 4.73, 5.499999999999999]))
+
+# column @ x=6.80 y=-4.25
+cylinder(marble, translation([6.80, -4.25, 1.250]), 0.7, 0.760)
+cylinder(marble, translation([6.80, -4.25, 1.950]), 0.7, 0.728)
+cylinder(marble, translation([6.80, -4.25, 2.650]), 0.7, 0.696)
+cylinder(marble, translation([6.80, -4.25, 3.350]), 0.7, 0.664)
+cylinder(marble, translation([6.80, -4.25, 4.050]), 0.7, 0.632)
+cylinder(marble, translation([6.80, -4.25, 4.750]), 0.7, 0.600)
+cylinder(marble, translation([6.80, -4.25, 5.210]), 0.22, 0.86)
+aabb(marble, point([6.32, -4.73, 5.319999999999999]), point([7.28, -3.77, 5.499999999999999]))
+
+# column @ x=6.80 y=4.25
+cylinder(marble, translation([6.80, 4.25, 1.250]), 0.7, 0.760)
+cylinder(marble, translation([6.80, 4.25, 1.950]), 0.7, 0.728)
+cylinder(marble, translation([6.80, 4.25, 2.650]), 0.7, 0.696)
+cylinder(marble, translation([6.80, 4.25, 3.350]), 0.7, 0.664)
+cylinder(marble, translation([6.80, 4.25, 4.050]), 0.7, 0.632)
+cylinder(marble, translation([6.80, 4.25, 4.750]), 0.7, 0.600)
+cylinder(marble, translation([6.80, 4.25, 5.210]), 0.22, 0.86)
+aabb(marble, point([6.32, 3.77, 5.319999999999999]), point([7.28, 4.73, 5.499999999999999]))
+
+# column @ x=8.70 y=-4.25
+cylinder(marble, translation([8.70, -4.25, 1.250]), 0.7, 0.760)
+cylinder(marble, translation([8.70, -4.25, 1.950]), 0.7, 0.728)
+cylinder(marble, translation([8.70, -4.25, 2.650]), 0.7, 0.696)
+cylinder(marble, translation([8.70, -4.25, 3.350]), 0.7, 0.664)
+cylinder(marble, translation([8.70, -4.25, 4.050]), 0.7, 0.632)
+cylinder(marble, translation([8.70, -4.25, 4.750]), 0.7, 0.600)
+cylinder(marble, translation([8.70, -4.25, 5.210]), 0.22, 0.86)
+aabb(marble, point([8.22, -4.73, 5.319999999999999]), point([9.18, -3.77, 5.499999999999999]))
+
+# column @ x=8.70 y=4.25
+cylinder(marble, translation([8.70, 4.25, 1.250]), 0.7, 0.760)
+cylinder(marble, translation([8.70, 4.25, 1.950]), 0.7, 0.728)
+cylinder(marble, translation([8.70, 4.25, 2.650]), 0.7, 0.696)
+cylinder(marble, translation([8.70, 4.25, 3.350]), 0.7, 0.664)
+cylinder(marble, translation([8.70, 4.25, 4.050]), 0.7, 0.632)
+cylinder(marble, translation([8.70, 4.25, 4.750]), 0.7, 0.600)
+cylinder(marble, translation([8.70, 4.25, 5.210]), 0.22, 0.86)
+aabb(marble, point([8.22, 3.77, 5.319999999999999]), point([9.18, 4.73, 5.499999999999999]))
+
+# column @ x=10.60 y=-4.25
+cylinder(marble, translation([10.60, -4.25, 1.250]), 0.7, 0.760)
+cylinder(marble, translation([10.60, -4.25, 1.950]), 0.7, 0.728)
+cylinder(marble, translation([10.60, -4.25, 2.650]), 0.7, 0.696)
+cylinder(marble, translation([10.60, -4.25, 3.350]), 0.7, 0.664)
+cylinder(marble, translation([10.60, -4.25, 4.050]), 0.7, 0.632)
+cylinder(marble, translation([10.60, -4.25, 4.750]), 0.7, 0.600)
+cylinder(marble, translation([10.60, -4.25, 5.210]), 0.22, 0.86)
+aabb(marble, point([10.12, -4.73, 5.319999999999999]), point([11.08, -3.77, 5.499999999999999]))
+
+# column @ x=10.60 y=4.25
+cylinder(marble, translation([10.60, 4.25, 1.250]), 0.7, 0.760)
+cylinder(marble, translation([10.60, 4.25, 1.950]), 0.7, 0.728)
+cylinder(marble, translation([10.60, 4.25, 2.650]), 0.7, 0.696)
+cylinder(marble, translation([10.60, 4.25, 3.350]), 0.7, 0.664)
+cylinder(marble, translation([10.60, 4.25, 4.050]), 0.7, 0.632)
+cylinder(marble, translation([10.60, 4.25, 4.750]), 0.7, 0.600)
+cylinder(marble, translation([10.60, 4.25, 5.210]), 0.22, 0.86)
+aabb(marble, point([10.12, 3.77, 5.319999999999999]), point([11.08, 4.73, 5.499999999999999]))
+
+# column @ x=12.50 y=-4.25
+cylinder(marble, translation([12.50, -4.25, 1.250]), 0.7, 0.760)
+cylinder(marble, translation([12.50, -4.25, 1.950]), 0.7, 0.728)
+cylinder(marble, translation([12.50, -4.25, 2.650]), 0.7, 0.696)
+cylinder(marble, translation([12.50, -4.25, 3.350]), 0.7, 0.664)
+cylinder(marble, translation([12.50, -4.25, 4.050]), 0.7, 0.632)
+cylinder(marble, translation([12.50, -4.25, 4.750]), 0.7, 0.600)
+cylinder(marble, translation([12.50, -4.25, 5.210]), 0.22, 0.86)
+aabb(marble, point([12.02, -4.73, 5.319999999999999]), point([12.98, -3.77, 5.499999999999999]))
+
+# column @ x=12.50 y=4.25
+cylinder(marble, translation([12.50, 4.25, 1.250]), 0.7, 0.760)
+cylinder(marble, translation([12.50, 4.25, 1.950]), 0.7, 0.728)
+cylinder(marble, translation([12.50, 4.25, 2.650]), 0.7, 0.696)
+cylinder(marble, translation([12.50, 4.25, 3.350]), 0.7, 0.664)
+cylinder(marble, translation([12.50, 4.25, 4.050]), 0.7, 0.632)
+cylinder(marble, translation([12.50, 4.25, 4.750]), 0.7, 0.600)
+cylinder(marble, translation([12.50, 4.25, 5.210]), 0.22, 0.86)
+aabb(marble, point([12.02, 3.77, 5.319999999999999]), point([12.98, 4.73, 5.499999999999999]))
+
+# column @ x=14.40 y=-4.25
+cylinder(marble, translation([14.40, -4.25, 1.250]), 0.7, 0.760)
+cylinder(marble, translation([14.40, -4.25, 1.950]), 0.7, 0.728)
+cylinder(marble, translation([14.40, -4.25, 2.650]), 0.7, 0.696)
+cylinder(marble, translation([14.40, -4.25, 3.350]), 0.7, 0.664)
+cylinder(marble, translation([14.40, -4.25, 4.050]), 0.7, 0.632)
+cylinder(marble, translation([14.40, -4.25, 4.750]), 0.7, 0.600)
+cylinder(marble, translation([14.40, -4.25, 5.210]), 0.22, 0.86)
+aabb(marble, point([13.92, -4.73, 5.319999999999999]), point([14.88, -3.77, 5.499999999999999]))
+
+# column @ x=14.40 y=4.25
+cylinder(marble, translation([14.40, 4.25, 1.250]), 0.7, 0.760)
+cylinder(marble, translation([14.40, 4.25, 1.950]), 0.7, 0.728)
+cylinder(marble, translation([14.40, 4.25, 2.650]), 0.7, 0.696)
+cylinder(marble, translation([14.40, 4.25, 3.350]), 0.7, 0.664)
+cylinder(marble, translation([14.40, 4.25, 4.050]), 0.7, 0.632)
+cylinder(marble, translation([14.40, 4.25, 4.750]), 0.7, 0.600)
+cylinder(marble, translation([14.40, 4.25, 5.210]), 0.22, 0.86)
+aabb(marble, point([13.92, 3.77, 5.319999999999999]), point([14.88, 4.73, 5.499999999999999]))
+
+# column @ x=16.30 y=-4.25
+cylinder(marble, translation([16.30, -4.25, 1.250]), 0.7, 0.760)
+cylinder(marble, translation([16.30, -4.25, 1.950]), 0.7, 0.728)
+cylinder(marble, translation([16.30, -4.25, 2.650]), 0.7, 0.696)
+cylinder(marble, translation([16.30, -4.25, 3.350]), 0.7, 0.664)
+cylinder(marble, translation([16.30, -4.25, 4.050]), 0.7, 0.632)
+cylinder(marble, translation([16.30, -4.25, 4.750]), 0.7, 0.600)
+cylinder(marble, translation([16.30, -4.25, 5.210]), 0.22, 0.86)
+aabb(marble, point([15.82, -4.73, 5.319999999999999]), point([16.78, -3.77, 5.499999999999999]))
+
+# column @ x=16.30 y=4.25
+cylinder(marble, translation([16.30, 4.25, 1.250]), 0.7, 0.760)
+cylinder(marble, translation([16.30, 4.25, 1.950]), 0.7, 0.728)
+cylinder(marble, translation([16.30, 4.25, 2.650]), 0.7, 0.696)
+cylinder(marble, translation([16.30, 4.25, 3.350]), 0.7, 0.664)
+cylinder(marble, translation([16.30, 4.25, 4.050]), 0.7, 0.632)
+cylinder(marble, translation([16.30, 4.25, 4.750]), 0.7, 0.600)
+cylinder(marble, translation([16.30, 4.25, 5.210]), 0.22, 0.86)
+aabb(marble, point([15.82, 3.77, 5.319999999999999]), point([16.78, 4.73, 5.499999999999999]))
+
+# column @ x=18.20 y=-4.25
+cylinder(marble, translation([18.20, -4.25, 1.250]), 0.7, 0.760)
+cylinder(marble, translation([18.20, -4.25, 1.950]), 0.7, 0.728)
+cylinder(marble, translation([18.20, -4.25, 2.650]), 0.7, 0.696)
+cylinder(marble, translation([18.20, -4.25, 3.350]), 0.7, 0.664)
+cylinder(marble, translation([18.20, -4.25, 4.050]), 0.7, 0.632)
+cylinder(marble, translation([18.20, -4.25, 4.750]), 0.7, 0.600)
+cylinder(marble, translation([18.20, -4.25, 5.210]), 0.22, 0.86)
+aabb(marble, point([17.72, -4.73, 5.319999999999999]), point([18.68, -3.77, 5.499999999999999]))
+
+# column @ x=18.20 y=4.25
+cylinder(marble, translation([18.20, 4.25, 1.250]), 0.7, 0.760)
+cylinder(marble, translation([18.20, 4.25, 1.950]), 0.7, 0.728)
+cylinder(marble, translation([18.20, 4.25, 2.650]), 0.7, 0.696)
+cylinder(marble, translation([18.20, 4.25, 3.350]), 0.7, 0.664)
+cylinder(marble, translation([18.20, 4.25, 4.050]), 0.7, 0.632)
+cylinder(marble, translation([18.20, 4.25, 4.750]), 0.7, 0.600)
+cylinder(marble, translation([18.20, 4.25, 5.210]), 0.22, 0.86)
+aabb(marble, point([17.72, 3.77, 5.319999999999999]), point([18.68, 4.73, 5.499999999999999]))
+
+# column @ x=20.10 y=-4.25
+cylinder(marble, translation([20.10, -4.25, 1.250]), 0.7, 0.760)
+cylinder(marble, translation([20.10, -4.25, 1.950]), 0.7, 0.728)
+cylinder(marble, translation([20.10, -4.25, 2.650]), 0.7, 0.696)
+cylinder(marble, translation([20.10, -4.25, 3.350]), 0.7, 0.664)
+cylinder(marble, translation([20.10, -4.25, 4.050]), 0.7, 0.632)
+cylinder(marble, translation([20.10, -4.25, 4.750]), 0.7, 0.600)
+cylinder(marble, translation([20.10, -4.25, 5.210]), 0.22, 0.86)
+aabb(marble, point([19.62, -4.73, 5.319999999999999]), point([20.58, -3.77, 5.499999999999999]))
+
+# column @ x=20.10 y=4.25
+cylinder(marble, translation([20.10, 4.25, 1.250]), 0.7, 0.760)
+cylinder(marble, translation([20.10, 4.25, 1.950]), 0.7, 0.728)
+cylinder(marble, translation([20.10, 4.25, 2.650]), 0.7, 0.696)
+cylinder(marble, translation([20.10, 4.25, 3.350]), 0.7, 0.664)
+cylinder(marble, translation([20.10, 4.25, 4.050]), 0.7, 0.632)
+cylinder(marble, translation([20.10, 4.25, 4.750]), 0.7, 0.600)
+cylinder(marble, translation([20.10, 4.25, 5.210]), 0.22, 0.86)
+aabb(marble, point([19.62, 3.77, 5.319999999999999]), point([20.58, 4.73, 5.499999999999999]))
+
+# column @ x=22.00 y=-4.25
+cylinder(marble, translation([22.00, -4.25, 1.250]), 0.7, 0.760)
+cylinder(marble, translation([22.00, -4.25, 1.950]), 0.7, 0.728)
+cylinder(marble, translation([22.00, -4.25, 2.650]), 0.7, 0.696)
+cylinder(marble, translation([22.00, -4.25, 3.350]), 0.7, 0.664)
+cylinder(marble, translation([22.00, -4.25, 4.050]), 0.7, 0.632)
+cylinder(marble, translation([22.00, -4.25, 4.750]), 0.7, 0.600)
+cylinder(marble, translation([22.00, -4.25, 5.210]), 0.22, 0.86)
+aabb(marble, point([21.52, -4.73, 5.319999999999999]), point([22.48, -3.77, 5.499999999999999]))
+
+# column @ x=22.00 y=4.25
+cylinder(marble, translation([22.00, 4.25, 1.250]), 0.7, 0.760)
+cylinder(marble, translation([22.00, 4.25, 1.950]), 0.7, 0.728)
+cylinder(marble, translation([22.00, 4.25, 2.650]), 0.7, 0.696)
+cylinder(marble, translation([22.00, 4.25, 3.350]), 0.7, 0.664)
+cylinder(marble, translation([22.00, 4.25, 4.050]), 0.7, 0.632)
+cylinder(marble, translation([22.00, 4.25, 4.750]), 0.7, 0.600)
+cylinder(marble, translation([22.00, 4.25, 5.210]), 0.22, 0.86)
+aabb(marble, point([21.52, 3.77, 5.319999999999999]), point([22.48, 4.73, 5.499999999999999]))
+
+# column @ x=23.90 y=-4.25
+cylinder(marble, translation([23.90, -4.25, 1.250]), 0.7, 0.760)
+cylinder(marble, translation([23.90, -4.25, 1.950]), 0.7, 0.728)
+cylinder(marble, translation([23.90, -4.25, 2.650]), 0.7, 0.696)
+cylinder(marble, translation([23.90, -4.25, 3.350]), 0.7, 0.664)
+cylinder(marble, translation([23.90, -4.25, 4.050]), 0.7, 0.632)
+cylinder(marble, translation([23.90, -4.25, 4.750]), 0.7, 0.600)
+cylinder(marble, translation([23.90, -4.25, 5.210]), 0.22, 0.86)
+aabb(marble, point([23.42, -4.73, 5.319999999999999]), point([24.38, -3.77, 5.499999999999999]))
+
+# column @ x=23.90 y=-2.55
+cylinder(marble, translation([23.90, -2.55, 1.250]), 0.7, 0.760)
+cylinder(marble, translation([23.90, -2.55, 1.950]), 0.7, 0.728)
+cylinder(marble, translation([23.90, -2.55, 2.650]), 0.7, 0.696)
+cylinder(marble, translation([23.90, -2.55, 3.350]), 0.7, 0.664)
+cylinder(marble, translation([23.90, -2.55, 4.050]), 0.7, 0.632)
+cylinder(marble, translation([23.90, -2.55, 4.750]), 0.7, 0.600)
+cylinder(marble, translation([23.90, -2.55, 5.210]), 0.22, 0.86)
+aabb(marble, point([23.42, -3.03, 5.319999999999999]), point([24.38, -2.07, 5.499999999999999]))
+
+# column @ x=23.90 y=-0.85
+cylinder(marble, translation([23.90, -0.85, 1.250]), 0.7, 0.760)
+cylinder(marble, translation([23.90, -0.85, 1.950]), 0.7, 0.728)
+cylinder(marble, translation([23.90, -0.85, 2.650]), 0.7, 0.696)
+cylinder(marble, translation([23.90, -0.85, 3.350]), 0.7, 0.664)
+cylinder(marble, translation([23.90, -0.85, 4.050]), 0.7, 0.632)
+cylinder(marble, translation([23.90, -0.85, 4.750]), 0.7, 0.600)
+cylinder(marble, translation([23.90, -0.85, 5.210]), 0.22, 0.86)
+aabb(marble, point([23.42, -1.33, 5.319999999999999]), point([24.38, -0.37, 5.499999999999999]))
+
+# column @ x=23.90 y=0.85
+cylinder(marble, translation([23.90, 0.85, 1.250]), 0.7, 0.760)
+cylinder(marble, translation([23.90, 0.85, 1.950]), 0.7, 0.728)
+cylinder(marble, translation([23.90, 0.85, 2.650]), 0.7, 0.696)
+cylinder(marble, translation([23.90, 0.85, 3.350]), 0.7, 0.664)
+cylinder(marble, translation([23.90, 0.85, 4.050]), 0.7, 0.632)
+cylinder(marble, translation([23.90, 0.85, 4.750]), 0.7, 0.600)
+cylinder(marble, translation([23.90, 0.85, 5.210]), 0.22, 0.86)
+aabb(marble, point([23.42, 0.37, 5.319999999999999]), point([24.38, 1.33, 5.499999999999999]))
+
+# column @ x=23.90 y=2.55
+cylinder(marble, translation([23.90, 2.55, 1.250]), 0.7, 0.760)
+cylinder(marble, translation([23.90, 2.55, 1.950]), 0.7, 0.728)
+cylinder(marble, translation([23.90, 2.55, 2.650]), 0.7, 0.696)
+cylinder(marble, translation([23.90, 2.55, 3.350]), 0.7, 0.664)
+cylinder(marble, translation([23.90, 2.55, 4.050]), 0.7, 0.632)
+cylinder(marble, translation([23.90, 2.55, 4.750]), 0.7, 0.600)
+cylinder(marble, translation([23.90, 2.55, 5.210]), 0.22, 0.86)
+aabb(marble, point([23.42, 2.07, 5.319999999999999]), point([24.38, 3.03, 5.499999999999999]))
+
+# column @ x=23.90 y=4.25
+cylinder(marble, translation([23.90, 4.25, 1.250]), 0.7, 0.760)
+cylinder(marble, translation([23.90, 4.25, 1.950]), 0.7, 0.728)
+cylinder(marble, translation([23.90, 4.25, 2.650]), 0.7, 0.696)
+cylinder(marble, translation([23.90, 4.25, 3.350]), 0.7, 0.664)
+cylinder(marble, translation([23.90, 4.25, 4.050]), 0.7, 0.632)
+cylinder(marble, translation([23.90, 4.25, 4.750]), 0.7, 0.600)
+cylinder(marble, translation([23.90, 4.25, 5.210]), 0.22, 0.86)
+aabb(marble, point([23.42, 3.77, 5.319999999999999]), point([24.38, 4.73, 5.499999999999999]))
+
+# ------------------------------- entablature -----------------------------
+aabb(marble, point([2.3, -4.9, 5.499999999999999]), point([24.599999999999998, 4.9, 6.199999999999999]))
+aabb(marble, point([2.0, -5.2, 6.199999999999999]), point([24.9, 5.2, 6.499999999999999]))
+
+# ------------------------------- roof (triangle mesh) --------------------
+simple_mesh(roof_material, "assets/greek_temple_roof.obj", identity)
+
+# ------------------------------- camera ----------------------------------
+camera(
+    perspective,
+    translation([-8.5, -11.5, 3.2]) * rotation_z(31) * rotation_y(-3),
+    1.15
+)
+

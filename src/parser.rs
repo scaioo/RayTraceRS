@@ -776,7 +776,7 @@ pub fn parse_plane<B: BufRead>(
 ///
 /// Expected syntax:
 /// `aabb(material_name, point(min), point(max))`
-/// 
+///
 /// # Errors
 /// Returns an error if the syntax is malformed, `material_name` is not defined,
 /// or the two corner points do not form a valid box (see [`AABB::new`]).

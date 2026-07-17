@@ -105,8 +105,9 @@ macro_rules! impl_matrix_operations {
             }
         }
 
-        /// Multiplies this transformation by another homogeneous matrix.
         impl $t {
+            /// Multiplies this transformation by another homogeneous matrix `rhs`,
+            /// returning the combined [`Transformation`] (apply `rhs` first, then `self`).
             pub fn times_transformation<H: IsHomogeneousMatrix>(&self, rhs: H) -> Transformation {
                 let array = matrix_mul_4x4(&self.mat, rhs.mat());
                 let total_it = matrix_mul_4x4(&self.it_mat(), &rhs.it_mat());
@@ -317,17 +318,9 @@ impl Mul<Normal> for Transformation {
 /// ```
 #[derive(Copy, Clone, Debug, PartialEq)]
 pub struct Scaling {
-    /// Creates a new uniform or non-uniform `Scaling` transformation.
-    ///
-    /// # Arguments
-    ///
-    /// * `diagonal` - An array `[sx, sy, sz]` representing the scale factors along the X, Y, and Z axes.
-    ///
-    /// # Panics
-    ///
-    /// This constructor panics if any of the scale factors is `0.0`, because
-    /// a zero scale factor destroys spatial information and is not mathematically invertible.
+    /// Row-major 4×4 homogeneous transformation matrix.
     pub mat: [f32; 16],
+    /// Inverse-transpose of `mat`, used to transform [`Normal`]s.
     pub it_mat: [f32; 16],
 }
 
@@ -442,7 +435,9 @@ impl Mul<Normal> for Scaling {
 /// ```
 #[derive(Copy, Clone, Debug, PartialEq)]
 pub struct Translation {
+    /// Row-major 4×4 homogeneous transformation matrix.
     pub mat: [f32; 16],
+    /// Inverse-transpose of `mat`, used to transform [`Normal`]s.
     pub it_mat: [f32; 16],
 }
 impl_matrix_operations!(Translation);
@@ -510,7 +505,9 @@ impl Mul<Point> for Translation {
 /// ```
 #[derive(Copy, Clone, Debug, PartialEq)]
 pub struct XRotation {
+    /// Row-major 4×4 homogeneous transformation matrix.
     pub mat: [f32; 16],
+    /// Inverse-transpose of `mat`, used to transform [`Normal`]s.
     pub it_mat: [f32; 16],
 }
 
@@ -548,7 +545,9 @@ impl_mul_xrot!(Point, mat);
 /// ```
 #[derive(Copy, Clone, Debug, PartialEq)]
 pub struct YRotation {
+    /// Row-major 4×4 homogeneous transformation matrix.
     pub mat: [f32; 16],
+    /// Inverse-transpose of `mat`, used to transform [`Normal`]s.
     pub it_mat: [f32; 16],
 }
 
@@ -586,16 +585,18 @@ impl_mul_yrot!(Point, mat);
 /// ```
 #[derive(Copy, Clone, Debug, PartialEq)]
 pub struct ZRotation {
+    /// Row-major 4×4 homogeneous transformation matrix.
+    pub mat: [f32; 16],
+    /// Inverse-transpose of `mat`, used to transform [`Normal`]s.
+    pub it_mat: [f32; 16],
+}
+
+impl ZRotation {
     /// Creates a new rotation around the Z-axis.
     ///
     /// # Arguments
     ///
     /// * `theta` - The rotation angle, expressed in **radians**.
-    pub mat: [f32; 16],
-    pub it_mat: [f32; 16],
-}
-
-impl ZRotation {
     pub fn new(theta: f32) -> Self {
         let cos = theta.cos();
         let sin = theta.sin();

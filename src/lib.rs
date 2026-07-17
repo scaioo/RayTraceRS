@@ -55,7 +55,8 @@
 //!
 //! - [`shapes`] — geometric primitives ([`Sphere`](shapes::Sphere),
 //!   [`Plane`](shapes::Plane), [`Triangle`](shapes::Triangle),
-//!   [`AABB`](shapes::AABB)) and the [`Shape`](shapes::Shape) trait.
+//!   [`AABB`](shapes::AABB), [`Cube`](shapes::Cube),
+//!   [`Cylinder`](shapes::Cylinder)) and the [`Shape`](shapes::Shape) trait.
 //! - [`mesh`] — [`SimpleMesh`](mesh::SimpleMesh), a triangle mesh loaded from
 //!   Wavefront OBJ files. Triangles share a vertex array via [`IndexTriangle`](mesh::IndexTriangle)
 //!   indices; a tight [`AABB`](shapes::AABB) provides broad-phase rejection.

@@ -30,7 +30,7 @@ use anyhow::Result;
 ///
 /// # Errors
 ///
-/// Implementations may return an error if a [`Pigment::get_color`] call fails
+/// Implementations may return an error if a [`Pigment::get_color`](crate::pigments::Pigment::get_color) call fails
 /// (e.g. an [`ImagePigment`](crate::pigments::ImagePigment) with no pixels).
 pub trait Renderer {
     /// Computes the colour contribution of `ray` in `world`.
@@ -126,7 +126,7 @@ impl Renderer for FlatRenderer {
     ///
     /// # Errors
     ///
-    /// Propagates the error of [`get_color`].
+    /// Propagates the error of [`get_color`](crate::pigments::Pigment::get_color).
     fn render(&self, ray: &Ray, world: &World, _pcg: &mut PCG) -> Result<Color> {
         // Find the closest intersection in the world
         match world.ray_intersection(ray) {
@@ -263,7 +263,7 @@ impl Renderer for PathTracer {
 
 /// A direct-illumination renderer based on the Whitted point-light model.
 ///
-/// For each ray–surface intersection it queries every [`LightSource`] in the
+/// For each ray–surface intersection it queries every [`LightSource`](crate::light_source::LightSource) in the
 /// scene and accumulates their contributions, which already handle shadow
 /// testing and the Lambert cosine factor internally. No indirect bounces are
 /// computed: the result is an approximation suitable for scenes lit by explicit
@@ -283,13 +283,13 @@ impl PointLightRenderer {}
 impl Renderer for PointLightRenderer {
     /// Computes the direct-illumination color for `ray` in `world`.
     ///
-    /// Iterates over all [`LightSource`]s in `world.light_sources` and sums
+    /// Iterates over all [`LightSource`](crate::light_source::LightSource)s in `world.light_sources` and sums
     /// their contributions at the hit point. Returns `background_color` on a
     /// miss.
     ///
     /// # Errors
     ///
-    /// Propagates errors from [`LightSource::source_contribution`] (e.g. a
+    /// Propagates errors from [`LightSource::source_contribution`](crate::light_source::LightSource::source_contribution) (e.g. a
     /// pigment evaluation failure).
     fn render(&self, ray: &Ray, world: &World, pcg: &mut PCG) -> Result<Color> {
         let hit_record = match world.ray_intersection(ray) {
@@ -565,18 +565,6 @@ mod tests {
             assert_relative_eq!(color.b, expected, epsilon = 1e-3);
         }
         Ok(())
-    }
-
-    fn give_sphere(point: Point, color: Color) -> Sphere<Translation> {
-        let material = Material {
-            pigment: Box::new(UniformPigment::new(color)),
-            brdf: Box::new(DiffusiveBrdf {}),
-            emitted_radiance: Box::new(UniformPigment::new(BLACK)),
-        };
-        Sphere {
-            transformation: Translation::new(point - Point::new(0.0, 0.0, 0.0)),
-            material,
-        }
     }
 
     #[test]

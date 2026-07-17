@@ -40,8 +40,11 @@ use rayon::prelude::*;
 
 #[derive(Clone, Debug, PartialEq)]
 pub struct ImageTracer<C: Camera> {
+    /// The HDR canvas rays are traced into.
     pub image: HDR,
+    /// The camera generating rays through each pixel.
     pub camera: C,
+    /// Antialiasing grid size per pixel side (`0` disables antialiasing).
     pub n: usize, // 0 for no antialiasing!
 }
 

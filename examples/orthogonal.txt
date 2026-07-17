@@ -1,0 +1,73 @@
+# Orthogonal-camera showcase: an isometric diorama on a checkered floor.
+#
+# The point of this scene is the `orthogonal` camera. Because it fires parallel
+# rays, there is no perspective foreshortening: the three identical teal cubes
+# keep exactly the same on-screen size even though each one sits further back
+# than the last -- the signature of an orthographic (axonometric) projection.
+# The scene also gathers one of every primitive: box (the cubes), a rotated
+# box (only `box` can be oriented, unlike `aabb`), an axis-aligned `aabb`
+# block, a `cylinder`, a `sphere` and the ground `plane`.
+#
+# Lighting: the scene carries both an emissive sun sphere (for the path tracer)
+# and an explicit `spherical_light` (for the point-light / Whitted renderer),
+# so it renders with either algorithm. It is tuned for `point-light`, which
+# gives soft shadows via disk sampling.
+#
+# Render (point-light, ~4:3 default resolution):
+#   cargo run --release -- render examples/orthogonal.txt --algorithm point-light --antialiasing 6 --image-output outputs/orthogonal
+#
+# Render (path tracer):
+#   cargo run --release -- render examples/orthogonal.txt --num-of-rays 20 --max-depth 3 --antialiasing 4
+
+# --- Sky dome: soft blue ambient fill and background ---
+material sky_material( uniform(black), diffuse(), uniform(<0.46, 0.58, 0.76>) )
+sphere(sky_material, scaling(100))
+
+# --- Sun (path tracer): a large, soft emissive area light ---
+material sun_material( uniform(black), diffuse(), uniform(<5.5, 4.9, 4.1>) )
+sphere(sun_material, translation([-5, -6, 7]) * scaling(3.2))
+
+# --- Sun (point-light / Whitted): explicit spherical area light ---
+# The emissive sphere only lights the path tracer; the point-light renderer
+# ignores emission and needs an explicit light. It must NOT sit inside or
+# behind the emissive sun sphere, otherwise every shadow ray hits that sphere
+# and the whole scene goes black. So we place it high on the camera-facing side
+# (front-right), lighting the visible faces, well clear of the sun sphere.
+# NB: the point-light model applies no distance falloff -- a plain warm white
+# is correct; the sun's emissive HDR color would blow out the image.
+spherical_light(point([2, -4, 8]), 2.0, <1.0, 0.95, 0.85>, 16)
+
+# --- Surface materials ---
+material floor_material(
+    checkered(<0.83, 0.81, 0.75>, <0.29, 0.37, 0.45>, 6),
+    diffuse(),
+    uniform(black)
+)
+material terracotta( uniform(<0.86, 0.34, 0.19>), diffuse(), uniform(black) )
+material teal(       uniform(<0.09, 0.52, 0.56>), diffuse(), uniform(black) )
+material gold(       uniform(<0.92, 0.66, 0.14>), diffuse(), uniform(black) )
+material slate(      uniform(<0.22, 0.33, 0.62>), diffuse(), uniform(black) )
+material cream(      uniform(<0.94, 0.90, 0.80>), diffuse(), uniform(black) )
+
+# --- Ground plane (procedural checker) ---
+plane(floor_material, identity, true)
+
+# --- Three identical cubes: same on-screen size at different depths ---
+box(teal, translation([-1.6, -0.3, 0.375]) * scaling(0.75))
+box(teal, translation([ 0.0,  0.0, 0.375]) * scaling(0.75))
+box(teal, translation([ 1.6,  0.3, 0.375]) * scaling(0.75))
+
+# --- Rotated cube: showcases the orientable `box` (an `aabb` cannot rotate) ---
+box(terracotta, translation([-0.3, 1.7, 0.425]) * rotation_z(45) * scaling(0.85))
+
+# --- Tall axis-aligned block ---
+aabb(slate, point([-2.1, 0.9, 0.0]), point([-1.5, 1.5, 1.7]))
+
+# --- Cylinder ---
+cylinder(gold, translation([1.9, -1.1, 0.65]), 1.3, 0.9)
+
+# --- Sphere accent, set forward to catch the sun ---
+sphere(cream, translation([0.3, -1.7, 0.45]) * scaling(0.45))
+
+# --- Orthogonal camera: isometric three-quarter view ---
+camera(orthogonal, translation([0, 0, 1.0]) * rotation_z(35) * rotation_y(32) * scaling(2.2), 1.5)

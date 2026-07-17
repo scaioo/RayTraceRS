@@ -42,6 +42,7 @@ pub enum Endianness {
     /// Most significant byte first
     BigEndian,
 }
+/// Error produced while parsing the endianness (scale) field of a PFM header.
 pub enum EndiannessError {
     /// Scale value is not a number
     InvalidValue,
@@ -214,7 +215,14 @@ fn _read_hdr<R: Read>(
 /// The function expects a well-formed PFM file. Validation is performed
 /// during parsing, and any inconsistency results in an error.
 pub fn read_pfm_file(filename: &str) -> anyhow::Result<HDR> {
-    let file = File::open(filename)?;
+    let file = match File::open(filename) {
+        Ok(file) => file,
+        Err(e) => {
+            return Err(anyhow!(
+                "read_pfm_file: could not open file '{filename}': {e}"
+            ));
+        }
+    };
     let reader = BufReader::new(file);
     read_pfm(reader)
 }
@@ -292,9 +300,13 @@ pub fn read_pfm<R: BufRead>(mut reader: R) -> anyhow::Result<HDR> {
 ///
 #[derive(Debug)]
 pub struct Parameter {
+    /// Path of the input `.pfm` file to convert.
     pub input_pfm_file_name: String,
+    /// Luminosity normalization factor applied during tone mapping.
     pub factor_a: f32,
+    /// Gamma value used for the final gamma correction.
     pub gamma: f32,
+    /// Path of the output LDR image to write.
     pub output_file_name: String,
 }
 

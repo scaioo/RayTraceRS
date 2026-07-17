@@ -11,11 +11,14 @@ use std::ops::{Add, Div, Mul, Neg, Sub};
 /// Vec2D struct describes 2-dimensional vectors storing the coordinates as `f32`.
 #[derive(Copy, Clone, Debug, PartialEq)]
 pub struct Vec2D {
+    /// First coordinate (e.g. the `u` texture coordinate).
     pub x: f32,
+    /// Second coordinate (e.g. the `v` texture coordinate).
     pub y: f32,
 }
 
 impl Vec2D {
+    /// Creates a 2D vector from its `x` and `y` components.
     pub fn new(x: f32, y: f32) -> Vec2D {
         Vec2D { x, y }
     }
@@ -99,10 +102,15 @@ pub fn is_close<T: TDV>(a: T, b: T) -> bool {
 
 /// Marker trait that signals the struct to be either Vector, Point or Normal
 pub trait TDV {
+    /// Returns the type's homogeneous coordinates `[x, y, z, w]`, where `w` is
+    /// `1` for points and `0` for directions, ready for 4×4 matrix multiplication.
     fn to_homogeneous(&self) -> [f32; 4];
 
+    /// Returns the `x` component.
     fn x(&self) -> f32;
+    /// Returns the `y` component.
     fn y(&self) -> f32;
+    /// Returns the `z` component.
     fn z(&self) -> f32;
 }
 
@@ -146,24 +154,33 @@ macro_rules! impl_vec_or_norm {
 /// Vector module stored as three floating-point components.
 #[derive(Copy, Clone, Debug, PartialEq)]
 pub struct Vector {
+    /// Component along the X-axis.
     pub x: f32,
+    /// Component along the Y-axis.
     pub y: f32,
+    /// Component along the Z-axis.
     pub z: f32,
 }
 
 /// Point module stored as three floating-point components.
 #[derive(Copy, Clone, Debug, PartialEq)]
 pub struct Point {
+    /// Coordinate along the X-axis.
     pub x: f32,
+    /// Coordinate along the Y-axis.
     pub y: f32,
+    /// Coordinate along the Z-axis.
     pub z: f32,
 }
 
 /// Normal module stored as three floating-point components.
 #[derive(Copy, Clone, Debug, PartialEq)]
 pub struct Normal {
+    /// Component along the X-axis.
     pub x: f32,
+    /// Component along the Y-axis.
     pub y: f32,
+    /// Component along the Z-axis.
     pub z: f32,
 }
 
@@ -172,11 +189,14 @@ pub struct Normal {
 // ==========================================
 /// Dot trait implements the dot product.
 pub trait Dot<Rhs> {
+    /// Returns the dot (scalar) product of `self` and `rhs`.
     fn dot(&self, rhs: &Rhs) -> f32;
 }
 /// Cross trait implements the cross product.
 pub trait Cross<Rhs> {
+    /// The type produced by the cross product.
     type Output;
+    /// Returns the cross (vector) product of `self` and `rhs`.
     fn cross(&self, rhs: &Rhs) -> Self::Output;
 }
 

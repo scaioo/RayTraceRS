@@ -62,8 +62,11 @@ use image::{Rgb, RgbImage};
 /// ```
 #[derive(Clone, Debug, PartialEq)]
 pub struct HDR {
+    /// Image width in pixels.
     pub width: usize,
+    /// Image height in pixels.
     pub height: usize,
+    /// Flat, row-major vector of RGB colors (`index = x + y * width`).
     pub pixels: Vec<Color>,
 }
 
@@ -553,7 +556,17 @@ impl HDR {
             ));
         }
 
-        let img = image::open(path)?.into_rgb8();
+        let img = match image::open(path) {
+            Ok(img) => img,
+            Err(e) => {
+                return Err(anyhow!(
+                    "load_from_ldr: could not open image file '{}': {}",
+                    path,
+                    e
+                ));
+            }
+        };
+        let img = img.into_rgb8();
         let (width, height) = img.dimensions();
         let (width, height) = (width as usize, height as usize);
         let rgb: Vec<u8> = img.into_raw();
@@ -946,36 +959,36 @@ mod test {
     #[test]
     #[should_panic(expected = "load_from_ldr: invalid `a` factor:")]
     fn test_load_from_ldr_invalid_factor_a() {
-        let _ = HDR::load_from_ldr("tests/assets/pixar_ball.png", -10.0, 1.0, 1.0).unwrap();
+        let _ = HDR::load_from_ldr("assets/pixar_ball.png", -10.0, 1.0, 1.0).unwrap();
     }
 
     #[test]
     #[should_panic(expected = "load_from_ldr: invalid `a` factor:")]
     fn test_load_from_ldr_invalid_factor_a_null() {
-        let _ = HDR::load_from_ldr("tests/assets/pixar_ball.png", 0.0000001, 1.0, 1.0).unwrap();
+        let _ = HDR::load_from_ldr("assets/pixar_ball.png", 0.0000001, 1.0, 1.0).unwrap();
     }
 
     #[test]
     #[should_panic(expected = "load_from_ldr: invalid `avr_lum` factor:")]
     fn test_load_from_ldr_invalid_factor_lum() {
-        let _ = HDR::load_from_ldr("tests/assets/pixar_ball.png", 10.0, -1.0, 1.0).unwrap();
+        let _ = HDR::load_from_ldr("assets/pixar_ball.png", 10.0, -1.0, 1.0).unwrap();
     }
 
     #[test]
     #[should_panic(expected = "load_from_ldr: invalid `avr_lum` factor:")]
     fn test_load_from_ldr_invalid_factor_lum_null() {
-        let _ = HDR::load_from_ldr("tests/assets/pixar_ball.png", 10.0, 0.0000001, 1.0).unwrap();
+        let _ = HDR::load_from_ldr("assets/pixar_ball.png", 10.0, 0.0000001, 1.0).unwrap();
     }
 
     #[test]
     #[should_panic(expected = "load_from_ldr: invalid `gamma` parameter:")]
     fn test_load_from_ldr_invalid_factor_gamma_null() {
-        let _ = HDR::load_from_ldr("tests/assets/pixar_ball.png", 10.0, 0.1, 0.0).unwrap();
+        let _ = HDR::load_from_ldr("assets/pixar_ball.png", 10.0, 0.1, 0.0).unwrap();
     }
 
     #[test]
     #[should_panic(expected = "load_from_ldr: invalid `gamma` parameter:")]
     fn test_load_from_ldr_invalid_factor_gamma() {
-        let _ = HDR::load_from_ldr("tests/assets/pixar_ball.png", 10.0, 0.1, -1.0).unwrap();
+        let _ = HDR::load_from_ldr("assets/pixar_ball.png", 10.0, 0.1, -1.0).unwrap();
     }
 }

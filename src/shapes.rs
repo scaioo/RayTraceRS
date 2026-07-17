@@ -39,6 +39,7 @@ use std::ops::Mul;
 /// You never need to implement this manually. The blanket `impl` below
 /// provides it automatically for any type that implements `Shape + Clone`.
 pub trait CloneShape {
+    /// Clones `self` into a new boxed [`Shape`] trait object.
     fn clone_shape(&self) -> Box<dyn Shape>;
 }
 
@@ -53,7 +54,12 @@ where
     }
 }
 
+/// Helper super-trait that makes `Box<dyn Volumetric>` cloneable.
+///
+/// Blanket-implemented for any `Volumetric + Clone + 'static`, mirroring
+/// [`CloneShape`].
 pub trait CloneVolumetric {
+    /// Clones `self` into a new boxed [`Volumetric`] trait object.
     fn clone_volumetric(&self) -> Box<dyn Volumetric>;
 }
 
@@ -142,6 +148,7 @@ pub struct Sphere<T: IsHomogeneousMatrix> {
 }
 
 impl<T: IsHomogeneousMatrix> Sphere<T> {
+    /// Creates a sphere from a world-from-object `transformation` and a `material`.
     pub fn new(transformation: T, material: Material) -> Self {
         Self {
             transformation,
@@ -281,6 +288,8 @@ pub struct Plane<T: IsHomogeneousMatrix> {
     pub procedural_texture: bool,
 }
 impl<T: IsHomogeneousMatrix> Plane<T> {
+    /// Creates a plane from a world-from-object `transformation`, a `material`,
+    /// and the `procedural_texture` UV mode (see the struct docs).
     pub fn new(transformation: T, material: Material, procedural_texture: bool) -> Self {
         Self {
             transformation,
@@ -395,6 +404,9 @@ impl AABB {
     /// Coordinates are reordered if necessary so that
     /// p_min <= p_max along every axis. Degenerate
     /// dimensions are expanded by a small epsilon.
+    ///
+    /// # Errors
+    /// Returns an error if any corner coordinate is `NaN` (see `fixed_interval`).
     pub fn new(p_min: Point, p_max: Point, material: Material) -> Result<Self> {
         let mut min: Point = p_min;
         let mut max: Point = p_max;
@@ -731,6 +743,7 @@ impl Triangle {
     /// The intersection is valid only if `β ∈ (0,1)`, `γ ∈ (0,1)`, and `β + γ ≤ 1`.
     /// Border points (`β = 0`, `γ = 0`, `β + γ = 1`) are excluded.
     ///
+    /// # Errors
     /// Returns `Err` if the ray misses the triangle or is coplanar with it.
     pub fn intersection(&self, ray: Ray) -> Result<(f32, f32, f32)> {
         let mat: [f32; 9] = [

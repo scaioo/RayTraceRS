@@ -17,11 +17,13 @@ use anyhow::Result;
 // =================================================================
 // Traits
 // =================================================================
-/// Helper supertrait that makes `Box<dyn LightSource>` cloneable.
+
+/// Helper trait enabling `Clone` for boxed [`LightSource`] trait objects.
 ///
-/// You never need to implement this manually. The blanket `impl` below
-/// provides it automatically for any type that implements `LightSource + Clone`.
+/// Blanket-implemented for every `LightSource` that is also `Clone + 'static`,
+/// so `Box<dyn LightSource>` can be cloned without knowing the concrete type.
 pub trait CloneLightSource {
+    /// Clones `self` into a new boxed [`LightSource`] trait object.
     fn clone_light_source(&self) -> Box<dyn LightSource>;
 }
 
@@ -33,10 +35,24 @@ where
         Box::new(self.clone())
     }
 }
+/// A direct-illumination light source.
+///
+/// Implementors compute how much light reaches a shaded point, accounting for
+/// visibility (shadowing). Must be `Send + Sync` so scenes can be rendered in
+/// parallel, and cloneable as a boxed trait object via [`CloneLightSource`].
 pub trait LightSource: CloneLightSource + Send + Sync {
-    /// Computes the direct illumination contribution of a light source at a hit point.
+    /// Computes the direct-illumination contribution of this light at the point
+    /// described by `hit_record`, using `world` for shadow testing and `pcg`
+    /// for any stochastic area sampling.
     ///
-    /// Returns [`BLACK`] for points in shadow.
+    /// The result is the surface pigment modulated by the light color and the
+    /// Lambert term `max(n·l, 0)`. A fully occluded point (or one whose surface
+    /// faces away from the light) contributes [`BLACK`]; area lights average
+    /// many samples, so a partially occluded point is dimmed rather than black.
+    ///
+    /// # Errors
+    /// Propagates errors from evaluating the surface pigment
+    /// ([`get_color`](crate::pigments::Pigment::get_color)).
     fn source_contribution(
         &self,
         hit_record: &HitRecord,
@@ -61,11 +77,14 @@ impl Clone for Box<dyn LightSource> {
 /// `contribution = pigment × light_color × max(n·l, 0)`.
 #[derive(Clone, Debug, Copy, PartialEq)]
 pub struct PointLightSource {
+    /// Position of the emitter in world space.
     pub point: Point,
+    /// Color (and intensity) of the emitted light.
     pub color: Color,
 }
 
 impl PointLightSource {
+    /// Creates a point light at `point` emitting the given `color`.
     pub fn new(point: Point, color: Color) -> Self {
         Self { point, color }
     }
@@ -114,13 +133,19 @@ impl LightSource for PointLightSource {
 /// centered at `center`, averages their [`PointLightSource`] contributions.
 #[derive(Clone, Debug, Copy, PartialEq)]
 pub struct SphericalLightSource {
+    /// Center of the light's disk in world space.
     pub center: Point,
+    /// Radius of the sampling disk.
     pub radius: f32,
+    /// Color (and intensity) of the emitted light.
     pub color: Color,
+    /// Number of Monte Carlo samples averaged per shading query.
     pub n_points: usize,
 }
 
 impl SphericalLightSource {
+    /// Creates a spherical area light centered at `center` with the given
+    /// `radius`, emitted `color`, and `n_points` samples per query.
     pub fn new(center: Point, radius: f32, color: Color, n_points: usize) -> Self {
         Self {
             center,

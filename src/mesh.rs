@@ -71,7 +71,7 @@ impl IndexTriangle {
 ///
 /// ## Note on transformations
 ///
-/// Unlike [`Sphere`] and [`Plane`], `SimpleMesh` is not generic over a transformation.
+/// Unlike [`Sphere`](crate::shapes::Sphere) and [`Plane`](crate::shapes::Plane), `SimpleMesh` is not generic over a transformation.
 /// Pass a transformation to [`SimpleMesh::from_obj`]; it is applied to every vertex once
 /// during loading. For meshes constructed directly via [`SimpleMesh::new`], pre-transform
 /// the points before passing them in.
@@ -166,7 +166,10 @@ impl SimpleMesh {
     where
         T: IsHomogeneousMatrix + Mul<Point, Output = Point>,
     {
-        let (models, _) = tobj::load_obj(path, &tobj::OFFLINE_RENDERING_LOAD_OPTIONS)?;
+        let (models, _) = match tobj::load_obj(path, &tobj::OFFLINE_RENDERING_LOAD_OPTIONS) {
+            Ok((a, b)) => (a, b),
+            Err(e) => return Err(anyhow!("Error loading OBJ file {:?}: {}", path, e)),
+        };
 
         let mut points: Vec<Point> = Vec::new();
         let mut index_triangles: Vec<IndexTriangle> = Vec::new();

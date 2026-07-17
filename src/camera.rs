@@ -83,7 +83,9 @@ impl Camera for Box<dyn Camera> {
 /// ```
 #[derive(Copy, Clone, Debug, PartialEq)]
 pub struct OrthogonalCamera<T: IsHomogeneousMatrix> {
+    /// Transformation placing and orienting the camera in world space.
     pub transformation: T,
+    /// Width-to-height ratio of the virtual screen.
     pub aspect_ratio: f32,
 }
 
@@ -171,7 +173,9 @@ where
 /// ```
 #[derive(Copy, Clone, Debug, PartialEq)]
 pub struct PerspectiveCamera<T: IsHomogeneousMatrix> {
+    /// Transformation placing and orienting the camera in world space.
     pub transformation: T,
+    /// Width-to-height ratio of the virtual screen.
     pub aspect_ratio: f32,
     /// The distance from the camera's origin to the virtual screen.
     /// Changing this value effectively changes the Field of View (FOV).

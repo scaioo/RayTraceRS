@@ -1,10 +1,10 @@
 # =====================================================================
 #  Greek temple on a sea cliff at sunset.
 #
-#  Temple:  elongated 6 x 12 peristyle on a stepped crepidoma (unchanged).
+#  Temple:  elongated 6 x 12 peristyle on a stepped crepidoma.
 #  Hill:    the temple crowns a big rounded hill (a broad sphere) rising
 #           from the sea, with a flat `box` terrace at its top.
-#  Islands: three spheres emerging from the sea, framing the temple.
+#  Islands: two spheres emerging from the sea to the camera's left.
 #  Sea:     a mirror-like plane below the hill that reflects the sky.
 #  Sky:     emissive gradient dome, vivid red/orange sunset, that also
 #           lights the whole scene.
@@ -56,14 +56,6 @@ material hill_material(
     uniform(black)
 )
 
-# Low Mediterranean bushes: a dark, desaturated olive so they stay muted in
-# the warm sunset light instead of clashing with the orange sky.
-material bush_material(
-    uniform(<0.13, 0.15, 0.08>),
-    diffuse(),
-    uniform(black)
-)
-
 # Distant seagull: near-black so it reads as a pure silhouette against the
 # bright sky. Its "bird" shape comes entirely from two thin angled wings.
 material gull_material(
@@ -101,7 +93,7 @@ material sun_material(
 )
 
 # ------------------------------- sky, sun, sea ---------------------------
-# Sky dome and sun: huge emissive spheres centred on the world (unchanged).
+# Sky dome and sun: huge emissive spheres centred on the world.
 sphere(sky_material, scaling([100, 100, 100]))
 sphere(sun_material, translation([-6.0, -32.0, 5.0]) * scaling(5.0))
 

@@ -16,7 +16,7 @@ viewable PNG or JPEG.
 > A Cornell box where the two usual blocks are replaced by a sphere textured with
 > the Pixar ball and a golden chess-pawn mesh. Nothing is directly lit except the
 > ceiling panel — every other tint on the ball and the pawn is **indirect light**
-> bouncing off the coloured walls. Scene: [`examples/ball_pawn.txt`](examples/ball_pawn.txt).
+> bouncing off the coloured walls. Scene: [`examples/cornell_ball_pawn.txt`](examples/cornell_ball_pawn.txt).
 
 ---
 
@@ -130,7 +130,7 @@ It produces both a raw HDR `.pfm` file and a tone-mapped raster image.
 > **Note on `--reflectance-policy`.** The path tracer has no direct-light sampling,
 > so scenes rely on indirect bounces and often want higher `--num-of-rays` /
 > `--antialiasing` than the defaults. Scenes that use LDR image textures (e.g.
-> `ball_pawn.txt`) can produce reflectances slightly above `1.0` after inverse
+> `cornell_ball_pawn.txt`) can produce reflectances slightly above `1.0` after inverse
 > tone mapping; render those with `--reflectance-policy rescale`.
 
 ### `pfm-ldr` — convert an HDR image to LDR
@@ -200,8 +200,7 @@ match the notes in each file's header):
 
 | Scene | What it shows | Suggested command |
 | --- | --- | --- |
-| [`ball_pawn.txt`](examples/ball_pawn.txt) | GI, image texture, mesh, mirror BRDF | `render examples/ball_pawn.txt --num-of-rays 4 --max-depth 4 --antialiasing 6 --reflectance-policy rescale` |
-| [`cornell_box.txt`](examples/cornell_box.txt) | Classic colour-bleeding Cornell box | `render examples/cornell_box.txt --num-of-rays 4 --max-depth 4 --antialiasing 6` |
+| [`cornell_ball_pawn.txt`](examples/cornell_ball_pawn.txt) | GI, image texture, mesh, mirror BRDF | `render examples/cornell_ball_pawn.txt --num-of-rays 4 --max-depth 4 --antialiasing 6 --reflectance-policy rescale` |
 | [`demo.txt`](examples/demo.txt) | Sky dome, checker floor, diffuse + mirror spheres | `render examples/demo.txt --num-of-rays 5 --max-depth 3 --antialiasing 4` |
 | [`greek_temple.txt`](examples/greek_temple.txt) | Cylinders + boxes + mesh, emissive sky | `render examples/greek_temple.txt --width 900 --height 600 --num-of-rays 3 --max-depth 3 --antialiasing 6` |
 | [`orthogonal.txt`](examples/orthogonal.txt) | Orthographic camera, every primitive | `render examples/orthogonal.txt --num-of-rays 20 --max-depth 3 --antialiasing 4` |

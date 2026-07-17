@@ -116,7 +116,7 @@ impl<B: BufRead> InputStream<B> {
     ///
     /// If a character was pushed back via [`unread_char`](Self::unread_char),
     /// that character is returned without consuming the underlying stream.
-    /// Updates [`source_location`] after each read from the stream.
+    /// Updates [`source_location`](Self::source_location) after each read from the stream.
     ///
     /// Returns `Ok(None)` at end of file.
     ///

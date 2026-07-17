@@ -27,7 +27,7 @@ use crate::geometry::{Cross, Dot, Normal, Point, Vec2D, Vector, X_AXIS, Y_AXIS, 
 use crate::hit_record::HitRecord;
 use crate::materials::Material;
 use crate::ray::Ray;
-use crate::transformations::IsHomogeneousMatrix;
+use crate::transformations::{IDENTITY_TRANSFORMATION, IsHomogeneousMatrix, Transformation};
 use anyhow::{Result, anyhow};
 use std::ops::Mul;
 // ========================================================
@@ -587,6 +587,116 @@ impl Volumetric for AABB {
     }
 }
 
+// ============================
+// CUBES
+// ============================
+
+/// A unit cube centered at the origin, subject to a homogeneous transformation.
+///
+/// In its local (object) space, the cube spans the interval
+/// `[-0.5, 0.5]` along each axis, resulting in an edge length of `1`.
+///
+/// Any translated, rotated, or scaled cuboid can be obtained by composing
+/// an appropriate [`IsHomogeneousMatrix`] transformation.
+///
+/// # UV mapping
+///
+/// Each face is parameterized independently using planar coordinates.
+/// The `(u, v)` coordinates are normalized to the range `[0, 1]` on
+/// each face, with the mapping depending on the face normal.
+#[derive(Clone)]
+pub struct Cube<T: IsHomogeneousMatrix> {
+    /// Surface material (pigment + BRDF + emitted radiance).
+    material: Material,
+
+    /// The world-from-object transformation applied to the cube.
+    transformation: T,
+}
+
+impl<T: IsHomogeneousMatrix> Cube<T> {
+    /// Creates a new cube with the given material and transformation.
+    pub fn new(material: Material, transformation: T) -> Self {
+        Self {
+            material,
+            transformation,
+        }
+    }
+
+    /// Transforms a world-space ray into the cube's local space.
+    ///
+    /// This applies the inverse of the cube's transformation,
+    /// allowing intersection tests to be performed against the
+    /// canonical unit cube defined in object space.
+    pub fn transform_ray(&self, ray: &Ray) -> Ray {
+        let inverse_transformation = self.transformation.inverse_transformation();
+        inverse_transformation * (*ray)
+    }
+}
+
+impl Default for Cube<Transformation> {
+    fn default() -> Self {
+        Self {
+            transformation: IDENTITY_TRANSFORMATION,
+            material: Material::default(),
+        }
+    }
+}
+
+impl<T> Shape for Cube<T>
+where
+    T: IsHomogeneousMatrix
+        + Mul<Ray, Output = Ray>
+        + Mul<Point, Output = Point>
+        + Mul<Normal, Output = Normal>
+        + Mul<Vector, Output = Vector>
+        + 'static
+        + Copy,
+{
+    fn ray_intersection(&self, ray: &Ray) -> Option<HitRecord<'_>> {
+        let inverse_transformation = self.transformation.inverse_transformation();
+        let unit_cube = AABB::default();
+        let hit_record = unit_cube.ray_intersection(&(inverse_transformation * *ray))?;
+        Some(HitRecord {
+            world_point: self.transformation * hit_record.world_point,
+            normal: self.transformation * hit_record.normal,
+            uv: hit_record.uv,
+            t: hit_record.t,
+            ray: *ray,
+            material: &self.material,
+        })
+    }
+    fn normal_at(&self, point: Point, ray: &Ray) -> Normal {
+        let inverse = self.transformation.inverse_transformation();
+        let normal = AABB::default().normal_at(inverse * point, &(inverse * *ray));
+        self.transformation * normal
+    }
+    fn point_to_uv(&self, point: &Point) -> Result<Vec2D> {
+        let inverse = self.transformation.inverse_transformation();
+        AABB::default().point_to_uv(&(inverse * *point))
+    }
+
+    fn material(&self) -> &Material {
+        &self.material
+    }
+}
+
+impl<T> Volumetric for Cube<T>
+where
+    T: IsHomogeneousMatrix
+        + Mul<Ray, Output = Ray>
+        + Mul<Point, Output = Point>
+        + Mul<Normal, Output = Normal>
+        + Mul<Vector, Output = Vector>
+        + 'static
+        + Copy,
+{
+    fn entry_exit_t(&self, ray: &Ray) -> Option<(f32, f32)> {
+        let inverse = self.transformation.inverse_transformation();
+        let base = AABB::default();
+        base.entry_exit_t(&(inverse * *ray))
+    }
+}
+
 // =================================================================================
 /// A triangle defined by three world-space vertices, with flat shading.
 ///
@@ -720,6 +830,279 @@ impl Shape for Triangle {
     }
 }
 
+// ------------------------
+// CYLINDERS
+// ------------------------
+
+/// A finite cylinder aligned with the local z-axis, subject to a homogeneous transformation.
+///
+/// In its local (object) space, the cylinder is centered at the origin and extends
+/// along the z-axis. The lateral surface is defined by
+/// `x² + y² = r²`, where `r = diameter / 2`, and is bounded by
+/// `z ∈ [-height/2, height/2]`.
+///
+/// Any translated, rotated, or scaled cylinder can be obtained by composing
+/// an appropriate [`IsHomogeneousMatrix`] transformation.
+///
+/// # UV mapping
+///
+/// Surface coordinates follow a cylindrical parametrization:
+/// - `u = φ / 2π ∈ [0, 1]` — azimuthal angle around the z-axis
+/// - `v = (z + height/2) / height ∈ [0, 1]` — normalized height coordinate
+///
+/// The mapping is continuous around the cylinder except at the seam
+/// where `φ = 0 = 2π`.
+
+#[derive(Clone)]
+pub struct Cylinder<T: IsHomogeneousMatrix> {
+    /// Cylinder height measured along the local z-axis.
+    pub height: f32,
+
+    /// Cylinder diameter. The radius is `diameter / 2`.
+    pub diameter: f32,
+
+    /// The world-from-object transformation applied to the cylinder.
+    pub transformation: T,
+
+    /// Surface material (pigment + BRDF + emitted radiance).
+    pub material: Material,
+}
+
+impl<T: IsHomogeneousMatrix> Cylinder<T> {
+    pub fn new(height: f32, diameter: f32, transformation: T, material: Material) -> Self {
+        Self {
+            height,
+            diameter,
+            transformation,
+            material,
+        }
+    }
+
+    /// Transforms a world-space ray into the cylinder's local space.
+    ///
+    /// This applies the inverse of the cylinder's transformation,
+    /// allowing intersection tests to be performed against the
+    /// canonical cylinder defined in object space.
+    pub fn transform_ray(&self, ray: &Ray) -> Ray {
+        let inverse_transformation = self.transformation.inverse_transformation();
+        inverse_transformation * (*ray)
+    }
+}
+
+impl<T> Shape for Cylinder<T>
+where
+    T: IsHomogeneousMatrix
+        + Mul<Ray, Output = Ray>
+        + Mul<Point, Output = Point>
+        + Mul<Normal, Output = Normal>
+        + Mul<Vector, Output = Vector>
+        + Copy
+        + 'static,
+{
+    fn ray_intersection(&self, ray: &Ray) -> Option<HitRecord<'_>> {
+        let transformed_ray = self.transform_ray(ray);
+
+        let (t1, t2) = match self.entry_exit_t(ray) {
+            Some((t1, t2)) => (t1, t2),
+            None => return None,
+        };
+
+        let condition = |t: f32| t > transformed_ray.t_min && t < transformed_ray.t_max;
+
+        let t = if condition(t1) {
+            t1
+        } else if condition(t2) {
+            t2
+        } else {
+            return None;
+        };
+
+        let hit_point = transformed_ray.at(t);
+        let uv = self.point_to_uv(&hit_point).ok()?;
+
+        Some(HitRecord {
+            world_point: self.transformation * hit_point,
+            normal: self.transformation * self.normal_at(hit_point, &transformed_ray),
+            uv,
+            t,
+            ray: *ray,
+            material: &self.material,
+        })
+    }
+    fn normal_at(&self, point: Point, ray: &Ray) -> Normal {
+        const EPS: f32 = 1.0e-5;
+
+        let half_height = self.height * 0.5;
+
+        let mut normal = if (point.z - half_height).abs() < EPS {
+            // Tappo superiore
+            Normal::new(0.0, 0.0, 1.0)
+        } else if (point.z + half_height).abs() < EPS {
+            // Tappo inferiore
+            Normal::new(0.0, 0.0, -1.0)
+        } else {
+            // Mantello
+            Normal::new(point.x, point.y, 0.0).normalize()
+        };
+
+        if normal.dot(&ray.dir) > 0.0 {
+            normal = -normal;
+        }
+
+        normal
+    }
+
+    fn point_to_uv(&self, point: &Point) -> Result<Vec2D> {
+        let pi = std::f32::consts::PI;
+
+        let radius = self.diameter * 0.5;
+        let half_height = self.height * 0.5;
+
+        const EPS: f32 = 1.0e-5;
+
+        // top lid
+
+        if are_close(point.z - half_height, 0.0) {
+            let u = point.x / (2.0 * radius) + 0.5;
+            let v = point.y / (2.0 * radius) + 0.5;
+
+            return Ok(Vec2D { x: u, y: v });
+        }
+
+        // bottom lid
+
+        if (point.z + half_height).abs() < EPS {
+            let u = point.x / (2.0 * radius) + 0.5;
+            let v = point.y / (2.0 * radius) + 0.5;
+
+            return Ok(Vec2D { x: u, y: v });
+        }
+
+        // cylinder side
+
+        let mut u = point.y.atan2(point.x) / (2.0 * pi);
+
+        if u < 0.0 {
+            u += 1.0;
+        }
+
+        let v = (point.z + half_height) / self.height;
+
+        Ok(Vec2D { x: u, y: v })
+    }
+
+    fn material(&self) -> &Material {
+        &self.material
+    }
+}
+
+impl<T> Volumetric for Cylinder<T>
+where
+    T: IsHomogeneousMatrix
+        + Mul<Ray, Output = Ray>
+        + Mul<Point, Output = Point>
+        + Mul<Normal, Output = Normal>
+        + Mul<Vector, Output = Vector>
+        + Copy
+        + 'static,
+{
+    fn entry_exit_t(&self, ray: &Ray) -> Option<(f32, f32)> {
+        let transformed_ray = self.transform_ray(ray);
+
+        let r = self.diameter * 0.5;
+        let half_h = self.height * 0.5;
+
+        let ox = transformed_ray.origin.x;
+        let oy = transformed_ray.origin.y;
+        let oz = transformed_ray.origin.z;
+
+        let dx = transformed_ray.dir.x;
+        let dy = transformed_ray.dir.y;
+        let dz = transformed_ray.dir.z;
+
+        let a = dx * dx + dy * dy;
+
+        let b = 2.0 * (ox * dx + oy * dy);
+
+        let c = ox * ox + oy * oy - r * r;
+
+        let delta: f32 = b * b - 4.0 * a * c;
+
+        if delta < 0.0 {
+            return None;
+        }
+
+        let sqrt_delta = delta.sqrt();
+
+        let mut t0 = (-b - sqrt_delta) / (2.0 * a);
+        let mut t1 = (-b + sqrt_delta) / (2.0 * a);
+        let mut hits = Vec::new();
+
+        let mut hit_in = false;
+        let mut hit_out = false;
+
+        // ray parallel to the cylinder axis
+        if are_close(a.abs(), 0.0) {
+            t0 = half_h - oz;
+            hit_in = true;
+            t1 = -half_h - oz;
+            hit_out = true;
+            if t0 > t1 {
+                std::mem::swap(&mut t0, &mut t1);
+            }
+            hits.push(t0);
+            hits.push(t1);
+        }
+
+        if t0 > t1 {
+            std::mem::swap(&mut t0, &mut t1);
+        }
+
+        // check height
+
+        let z0 = oz + t0 * dz;
+        if z0 > -half_h && z0 < half_h && !are_close(z0.abs(), half_h) {
+            hits.push(t0);
+            hit_in = true
+        }
+
+        let z1 = oz + t1 * dz;
+        if z1 >= -half_h && z1 <= half_h {
+            hits.push(t1);
+            hit_out = true;
+        }
+
+        // if no intersections are found i should check whether the "lids" are intersected
+        if !hit_in && !hit_out {
+            if (z0 * z1).signum() > 0.0 {
+                return None;
+            }
+
+            t0 = t0 + ((t1 - t0) * (z0 - half_h).abs() / (z0 - z1).abs());
+            hits.push(t0);
+
+            t1 = t0 + ((t1 - t0) * (z0 + half_h).abs() / (z0 - z1).abs());
+            hits.push(t1);
+        }
+
+        if !hit_in {
+            t0 = t0 + ((t1 - t0) * (z0 - half_h) / (z0 - z1).abs());
+            hits.insert(0, t0);
+        }
+
+        if !hit_out {
+            t1 = t0 + ((t1 - t0) * (z0 + half_h) / (z0 - z1).abs());
+            hits.push(t1);
+        }
+
+        match hits.len() {
+            0 => None,
+            1 => Some((hits[0], hits[0])), // tangent
+            _ => Some((hits[0], hits[1])),
+        }
+    }
+}
+
 // =================================================================================
 
 // =================================================================================
@@ -732,13 +1115,15 @@ impl Shape for Triangle {
 mod tests {
     use super::*;
     use crate::brdf::DiffusiveBrdf;
-    use crate::color::{Color, WHITE};
+    use crate::color::{BLACK, Color, WHITE};
     use crate::functions::IDENTITY_4X4;
-    use crate::geometry::{X_AXIS, is_close};
+    use crate::geometry::{Point, X_AXIS, is_close};
     use crate::pcg::PCG;
     use crate::pigments::UniformPigment;
-    use crate::transformations::{Scaling, Transformation, Translation};
-
+    use crate::transformations::{
+        IDENTITY_TRANSFORMATION, Scaling, Transformation, Translation, XRotation, YRotation,
+    };
+    use std::f32::consts::PI;
     // ============================================================================
     // SPHERE TESTS
     // ============================================================================
@@ -980,7 +1365,7 @@ mod tests {
 
     #[test]
     fn test_sphere_transform_ray_translate() {
-        let translation = Translation::new(Vector::new(10.0, -4.0, 0.0));
+        let translation = crate::transformations::Translation::new(Vector::new(10.0, -4.0, 0.0));
         let sphere = Sphere::new(translation, Material::default());
         let ray = Ray::new(Point::new(1.0, 2.0, 3.0), Vector::new(4.0, 5.0, 6.0));
         let transformed_ray = sphere.transform_ray(&ray);
@@ -1515,5 +1900,520 @@ mod tests {
         println!("Error correctly intercepted: {}", result.unwrap_err());
 
         Ok(())
+    }
+
+    #[test]
+    fn test_cylinder_entry_exit_t_parallel() {
+        let transformation = Translation::new(Vector::new(0.0, 0.0, 0.0));
+        let cyl = Cylinder::new(4.0, 1.0, transformation, Material::default());
+        let origin = Point::new(0.0, 0.0, -5.0);
+        let dir = Vector::new(0.0, 0.0, 1.0);
+
+        let ray = Ray::new(origin, dir);
+        match cyl.entry_exit_t(&ray) {
+            Some((entry, exit)) => {
+                assert_eq!(entry, 3.0);
+                assert_eq!(exit, 7.0);
+            }
+            None => {
+                panic!("should have found intersections");
+            }
+        }
+    }
+
+    #[test]
+    fn test_cylinder_entry_exit_t_2() {
+        let transformation = Translation::new(Vector::new(0.0, 0.0, 0.0));
+        let cyl = Cylinder::new(4.0, 2.0, transformation, Material::default());
+        let origin = Point::new(-2.0, 0.0, 0.0);
+        let dir = Vector::new(1.0, 0.0, 0.0);
+
+        let ray = Ray::new(origin, dir);
+        match cyl.entry_exit_t(&ray) {
+            Some((entry, exit)) => {
+                assert_eq!(entry, 1.0);
+                assert_eq!(exit, 3.0);
+            }
+            None => {
+                panic!("should have found intersections");
+            }
+        }
+    }
+
+    #[test]
+    fn test_cylinder_entry_exit_t_3() {
+        let transformation = Translation::new(Vector::new(0.0, 0.0, 1.0));
+        let cyl = Cylinder::new(4.0, 2.0, transformation, Material::default());
+        let origin = Point::new(-2.0, 0.0, 0.0);
+        let dir = Vector::new(1.0, 0.0, 0.0);
+
+        let ray = Ray::new(origin, dir);
+        match cyl.entry_exit_t(&ray) {
+            Some((entry, exit)) => {
+                assert_eq!(entry, 1.0);
+                assert_eq!(exit, 3.0);
+            }
+            None => {
+                panic!("should have found intersections");
+            }
+        }
+    }
+
+    #[test]
+    fn test_cylinder_entry_exit_t_4() {
+        let transformation = Translation::new(Vector::new(0.0, 0.0, 0.0));
+        let cyl = Cylinder::new(4.0, 2.0, transformation, Material::default());
+        let origin = Point::new(-2.0, 0.0, 10.0);
+        let dir = Vector::new(1.0, 0.0, 0.0);
+
+        let ray = Ray::new(origin, dir);
+        match cyl.entry_exit_t(&ray) {
+            Some(_) => {
+                panic!("the ray should not be intersecting the cylinder (it should pass over it)");
+            }
+            None => {}
+        }
+    }
+    #[test]
+    fn test_cylinder_entry_exit_t_5() {
+        let transformation = Translation::new(Vector::new(10.0, 0.0, 0.0));
+        let cyl = Cylinder::new(4.0, 2.0, transformation, Material::default());
+        let origin = Point::new(-2.0, 0.0, 0.0);
+        let dir = Vector::new(1.0, 0.0, 0.0);
+
+        let ray = Ray::new(origin, dir);
+        match cyl.entry_exit_t(&ray) {
+            Some((entry, exit)) => {
+                assert_eq!(entry, 11.0);
+                assert_eq!(exit, 13.0);
+            }
+            None => {
+                panic!("should have found intersections");
+            }
+        }
+    }
+    #[test]
+    fn test_cylinder_entry_exit_t_6() {
+        let transformation = Translation::new(Vector::new(10.0, 5.0, 0.0));
+        let cyl = Cylinder::new(4.0, 2.0, transformation, Material::default());
+        let origin = Point::new(-2.0, 0.0, 0.0);
+        let dir = Vector::new(1.0, 0.0, 0.0);
+
+        let ray = Ray::new(origin, dir);
+        match cyl.entry_exit_t(&ray) {
+            Some((_entry, _exit)) => {
+                panic!("should not intersect (y translation)")
+            }
+            None => {}
+        }
+    }
+
+    #[test]
+    fn test_cylinder_entry_exit_t_7() {
+        let transformation = Translation::new(Vector::new(10.0, 1.0, 0.0));
+        let cyl = Cylinder::new(4.0, 2.0, transformation, Material::default());
+        let origin = Point::new(-2.0, 0.0, 0.0);
+        let dir = Vector::new(1.0, 0.0, 0.0);
+
+        let ray = Ray::new(origin, dir);
+        match cyl.entry_exit_t(&ray) {
+            Some((entry, exit)) => {
+                assert_eq!(entry, 12.0);
+                assert_eq!(exit, 12.0);
+            }
+            None => {
+                panic!("should have found intersections");
+            }
+        }
+    }
+
+    #[test]
+    fn test_cylinder_entry_exit_t_8() {
+        let transformation = Translation::new(Vector::new(0.0, 0.0, 0.0));
+        let cyl = Cylinder::new(4.0, 2.0, transformation, Material::default());
+        let origin = Point::new(0.0, 0.0, 0.0);
+        let dir = Vector::new(0.0, 0.0, 1.0);
+
+        let ray = Ray::new(origin, dir);
+        match cyl.entry_exit_t(&ray) {
+            Some((entry, exit)) => {
+                assert_eq!(entry, -2.0);
+                assert_eq!(exit, 2.0);
+            }
+            None => {
+                panic!("should have found intersections");
+            }
+        }
+    }
+
+    #[test]
+    fn test_cylinder_ray_intersection_1() {
+        let transformation = Translation::new(Vector::new(10.0, 10.0, 0.0));
+        let cyl = Cylinder::new(4.0, 2.0, transformation, Material::default());
+        let origin = Point::new(-2.0, 0.0, 0.0);
+        let dir = Vector::new(1.0, 0.0, 0.0);
+
+        let ray = Ray::new(origin, dir);
+        match cyl.ray_intersection(&ray) {
+            Some(_) => {
+                panic!("should not intersect");
+            }
+            None => {}
+        }
+    }
+    #[test]
+    fn test_cylinder_ray_intersection_2() {
+        let transformation = IDENTITY_TRANSFORMATION;
+        let cyl = Cylinder::new(4.2, 2.0, transformation, Material::default());
+        let origin = Point::new(0.5, 0.6, -5.0);
+        let dir = Vector::new(0.0, 0.0, 1.0);
+
+        let ray = Ray::new(origin, dir);
+        match cyl.ray_intersection(&ray) {
+            Some(hit) => {
+                assert_eq!(hit.t, 2.9);
+                assert_eq!(hit.world_point.x, 0.5);
+                assert_eq!(hit.world_point.y, 0.6);
+                assert_eq!(hit.world_point.z, -2.1);
+            }
+            None => {
+                panic!("should intersect");
+            }
+        }
+    }
+
+    #[test]
+    fn test_cylinder_ray_intersection_3() {
+        let transformation = IDENTITY_TRANSFORMATION * YRotation::new(PI / 2.0);
+        let cyl = Cylinder::new(4.2, 2.0, transformation, Material::default());
+        let origin = Point::new(-5.0, 0.6, 0.5);
+        let dir = Vector::new(1.0, 0.0, 0.0);
+
+        let ray = Ray::new(origin, dir);
+        match cyl.ray_intersection(&ray) {
+            Some(hit) => {
+                assert_eq!(hit.t, 2.9);
+                assert_eq!(hit.world_point.x, -2.1);
+                assert_eq!(hit.world_point.y, 0.6);
+                assert_eq!(hit.world_point.z, 0.5);
+            }
+            None => {
+                panic!("should intersect");
+            }
+        }
+    }
+
+    #[test]
+    fn test_cylinder_normal_at_1() {
+        let transformation = IDENTITY_TRANSFORMATION * YRotation::new(PI / 2.0);
+        let cyl = Cylinder::new(4.2, 2.0, transformation, Material::default());
+        let origin = Point::new(-5.0, 0.0, 0.0);
+        let dir = Vector::new(1.0, 0.0, 0.0);
+
+        let ray = Ray::new(origin, dir);
+        match cyl.ray_intersection(&ray) {
+            Some(hit) => {
+                let normal = cyl.normal_at(hit.world_point, &ray);
+                assert_eq!(normal.x, -1.0);
+                assert_eq!(normal.y, 0.0);
+                assert_eq!(normal.z, 0.0);
+            }
+            None => {
+                panic!("should intersect");
+            }
+        }
+    }
+
+    #[test]
+    fn test_cylinder_normal_at_2() {
+        let transformation = IDENTITY_TRANSFORMATION;
+        let cyl = Cylinder::new(4.2, 2.0, transformation, Material::default());
+        let origin = Point::new(-5.0, 0.0, 0.0);
+        let dir = Vector::new(1.0, 0.0, 0.0);
+
+        let ray = Ray::new(origin, dir);
+        match cyl.ray_intersection(&ray) {
+            Some(hit) => {
+                let normal = cyl.normal_at(hit.world_point, &ray);
+                assert_eq!(normal.x, -1.0);
+                assert_eq!(normal.y, 0.0);
+                assert_eq!(normal.z, 0.0);
+            }
+            None => {
+                panic!("should intersect");
+            }
+        }
+    }
+    #[test]
+    fn test_cylinder_normal_at_3() {
+        let transformation = IDENTITY_TRANSFORMATION;
+        let cyl = Cylinder::new(4.2, 2.0, transformation, Material::default());
+        let origin = Point::new(-5.0, 1.0, 0.0);
+        let dir = Vector::new(1.0, 0.0, 0.0);
+
+        let ray = Ray::new(origin, dir);
+        match cyl.ray_intersection(&ray) {
+            Some(hit) => {
+                let normal = cyl.normal_at(hit.world_point, &ray);
+                assert_eq!(normal.x, 0.0);
+                assert_eq!(normal.y, 1.0);
+                assert_eq!(normal.z, 0.0);
+            }
+            None => {
+                panic!("should intersect");
+            }
+        }
+    }
+
+    #[test]
+    fn test_cube_constructor() {
+        let transformation = XRotation::new(PI / 2.0);
+        let brdf = DiffusiveBrdf {};
+        let material = Material::new(
+            UniformPigment::new(Color::new(0.1, 0.2, 0.3)),
+            brdf,
+            UniformPigment::new(BLACK),
+        )
+        .unwrap();
+
+        let cube = Cube::new(material, transformation);
+        assert_eq!(
+            transformation, cube.transformation,
+            "Input transformation is not preserved in Cube constructor"
+        );
+        assert!(
+            cube.material
+                .pigment
+                .get_color(&Vec2D::new(0.0, 0.0))
+                .unwrap()
+                .is_close(&Color::new(0.1, 0.2, 0.3)),
+            "Input material pigment is not preserved in Cube constructor"
+        );
+        assert!(
+            cube.material
+                .emitted_radiance
+                .get_color(&Vec2D::new(0.0, 0.0))
+                .unwrap()
+                .is_close(&BLACK),
+            "Input material emitted_radiance is not preserved in Cube constructor"
+        );
+    }
+
+    #[test]
+    fn test_cube_default() {
+        let cube = Cube::default();
+        assert_eq!(
+            IDENTITY_TRANSFORMATION, cube.transformation,
+            "Input transformation is not preserved in Cube constructor"
+        );
+        assert!(
+            cube.material
+                .pigment
+                .get_color(&Vec2D::new(0.0, 0.0))
+                .unwrap()
+                .is_close(&WHITE),
+            "Input material pigment is not preserved in Cube constructor"
+        );
+        assert!(
+            cube.material
+                .emitted_radiance
+                .get_color(&Vec2D::new(0.0, 0.0))
+                .unwrap()
+                .is_close(&BLACK),
+            "Input material emitted_radiance is not preserved in Cube constructor"
+        );
+    }
+
+    #[test]
+    fn test_cube_ray_intersection() {
+        let cases = [
+            (
+                Ray::new(Point::new(1.5, -5.0, 0.0), Y_AXIS),
+                Point::new(1.5, -1.0, 0.0),
+            ),
+            (
+                Ray::new(Point::new(10.5, 0.75, 0.0), -X_AXIS),
+                Point::new(2.0, 0.75, 0.0),
+            ),
+        ];
+
+        let cube = Cube::new(
+            Material::default(),
+            Translation::new(1.5 * X_AXIS) * Scaling::new([1.0, 2.0, 1.0]),
+        );
+
+        for (ray, hit_point) in cases.iter() {
+            let hit = cube.ray_intersection(&ray).unwrap();
+            assert!(
+                hit.world_point.is_close(&hit_point),
+                "Expected: {hit_point}\nFound: {}",
+                hit.world_point
+            );
+        }
+    }
+
+    #[test]
+    fn test_cube_ray_intersection_miss() {
+        let cube = Cube::default();
+        let ray = Ray::new(Point::new(1.5, -5.0, 0.0), Y_AXIS);
+
+        assert!(cube.ray_intersection(&ray).is_none());
+    }
+
+    #[test]
+    fn test_cube_ray_intersection_normal() {
+        let cube = Cube::default();
+
+        // (ray, expected world hit point, expected outward normal)
+        let cases = [
+            (
+                Ray::new(Point::new(2.0, 0.0, 0.0), -X_AXIS),
+                Point::new(0.5, 0.0, 0.0),
+                Normal::from(X_AXIS),
+            ),
+            (
+                Ray::new(Point::new(0.0, 2.0, 0.0), -Y_AXIS),
+                Point::new(0.0, 0.5, 0.0),
+                Normal::from(Y_AXIS),
+            ),
+            (
+                Ray::new(Point::new(0.0, 0.0, -2.0), Z_AXIS),
+                Point::new(0.0, 0.0, -0.5),
+                Normal::from(-Z_AXIS),
+            ),
+        ];
+
+        for (ray, hit_point, normal) in cases.iter() {
+            let hit = cube.ray_intersection(ray).unwrap();
+            assert!(
+                hit.world_point.is_close(hit_point),
+                "Expected point: {hit_point}\nFound: {}",
+                hit.world_point
+            );
+            assert!(
+                hit.normal.is_close(normal),
+                "Expected normal: {normal}\nFound: {}",
+                hit.normal
+            );
+        }
+    }
+
+    #[test]
+    fn test_cube_ray_intersection_t() {
+        let cube = Cube::new(
+            Material::default(),
+            Translation::new(1.5 * X_AXIS) * Scaling::new([1.0, 2.0, 1.0]),
+        );
+
+        let ray = Ray::new(Point::new(10.5, 0.75, 0.0), -X_AXIS);
+        let hit = cube.ray_intersection(&ray).unwrap();
+
+        assert!(are_close(hit.t, 8.5), "Expected t: 8.5\nFound: {}", hit.t);
+        assert!(
+            hit.world_point.is_close(&Point::new(2.0, 0.75, 0.0)),
+            "Expected point: {}\nFound: {}",
+            Point::new(2.0, 0.75, 0.0),
+            hit.world_point
+        );
+        assert!(
+            hit.normal.is_close(&Normal::from(X_AXIS)),
+            "Expected normal: {}\nFound: {}",
+            Normal::from(X_AXIS),
+            hit.normal
+        );
+    }
+
+    #[test]
+    fn test_cube_ray_intersection_rotated() {
+        let theta = PI / 4.0;
+        let s = theta.sin();
+        let c = theta.cos();
+        let cube = Cube::new(
+            Material::default(),
+            IDENTITY_TRANSFORMATION * YRotation::new(theta),
+        );
+
+        let ray = Ray::new(Point::new(2.0 * s, 0.0, 2.0 * c), Vector::new(-s, 0.0, -c));
+        let hit = cube.ray_intersection(&ray).unwrap();
+
+        assert!(are_close(hit.t, 1.5), "Expected t: 1.5\nFound: {}", hit.t);
+        assert!(
+            hit.world_point.is_close(&Point::new(0.5 * s, 0.0, 0.5 * c)),
+            "Expected point: {}\nFound: {}",
+            Point::new(0.5 * s, 0.0, 0.5 * c),
+            hit.world_point
+        );
+        assert!(
+            hit.normal.is_close(&Normal::new(s, 0.0, c)),
+            "Expected normal: {}\nFound: {}",
+            Normal::new(s, 0.0, c),
+            hit.normal
+        );
+    }
+
+    #[test]
+    fn test_cube_normal_at() {
+        let cube = Cube::default();
+        let ray = Ray::new(Point::new(2.0, 0.0, 0.0), -X_AXIS);
+        let normal = cube.normal_at(Point::new(0.5, 0.0, 0.0), &ray);
+        assert!(
+            normal.is_close(&Normal::from(X_AXIS)),
+            "Expected normal: {}\nFound: {}",
+            Normal::from(X_AXIS),
+            normal
+        );
+
+        let theta = PI / 4.0;
+        let s = theta.sin();
+        let c = theta.cos();
+        let cube = Cube::new(
+            Material::default(),
+            IDENTITY_TRANSFORMATION * YRotation::new(theta),
+        );
+        let ray = Ray::new(Point::new(2.0 * s, 0.0, 2.0 * c), Vector::new(-s, 0.0, -c));
+        let surface_point = Point::new(0.5 * s, 0.0, 0.5 * c);
+        let normal = cube.normal_at(surface_point, &ray);
+        assert!(
+            normal.is_close(&Normal::new(s, 0.0, c)),
+            "Expected normal: {}\nFound: {}",
+            Normal::new(s, 0.0, c),
+            normal
+        );
+    }
+
+    #[test]
+    fn test_cube_point_to_uv() {
+        let cube = Cube::default();
+        let result = cube.point_to_uv(&Point::new(0.3, -0.2, 0.5)).unwrap();
+        assert!(
+            result.is_close(&Vec2D::new(0.8, 0.3)),
+            "Expected uv: {:?}\nFound: {:?}",
+            Vec2D::new(0.8, 0.3),
+            result
+        );
+
+        let cube = Cube::new(Material::default(), Translation::new(5.0 * Z_AXIS));
+        let result = cube.point_to_uv(&Point::new(0.3, -0.2, 5.5)).unwrap();
+        assert!(
+            result.is_close(&Vec2D::new(0.8, 0.3)),
+            "Expected uv: {:?}\nFound: {:?}",
+            Vec2D::new(0.8, 0.3),
+            result
+        );
+    }
+
+    #[test]
+    fn test_cube_entry_exit_t() {
+        let cube = Cube::default();
+        let ray = Ray::new(Point::new(0.0, 0.0, -2.0), Z_AXIS);
+        let (enter, exit) = cube.entry_exit_t(&ray).unwrap();
+        assert!(are_close(enter, 1.5), "Expected enter: 1.5\nFound: {enter}");
+        assert!(are_close(exit, 2.5), "Expected exit: 2.5\nFound: {exit}");
+
+        let cube = Cube::new(Material::default(), Translation::new(5.0 * Z_AXIS));
+        let ray = Ray::new(Point::new(0.0, 0.0, 0.0), Z_AXIS);
+        let (enter, exit) = cube.entry_exit_t(&ray).unwrap();
+        assert!(are_close(enter, 4.5), "Expected enter: 4.5\nFound: {enter}");
+        assert!(are_close(exit, 5.5), "Expected exit: 5.5\nFound: {exit}");
     }
 }

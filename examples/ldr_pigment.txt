@@ -1,6 +1,9 @@
 # Example scene demonstrating LDR (PNG/JPEG) textures as pigments.
 # The "ball_material" pigment loads a PNG file and reconstructs an
 # approximate HDR texture from it via image(STRING, factor_a, avr_lum, gamma).
+#
+# The reconstructed texture exceeds the [0,1] reflectance range, so rescale it:
+#   cargo run -- render examples/ldr_pigment.txt --reflectance-policy rescale --antialiasing 4
 
 material sky_material(
     uniform(<0.5, 0.9, 1.0>),

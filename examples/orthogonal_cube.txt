@@ -1,11 +1,15 @@
-# This picture wants to test a cube on a plane using whitted algorithm.
+# A cube on a checkered floor, seen through the orthogonal camera and lit by a
+# single point light (the point-light / Whitted renderer).
+#
+# Render:
+#   cargo run -- render examples/orthogonal_cube.txt --algorithm point-light --antialiasing 4
 material box_material(
 uniform(<0.5, 0.1, 0.0>),
 diffuse(),
 uniform(black)
 )
 
-box( box_material, point([1.0, -0.5, 0.0]), point([1.5, 0.5, 1.0]) )
+aabb( box_material, point([1.0, -0.5, 0.0]), point([1.5, 0.5, 1.0]) )
 
 material floor_material(
 checkered(
@@ -19,7 +23,7 @@ uniform(<0, 0, 0>)
 
 plane(
 floor_material,
-scaling(2.2), True
+scaling(2.2), true
 )
 
 point_light(point([-10, 10, 10]), white)

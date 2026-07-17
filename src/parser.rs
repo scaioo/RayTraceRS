@@ -1472,7 +1472,7 @@ mod test {
         ), diffuse(), uniform(<0, 0, 0>)
         )
 
-        box(
+        aabb(
         ball, point([0.0, -1.0, 0.0]),
 point([2.0, 1.0, 1.0])
         )"#;

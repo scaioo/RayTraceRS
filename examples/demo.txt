@@ -1,4 +1,8 @@
-# This is the demo image from v0.3.0 - polish this file before merging PR
+# Demo scene (since v0.3.0): a sky dome, a checkered floor, a diffuse sphere
+# and a mirror sphere -- the classic path-tracing showcase.
+#
+# Render:
+#   cargo run -- render examples/demo.txt --num-of-rays 10 --max-depth 3 --antialiasing 4
 
 # Sky dome
 
@@ -27,7 +31,7 @@ uniform(<0, 0, 0>)
 
 plane(
 floor_material,
-identity, True
+identity, true
 )
 
 # Diffuse sphere

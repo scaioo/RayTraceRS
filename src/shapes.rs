@@ -840,7 +840,6 @@ impl Shape for Triangle {
 /// The mapping is continuous around the cylinder except at the seam
 /// where `φ = 0 = 2π`.
 
-
 #[derive(Clone)]
 pub struct Cylinder<T: IsHomogeneousMatrix> {
     /// Cylinder height measured along the local z-axis.

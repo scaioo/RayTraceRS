@@ -1,5 +1,6 @@
 ## Head
 
+- Add `Cylinder` and `Cube` shapes ([PR#38](https://github.com/scaioo/RayTraceRS/pull/38)).
 - Improve pfm-ldr/render CLI: rename the command, make factor-a/gamma options, scope --format
 to render ([PR#35](https://github.com/scaioo/RayTraceRS/pull/35).
 - Fix `GradientPigment` and `bilinear_interpolation` handling of negative coordinates 

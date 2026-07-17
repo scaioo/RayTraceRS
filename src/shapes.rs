@@ -787,12 +787,43 @@ impl Shape for Triangle {
         &self.material
     }
 }
-#[derive(Clone)]
 
+// ------------------------
+// CYLINDERS
+// ------------------------
+
+/// A finite cylinder aligned with the local z-axis, subject to a homogeneous transformation.
+///
+/// In its local (object) space, the cylinder is centered at the origin and extends
+/// along the z-axis. The lateral surface is defined by
+/// `x² + y² = r²`, where `r = diameter / 2`, and is bounded by
+/// `z ∈ [-height/2, height/2]`.
+///
+/// Any translated, rotated, or scaled cylinder can be obtained by composing
+/// an appropriate [`IsHomogeneousMatrix`] transformation.
+///
+/// # UV mapping
+///
+/// Surface coordinates follow a cylindrical parametrization:
+/// - `u = φ / 2π ∈ [0, 1]` — azimuthal angle around the z-axis
+/// - `v = (z + height/2) / height ∈ [0, 1]` — normalized height coordinate
+///
+/// The mapping is continuous around the cylinder except at the seam
+/// where `φ = 0 = 2π`.
+
+
+#[derive(Clone)]
 pub struct Cylinder<T: IsHomogeneousMatrix> {
+    /// Cylinder height measured along the local z-axis.
     pub height: f32,
+
+    /// Cylinder diameter. The radius is `diameter / 2`.
     pub diameter: f32,
+
+    /// The world-from-object transformation applied to the cylinder.
     pub transformation: T,
+
+    /// Surface material (pigment + BRDF + emitted radiance).
     pub material: Material,
 }
 
@@ -806,6 +837,11 @@ impl<T: IsHomogeneousMatrix> Cylinder<T> {
         }
     }
 
+    /// Transforms a world-space ray into the cylinder's local space.
+    ///
+    /// This applies the inverse of the cylinder's transformation,
+    /// allowing intersection tests to be performed against the
+    /// canonical cylinder defined in object space.
     pub fn transform_ray(&self, ray: &Ray) -> Ray {
         let inverse_transformation = self.transformation.inverse_transformation();
         inverse_transformation * (*ray)

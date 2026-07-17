@@ -89,6 +89,10 @@ pub fn ensure_image_extension(name: &str, format: &str) -> String {
     format!("{}.{}", base, format)
 }
 
+// ==============================================
+// TESTS
+// ==============================================
+
 #[cfg(test)]
 mod tests {
     use super::*;

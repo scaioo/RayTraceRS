@@ -338,7 +338,9 @@ pub fn cramer(m: &[f32; 9], v: [f32; 3]) -> Result<[f32; 3]> {
     Ok([dx * inv_det, dy * inv_det, dz * inv_det])
 }
 
-// tests
+// ==============================================
+// TESTS
+// ==============================================
 #[cfg(test)]
 mod tests {
     use super::*;

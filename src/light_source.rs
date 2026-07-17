@@ -1,3 +1,5 @@
+// This file is licensed under the EUPL-1.2. See LICENSE.md.
+
 //! Light source types for direct illumination.
 //!
 //! Defines the [`LightSource`] trait and two implementations:
@@ -15,7 +17,10 @@ use anyhow::Result;
 // =================================================================
 // Traits
 // =================================================================
-
+/// Helper supertrait that makes `Box<dyn LightSource>` cloneable.
+///
+/// You never need to implement this manually. The blanket `impl` below
+/// provides it automatically for any type that implements `LightSource + Clone`.
 pub trait CloneLightSource {
     fn clone_light_source(&self) -> Box<dyn LightSource>;
 }
@@ -150,9 +155,9 @@ impl LightSource for SphericalLightSource {
     }
 }
 
-// =================================================================
-// Tests
-// =================================================================
+// ==============================================
+// TESTS
+// ==============================================
 #[cfg(test)]
 
 mod tests {

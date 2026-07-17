@@ -8,7 +8,7 @@ use cli::{CliReflectancePolicy, build_variable_table, ensure_extension, ensure_i
 use rstrace::camera::Camera;
 use rstrace::color::{BLACK, Color};
 use rstrace::hdr_image::HDR;
-use rstrace::image_tracer::{ImageTracer};
+use rstrace::image_tracer::ImageTracer;
 use rstrace::lexer;
 use rstrace::parser;
 use rstrace::pcg::PCG;
@@ -201,11 +201,8 @@ fn main() -> Result<()> {
 
             println!("Parsing scene '{}'...", input_scene_name);
 
-            let scene = parser::parse_scene_with_policy(
-                &mut stream,
-                variables,
-                reflectance_policy.into(),
-            )?;
+            let scene =
+                parser::parse_scene_with_policy(&mut stream, variables, reflectance_policy.into())?;
 
             // 3. Setup Image and Camera
             let mut img = HDR::new(width, height);

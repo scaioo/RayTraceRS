@@ -444,6 +444,10 @@ pub fn pfm_to_ldr(
     hdr_to_ldr(&mut params)?;
     Ok(())
 }
+
+// ==============================================
+// TESTS
+// ==============================================
 #[cfg(test)]
 mod test {
     use crate::color::Color;

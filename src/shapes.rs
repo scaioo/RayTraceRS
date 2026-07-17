@@ -27,7 +27,7 @@ use crate::geometry::{Cross, Dot, Normal, Point, Vec2D, Vector, X_AXIS, Y_AXIS, 
 use crate::hit_record::HitRecord;
 use crate::materials::Material;
 use crate::ray::Ray;
-use crate::transformations::IsHomogeneousMatrix;
+use crate::transformations::{IDENTITY_TRANSFORMATION, IsHomogeneousMatrix, Transformation};
 use anyhow::{Result, anyhow};
 use std::ops::Mul;
 // ========================================================
@@ -575,6 +575,87 @@ impl Volumetric for AABB {
     }
 }
 
+// ================================================================================
+///todo: documentation
+#[derive(Clone)]
+pub struct Cube<T: IsHomogeneousMatrix> {
+    material: Material,
+    transformation: T,
+}
+
+impl<T: IsHomogeneousMatrix> Cube<T> {
+    pub fn new(material: Material, transformation: T) -> Self {
+        Self {
+            material,
+            transformation,
+        }
+    }
+}
+
+impl Default for Cube<Transformation> {
+    fn default() -> Self {
+        Self {
+            transformation: IDENTITY_TRANSFORMATION,
+            material: Material::default(),
+        }
+    }
+}
+
+impl<T> Shape for Cube<T>
+where
+    T: IsHomogeneousMatrix
+        + Mul<Ray, Output = Ray>
+        + Mul<Point, Output = Point>
+        + Mul<Normal, Output = Normal>
+        + Mul<Vector, Output = Vector>
+        + 'static
+        + Copy,
+{
+    fn ray_intersection(&self, ray: &Ray) -> Option<HitRecord<'_>> {
+        let inverse_transformation = self.transformation.inverse_transformation();
+        let unit_cube = AABB::default();
+        let hit_record = unit_cube.ray_intersection(&(inverse_transformation * *ray))?;
+        Some(HitRecord {
+            world_point: self.transformation * hit_record.world_point,
+            normal: self.transformation * hit_record.normal,
+            uv: hit_record.uv,
+            t: hit_record.t,
+            ray: *ray,
+            material: &self.material,
+        })
+    }
+    fn normal_at(&self, point: Point, ray: &Ray) -> Normal {
+        let inverse = self.transformation.inverse_transformation();
+        let normal = AABB::default().normal_at(inverse * point, &(inverse * *ray));
+        self.transformation * normal
+    }
+    fn point_to_uv(&self, point: &Point) -> Result<Vec2D> {
+        let inverse = self.transformation.inverse_transformation();
+        AABB::default().point_to_uv(&(inverse * *point))
+    }
+
+    fn material(&self) -> &Material {
+        &self.material
+    }
+}
+
+impl<T> Volumetric for Cube<T>
+where
+    T: IsHomogeneousMatrix
+        + Mul<Ray, Output = Ray>
+        + Mul<Point, Output = Point>
+        + Mul<Normal, Output = Normal>
+        + Mul<Vector, Output = Vector>
+        + 'static
+        + Copy,
+{
+    fn entry_exit_t(&self, ray: &Ray) -> Option<(f32, f32)> {
+        let inverse = self.transformation.inverse_transformation();
+        let base = AABB::default();
+        base.entry_exit_t(&(inverse * *ray))
+    }
+}
+
 // =================================================================================
 /// A triangle defined by three world-space vertices, with flat shading.
 ///
@@ -957,16 +1038,15 @@ where
 mod tests {
     use super::*;
     use crate::brdf::DiffusiveBrdf;
-    use crate::color::{Color, WHITE};
+    use crate::color::{BLACK, Color, WHITE};
     use crate::functions::IDENTITY_4X4;
     use crate::geometry::{Point, X_AXIS, is_close};
     use crate::pcg::PCG;
-    use crate::pigments::UniformPigment;
+    use crate::pigments::{CheckeredPigment, UniformPigment};
     use crate::transformations::{
-        IDENTITY_TRANSFORMATION, Scaling, Transformation, Translation, YRotation,
+        IDENTITY_TRANSFORMATION, Scaling, Transformation, Translation, XRotation, YRotation,
     };
     use std::f32::consts::PI;
-
     // ============================================================================
     // SPHERE TESTS
     // ============================================================================
@@ -1965,7 +2045,6 @@ mod tests {
                 panic!("should intersect");
             }
         }
-
     }
 
     #[test]
@@ -1987,7 +2066,6 @@ mod tests {
                 panic!("should intersect");
             }
         }
-
     }
     #[test]
     fn test_cylinder_normal_at_3() {
@@ -2008,6 +2086,257 @@ mod tests {
                 panic!("should intersect");
             }
         }
+    }
 
+    #[test]
+    fn test_cube_constructor() {
+        let transformation = XRotation::new(PI / 2.0);
+        let brdf = DiffusiveBrdf {};
+        let material = Material::new(
+            UniformPigment::new(Color::new(0.1, 0.2, 0.3)),
+            brdf,
+            UniformPigment::new(BLACK),
+        )
+        .unwrap();
+
+        let cube = Cube::new(material, transformation);
+        assert_eq!(
+            transformation, cube.transformation,
+            "Input transformation is not preserved in Cube constructor"
+        );
+        assert!(
+            cube.material
+                .pigment
+                .get_color(&Vec2D::new(0.0, 0.0))
+                .unwrap()
+                .is_close(&Color::new(0.1, 0.2, 0.3)),
+            "Input material pigment is not preserved in Cube constructor"
+        );
+        assert!(
+            cube.material
+                .emitted_radiance
+                .get_color(&Vec2D::new(0.0, 0.0))
+                .unwrap()
+                .is_close(&BLACK),
+            "Input material emitted_radiance is not preserved in Cube constructor"
+        );
+    }
+
+    #[test]
+    fn test_cube_default() {
+        let cube = Cube::default();
+        assert_eq!(
+            IDENTITY_TRANSFORMATION, cube.transformation,
+            "Input transformation is not preserved in Cube constructor"
+        );
+        assert!(
+            cube.material
+                .pigment
+                .get_color(&Vec2D::new(0.0, 0.0))
+                .unwrap()
+                .is_close(&WHITE),
+            "Input material pigment is not preserved in Cube constructor"
+        );
+        assert!(
+            cube.material
+                .emitted_radiance
+                .get_color(&Vec2D::new(0.0, 0.0))
+                .unwrap()
+                .is_close(&BLACK),
+            "Input material emitted_radiance is not preserved in Cube constructor"
+        );
+    }
+
+    #[test]
+    fn test_cube_ray_intersection() {
+        let cases = [
+            (
+                Ray::new(Point::new(1.5, -5.0, 0.0), Y_AXIS),
+                Point::new(1.5, -1.0, 0.0),
+            ),
+            (
+                Ray::new(Point::new(10.5, 0.75, 0.0), -X_AXIS),
+                Point::new(2.0, 0.75, 0.0),
+            ),
+        ];
+
+        let cube = Cube::new(
+            Material::default(),
+            Translation::new(1.5 * X_AXIS) * Scaling::new([1.0, 2.0, 1.0]),
+        );
+
+        for (ray, hit_point) in cases.iter() {
+            let hit = cube.ray_intersection(&ray).unwrap();
+            assert!(
+                hit.world_point.is_close(&hit_point),
+                "Expected: {hit_point}\nFound: {}",
+                hit.world_point
+            );
+        }
+    }
+
+    #[test]
+    fn test_cube_ray_intersection_miss() {
+        let cube = Cube::default();
+        let ray = Ray::new(Point::new(1.5, -5.0, 0.0), Y_AXIS);
+
+        assert!(cube.ray_intersection(&ray).is_none());
+    }
+
+    #[test]
+    fn test_cube_ray_intersection_normal() {
+        let cube = Cube::default();
+
+        // (ray, expected world hit point, expected outward normal)
+        let cases = [
+            (
+                Ray::new(Point::new(2.0, 0.0, 0.0), -X_AXIS),
+                Point::new(0.5, 0.0, 0.0),
+                Normal::from(X_AXIS),
+            ),
+            (
+                Ray::new(Point::new(0.0, 2.0, 0.0), -Y_AXIS),
+                Point::new(0.0, 0.5, 0.0),
+                Normal::from(Y_AXIS),
+            ),
+            (
+                Ray::new(Point::new(0.0, 0.0, -2.0), Z_AXIS),
+                Point::new(0.0, 0.0, -0.5),
+                Normal::from(-Z_AXIS),
+            ),
+        ];
+
+        for (ray, hit_point, normal) in cases.iter() {
+            let hit = cube.ray_intersection(ray).unwrap();
+            assert!(
+                hit.world_point.is_close(hit_point),
+                "Expected point: {hit_point}\nFound: {}",
+                hit.world_point
+            );
+            assert!(
+                hit.normal.is_close(normal),
+                "Expected normal: {normal}\nFound: {}",
+                hit.normal
+            );
+        }
+    }
+
+    #[test]
+    fn test_cube_ray_intersection_t() {
+        let cube = Cube::new(
+            Material::default(),
+            Translation::new(1.5 * X_AXIS) * Scaling::new([1.0, 2.0, 1.0]),
+        );
+
+        let ray = Ray::new(Point::new(10.5, 0.75, 0.0), -X_AXIS);
+        let hit = cube.ray_intersection(&ray).unwrap();
+
+        assert!(are_close(hit.t, 8.5), "Expected t: 8.5\nFound: {}", hit.t);
+        assert!(
+            hit.world_point.is_close(&Point::new(2.0, 0.75, 0.0)),
+            "Expected point: {}\nFound: {}",
+            Point::new(2.0, 0.75, 0.0),
+            hit.world_point
+        );
+        assert!(
+            hit.normal.is_close(&Normal::from(X_AXIS)),
+            "Expected normal: {}\nFound: {}",
+            Normal::from(X_AXIS),
+            hit.normal
+        );
+    }
+
+    #[test]
+    fn test_cube_ray_intersection_rotated() {
+        let theta = PI / 4.0;
+        let s = theta.sin();
+        let c = theta.cos();
+        let cube = Cube::new(
+            Material::default(),
+            IDENTITY_TRANSFORMATION * YRotation::new(theta),
+        );
+
+        let ray = Ray::new(Point::new(2.0 * s, 0.0, 2.0 * c), Vector::new(-s, 0.0, -c));
+        let hit = cube.ray_intersection(&ray).unwrap();
+
+        assert!(are_close(hit.t, 1.5), "Expected t: 1.5\nFound: {}", hit.t);
+        assert!(
+            hit.world_point.is_close(&Point::new(0.5 * s, 0.0, 0.5 * c)),
+            "Expected point: {}\nFound: {}",
+            Point::new(0.5 * s, 0.0, 0.5 * c),
+            hit.world_point
+        );
+        assert!(
+            hit.normal.is_close(&Normal::new(s, 0.0, c)),
+            "Expected normal: {}\nFound: {}",
+            Normal::new(s, 0.0, c),
+            hit.normal
+        );
+    }
+
+    #[test]
+    fn test_cube_normal_at() {
+        let cube = Cube::default();
+        let ray = Ray::new(Point::new(2.0, 0.0, 0.0), -X_AXIS);
+        let normal = cube.normal_at(Point::new(0.5, 0.0, 0.0), &ray);
+        assert!(
+            normal.is_close(&Normal::from(X_AXIS)),
+            "Expected normal: {}\nFound: {}",
+            Normal::from(X_AXIS),
+            normal
+        );
+
+        let theta = PI / 4.0;
+        let s = theta.sin();
+        let c = theta.cos();
+        let cube = Cube::new(
+            Material::default(),
+            IDENTITY_TRANSFORMATION * YRotation::new(theta),
+        );
+        let ray = Ray::new(Point::new(2.0 * s, 0.0, 2.0 * c), Vector::new(-s, 0.0, -c));
+        let surface_point = Point::new(0.5 * s, 0.0, 0.5 * c);
+        let normal = cube.normal_at(surface_point, &ray);
+        assert!(
+            normal.is_close(&Normal::new(s, 0.0, c)),
+            "Expected normal: {}\nFound: {}",
+            Normal::new(s, 0.0, c),
+            normal
+        );
+    }
+
+    #[test]
+    fn test_cube_point_to_uv() {
+        let cube = Cube::default();
+        let result = cube.point_to_uv(&Point::new(0.3, -0.2, 0.5)).unwrap();
+        assert!(
+            result.is_close(&Vec2D::new(0.8, 0.3)),
+            "Expected uv: {:?}\nFound: {:?}",
+            Vec2D::new(0.8, 0.3),
+            result
+        );
+
+        let cube = Cube::new(Material::default(), Translation::new(5.0 * Z_AXIS));
+        let result = cube.point_to_uv(&Point::new(0.3, -0.2, 5.5)).unwrap();
+        assert!(
+            result.is_close(&Vec2D::new(0.8, 0.3)),
+            "Expected uv: {:?}\nFound: {:?}",
+            Vec2D::new(0.8, 0.3),
+            result
+        );
+    }
+
+    #[test]
+    fn test_cube_entry_exit_t() {
+        let cube = Cube::default();
+        let ray = Ray::new(Point::new(0.0, 0.0, -2.0), Z_AXIS);
+        let (enter, exit) = cube.entry_exit_t(&ray).unwrap();
+        assert!(are_close(enter, 1.5), "Expected enter: 1.5\nFound: {enter}");
+        assert!(are_close(exit, 2.5), "Expected exit: 2.5\nFound: {exit}");
+
+        let cube = Cube::new(Material::default(), Translation::new(5.0 * Z_AXIS));
+        let ray = Ray::new(Point::new(0.0, 0.0, 0.0), Z_AXIS);
+        let (enter, exit) = cube.entry_exit_t(&ray).unwrap();
+        assert!(are_close(enter, 4.5), "Expected enter: 4.5\nFound: {enter}");
+        assert!(are_close(exit, 5.5), "Expected exit: 5.5\nFound: {exit}");
     }
 }

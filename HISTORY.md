@@ -1,5 +1,3 @@
-## HEAD
-
 ## [1.0.0] - Stable Release 
 
 - Fix `Cylinder` cap bug

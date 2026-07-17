@@ -2,14 +2,13 @@
 
 //! Constructive Solid Geometry module.
 
-use crate::functions::{Within, are_close};
-use crate::geometry::{Dot, Normal, Point, Vec2D};
+use crate::functions::{are_close};
+use crate::geometry::{Normal, Point, Vec2D};
 use crate::hit_record::HitRecord;
 use crate::materials::Material;
 use crate::ray::Ray;
 use crate::shapes::{Shape, Volumetric};
 use crate::transformations::Transformation;
-use std::cmp::min;
 
 #[derive(Clone, PartialEq, Debug)]
 pub enum OperationsCSGType {
@@ -124,7 +123,7 @@ impl CSG {
             }
             OperationsCSGType::Union => {
                 if !old_state_a && !old_state_b {
-                    if (is_in_a || is_in_b) {
+                    if is_in_a || is_in_b {
                         let mut hit = match event.kind {
                             EventKind::EnterA | EventKind::ExitA => {
                                 self.object1.hit_from_t(ray, event.t, is_subtracted)?
@@ -272,7 +271,7 @@ impl Shape for CSG {
         panic!("could not compute normal")
     }
 
-    fn point_to_uv(&self, point: &Point) -> anyhow::Result<Vec2D> {
+    fn point_to_uv(&self, _point: &Point) -> anyhow::Result<Vec2D> {
         unreachable!("there is still no implementation for this function")
     }
 
@@ -286,7 +285,7 @@ impl Shape for CSG {
 impl Volumetric for CSG {
     /// returns first entry and first exit: to see the next interval modify origin of ray
     /// and set it to the exit point of the previous interval
-    fn entry_exit_t(&self, ray: &Ray, is_subtracted: bool) -> Option<(f32, f32)> {
+    fn entry_exit_t(&self, _ray: &Ray, _is_subtracted: bool) -> Option<(f32, f32)> {
         /*let mut events = Vec::new();
                 self.fill_intersection_vector(ray, & mut events, is_subtracted);
                 events.sort_by(|e1, e2| e1.t.partial_cmp(&e2.t).unwrap());
@@ -309,7 +308,7 @@ impl Volumetric for CSG {
         return None;
     }
 
-    fn hit_from_t(&self, ray: &Ray, t: f32, is_subtracted: bool) -> Option<HitRecord> {
+    fn hit_from_t(&self, ray: &Ray, t: f32, _is_subtracted: bool) -> Option<HitRecord> {
         let hit_a = self.object1.hit_from_t(ray, t, false);
         let hit_b = self.object2.hit_from_t(ray, t, false);
         return match hit_a {
@@ -345,8 +344,8 @@ mod tests {
     use crate::geometry::Vector;
     use crate::materials::Material;
     use crate::shapes::Sphere;
-    use crate::transformations::{Scaling, Transformation, Translation};
-    use std::num::FpCategory::Normal;
+    use crate::transformations::{Transformation, Translation};
+
     #[test]
     fn test_csg_constructor() {
         let transformation = Transformation::new(IDENTITY_4X4);
@@ -523,6 +522,31 @@ mod tests {
                 assert_eq!(int.world_point, Point::new(1.0, 0.0, 0.0));
             }
         }
+    }
+
+    #[test]
+    fn test_union_2() {
+        let material = Material::default();
+
+        let object1: Box<dyn Volumetric> = Box::new(Sphere::new(
+            Translation::new(Vector::new(0.0, 0.0, 0.0)),
+            material.clone(),
+        ));
+        let object2: Box<dyn Volumetric> = Box::new(Sphere::new(
+            Translation::new(Vector::new(1.0, 0.0, 0.0)),
+            material,
+        ));
+        let csg = CSG::new(object1, object2, OperationsCSGType::Union);
+        let origin = Point::new(-1.0, 0.0, 0.0);
+        let dir = Vector::new(1.0, 0.0, 0.0);
+        let ray = Ray::new(origin, dir);
+        let int = csg.ray_intersection(&ray).unwrap();
+        assert_eq!(3.0, int.t);
+        assert_eq!(Point::new(2.0, 0.0, 0.0), int.world_point);
+        assert_eq!(int.normal.x, -1.0);
+        assert_eq!(int.normal.y, 0.0);
+        assert_eq!(int.normal.z, 0.0);
+
     }
 
     #[test]
@@ -758,5 +782,49 @@ mod tests {
         let int = csg.ray_intersection(&ray).unwrap();
         assert_eq!(9.0, int.t);
         assert_eq!(Point::new(-1.0, 0.0, 0.0), int.world_point);
+    }
+
+    #[test]
+    fn test_difference_1() {
+        let material = Material::default();
+
+        let object1: Box<dyn Volumetric> = Box::new(Sphere::new(
+            Translation::new(Vector::new(0.0, 0.0, 0.0)),
+            material.clone(),
+        ));
+        let object2: Box<dyn Volumetric> = Box::new(Sphere::new(
+            Translation::new(Vector::new(0.005, 0.0, 0.0)),
+            material,
+        ));
+        let csg = CSG::new(object1, object2, OperationsCSGType::Difference);
+        let origin = Point::new(-10.0, 0.0, 0.0);
+        let dir = Vector::new(1.0, 0.0, 0.0);
+        let ray = Ray::new(origin, dir);
+        let int = csg.ray_intersection(&ray).unwrap();
+        assert_eq!(9.0, int.t);
+        assert_eq!(Point::new(-1.0, 0.0, 0.0), int.world_point);
+
+    }
+
+    #[test]
+    fn test_difference_2() {
+        let material = Material::default();
+
+        let object1: Box<dyn Volumetric> = Box::new(Sphere::new(
+            Translation::new(Vector::new(0.0, 0.0, 0.0)),
+            material.clone(),
+        ));
+        let object2: Box<dyn Volumetric> = Box::new(Sphere::new(
+            Translation::new(Vector::new(1.0, 0.0, 0.0)),
+            material,
+        ));
+        let csg = CSG::new(object1, object2, OperationsCSGType::Difference);
+        let origin = Point::new(-1.0, 0.0, 0.0);
+        let dir = Vector::new(1.0, 0.0, 0.0);
+        let ray = Ray::new(origin, dir);
+        let int = csg.ray_intersection(&ray).unwrap();
+        assert_eq!(1.0, int.t);
+        assert_eq!(Point::new(0.0, 0.0, 0.0), int.world_point);
+
     }
 }
